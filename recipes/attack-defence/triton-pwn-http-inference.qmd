@@ -5,7 +5,7 @@ toc-title: Recipe
 
 | Field | Value |
 |---|---|
-| Tools | `triton-pwn` (A-7, exp) ↔ `triton-inference-server` (O-2 lab target) + observability rows |
+| Tools | plain curl probe sweep over the KServe v2 HTTP protocol (A-7 pairing instrument) ↔ `triton-inference-server` (O-2 lab target) + observability rows — the aspirational attack-tool name rides the [os#210 registry](https://github.com/kailash-os/kailash-os/issues/210) |
 | Section | Attack–defence pairs |
 | Level | medium |
 | Time | ~40 min (boot + probe sweep + posture flip) |
@@ -24,8 +24,10 @@ models from a declared model-repository path at
 inspect what is served (health + model index), drive inference, and —
 the LLM10 half — change what is served. The quickstart posture makes
 it worse for lab realism: upstream's own quickstart binds
-`0.0.0.0:8000`. The manifest maps the surface to OWASP LLM02 + LLM10
-and the `triton-pwn` row to ATLAS AML.T0049 + T0050. You want to
+`0.0.0.0:8000`. The manifest maps the surface to OWASP LLM02 + LLM10; the pre-purge
+`triton-pwn` row mapped to ATLAS AML.T0049 + T0050 (the row was a
+phantom — removed, os#210; the protocol facts here stand on upstream
+TRITON docs, not the removed row). You want to
 demonstrate the exposure against the lab-booted server (the Shape-3
 container posture: `triton-inference-server` ships as a
 docker-wrapper row, podman, `autoStart=false`; A-7 never rides this
@@ -131,14 +133,16 @@ sweep again, hardened posture (loopback-publish + flags)
 
 ## Discussion
 
-- **Why plain curl and not a bespoke exploit script:** `triton-pwn` is
-  an A-7 row, `safety.level: exp`, licence `LicenseRef-Unknown`, with
-  the upstream repository missing at the pin
-  ([kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23)).
-  The probe leg runs the verified KServe v2 shapes against the booted
-  target; the real tool takes over when its derivation lands via the
-  double-key lab gate (walk:
-  [Gate lab-mode and exp-classified
+- **Why plain curl and not a bespoke exploit script:** the
+  `triton-pwn` manifest row was a PHANTOM — its claimed kailash-os
+  upstream was never created — and the os#210 audit (2026-10-14)
+  removed it entirely
+  ([kailash-os#210](https://github.com/kailash-os/kailash-os/issues/210);
+  the name rides the registry there). The probe leg runs the verified
+  KServe v2 shapes against the booted target with the base system
+  only — nothing invented. A real A-7 tool re-enters later via the
+  os#210 rebuild contract and installs through the double-key lab
+  gate (walk: [Gate lab-mode and exp-classified
   tools](../admin/lab-mode-gating.html)).
 - **Shape 3 is why the lab leg looks the way it does:** the
   triton-inference-server row is a docker-wrapper row — podman,
@@ -181,7 +185,7 @@ sweep again, hardened posture (loopback-publish + flags)
 ## See also
 
 - [Attack the platform, then verify](attack-then-verify.html) — the
-  mlflow pair; the verdict + record discipline this recipe follows
+  MLflow pair; the verdict + record discipline this recipe follows
 - [Serve a local model for scanning](../ops/serve-a-model.html) —
   the model-surface analog; the O-2/O-4 serving lane
 - [Gate lab-mode and exp-classified
@@ -191,17 +195,20 @@ sweep again, hardened posture (loopback-publish + flags)
   <https://github.com/triton-inference-server/server/blob/main/docs/getting_started/quickstart.md>
 - Upstream restricted-API (BETA) surface:
   <https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_classification.md>
-- Upstream missing-repository note:
-  [kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23)
+- The phantom-row provenance + registry:
+  [kailash-os#210](https://github.com/kailash-os/kailash-os/issues/210)
 - [Recipe directory](../directory.html)
 
 ---
 
-**Recipe provenance.** Manifest facts (A-7 `triton-pwn` row exp +
-`LicenseRef-Unknown`, ATLAS AML.T0049 + T0050, OWASP LLM02 + LLM10
-both epochs; triton-inference-server O-2 row — docker-wrapper
-backend, podman, autoStart=false, Shape 3) are from the packages
-manifest rows + lane comments, verified 2026-10-14. Upstream surface
+**Recipe provenance.** Manifest facts: triton-inference-server O-2
+row — docker-wrapper backend, podman, autoStart=false, Shape 3 (from
+the post-purge packages manifest, verified 2026-10-14); the mapping
+targets (OWASP LLM02 + LLM10 both epochs; ATLAS AML.T0049 + T0050)
+stand on the published standards + upstream protocol docs — the
+pre-purge `triton-pwn` row carried them but was phantom-upstream
+(claimed kailash-os repo never created) and is REMOVED per the
+os#210 audit (2026-10-14). [os#210](https://github.com/kailash-os/kailash-os/issues/210) Upstream surface
 checked at the server docs at the pin: KServe v2 shapes (`GET
 v2/health/live|ready`, `GET
 v2/models/${MODEL}/versions/.../ready`, `POST
@@ -216,4 +223,4 @@ wiring PENDING at the pin: quoted above as design, not as a landed
 surface.
 
 
-ref: [Triton quickstart/protocol docs + packages manifest rows](https://github.com/triton-inference-server/server) - verified 2026-10-14. Missing A-7 repo: [kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23).
+ref: [Triton quickstart/protocol docs + packages manifest rows](https://github.com/triton-inference-server/server) - verified 2026-10-14. The pre-purge A-7 tool row was phantom-upstream (removed): [kailash-os#210](https://github.com/kailash-os/kailash-os/issues/210).

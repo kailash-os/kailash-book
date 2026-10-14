@@ -5,7 +5,7 @@ toc-title: Recipe
 
 | Field | Value |
 |---|---|
-| Tool | ai-incident-playbook-packs · chainsaw · hayabusa · sigma-cli |
+| Tool | chainsaw · hayabusa · sigma-cli (the `ai-incident-playbook-packs` row was phantom-origin — removed; name rides the [os#210 registry](https://github.com/kailash-os/kailash-os/issues/210)) |
 | Section | Administrator |
 | Level | medium |
 | Time | ~60 min (a tabletop + tool pass) |
@@ -31,7 +31,7 @@ playbook first, real tooling second, divergence record last:
 
 ```bash
 # 1. Confirm the rows (the pack + the C-9 detection trio):
-kailash info ai-incident-playbook-packs
+kailash info chainsaw
 kailash info chainsaw     # Sigma/YARA hunts through forensic artefacts
 kailash info hayabusa     # fast event-log timelines
 kailash info sigma-cli    # Sigma rule conversion, per-SIEM backends
@@ -163,7 +163,7 @@ What success looks like:
 
 ---
 
-ref: [d-05/c-09 manifest rows (ai-incident-playbook-packs,
+ref: [d-05/c-09 manifest rows (phantom ai-incident-playbook-packs removed per os#210;
 chainsaw, hayabusa, sigma-cli — kailash-packages manifest) + upstream
 CLI surfaces (chainsaw hunt/--mapping/--csv, hayabusa dfir-timeline
 command family per docs, sigma convert -t <backend>)](https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml) - verified 2026-10-14.

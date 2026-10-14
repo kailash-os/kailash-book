@@ -5,7 +5,7 @@ toc-title: Recipe
 
 | Field | Value |
 |---|---|
-| Tool | [inj3ct-llm](https://docs.kailash.tools/reference/tools/inj3ct-llm.html) |
+| Tool | — (the `inj3ct-llm` row was removed: phantom upstream, [os#210 registry](https://github.com/kailash-os/kailash-os/issues/210)) |
 | Section | Scanning |
 | Level | medium |
 | Time | ~15 min (contract walk) |
@@ -14,99 +14,71 @@ toc-title: Recipe
 
 ## Problem
 
-The catalogue's A-2 set includes a first-party **curated injection
-harness** row: `inj3ct-llm` — "curates and drives prompt-injection
-payloads against targeted LLM deployments." You want to run it against
-your lab target the way the other A-2 recipes run theirs. Right now
-you cannot — and the honest answer is what the manifest row *does*
-establish, what it does not, and what has to land before a walkthrough
-can exist.
+The A-2 category needs a **curated injection harness** for your lab
+target. The pre-#210 catalogue carried a first-party row for one —
+`inj3ct-llm` — but the os#210 audit (2026-10-14) proved its claimed
+upstream (`github.com/kailash-os/inj3ct-llm`) was a PHANTOM: the
+repository was never created, the row was REMOVED from the manifest,
+and the name now lives only in the
+[phantom-upstream registry](https://github.com/kailash-os/kailash-os/issues/210)
+(the book keeps this page as the rebuild pointer, not as a tool
+walkthrough — no invocation is invented here).
 
 ## Solution
 
-Read the row from the manifest — the row **is** the routing record:
+Don't run the removed row — run the real A-2 surfaces that already
+cover the same OWASP LLM01 question with verified upstreams:
 
 ```bash
-# 1. The manifest view of the tool (the landed CLI slice carries info)
-kailash info inj3ct-llm
+# 1. The scanner loop (garak — full baseline walk in its own recipe)
+kailash info garak
+# 2. The eval-based red-team loop (promptfoo)
+kailash info promptfoo
+# 3. The scripted pipeline (PyRIT)
+kailash info pyrit
 ```
 
-What the row establishes (all read from the manifest record at the
-time of writing):
+- **Walk the scanner loop:**
+  [Scan a self-hosted model for prompt-injection resistance](garak-full-baseline.html)
+- **Walk the eval red-team loop:**
+  [Red-team an LLM application with promptfoo](promptfoo-llm-redteam.html)
+- **Walk the pipeline:**
+  [Automate an attack pipeline with PyRIT](pyrit-automation-pipeline.html)
 
-```
-id:         inj3ct-llm
-layer:      ATTACK            category: a-02-prompt-injection-jailbreaks
-license:    LicenseRef-Unknown
-packaging:  bespoke           derivation: pkgs/inj3ct-llm/default.nix
-safety:     requires-target
-atlas:      AML.T0051, AML.T0068
-owasp_llm:  {2026: [LLM01], v2: [LLM01]}
-tags:       [attack, offensive, llm, bespoke]
-```
-
-What does **not** exist yet, verified at the packages pin (2026-10-14):
-
-- **PENDING — the upstream repository.** The row's `source` points at
-  `github.com/kailash-os/inj3ct-llm`; that repository is not reachable
-  (HTTP 404, both `main` and `master` branches checked at
-  verification time). There is no pinned upstream CLI source, so there
-  is nothing to quote invocation flags from — and no invocation is
-  invented here.
-- **PENDING — the derivation.** `pkgs/inj3ct-llm/default.nix` is named
-  in the manifest but absent from the landed packages tree at the pin
-  revision. The tool is not packaged; nothing on the OS PATH invokes
-  it.
-
-The working alternative while the row is stub-level: the sibling A-2
-tools already cover the same OWASP LLM01 question with real pinned
-surfaces — the scanner loop
-([garak](garak-full-baseline.html)), the eval-based red-team
-loop ([promptfoo](promptfoo-llm-redteam.html)), and the scripted
-pipeline ([PyRIT](pyrit-automation-pipeline.html)).
+If you want THIS tool to exist: the rebuild contract in
+[os#210](https://github.com/kailash-os/kailash-os/issues/210) is the
+path — build the harness for real (a public upstream repo first),
+then the manifest gate admits the row and this recipe re-opens with
+real commands.
 
 ## Discussion
 
-- **Why this page is the manifest-contract shape, not a walkthrough:**
-  the book's no-invented-evidence rule degrades gracefully — an
-  unverifiable surface renders as the manifest contract plus an
-  explicit `PENDING` marker with a follow-up link, never an invented
-  command transcript. Writing `inj3ct-llm --<flags>` here would be the
-  same defect class as inventing a test transcript.
-- **The missing-repository precedent:** this is exactly the posture
-  recorded for `mlflow-bypass` in
-  [Attack the platform, then verify](../attack-defence/attack-then-verify.html) —
-  a manifest row whose pinned upstream lands later than the row
-  itself. The pattern there: the acceptance runs an *executable,
-  honest* instrument in the meantime and the real tool takes over when
-  its repository lands.
-- **The curated-corpus licence caveat applies by class:** the row's
-  licence field is `LicenseRef-Unknown` — no upstream licence file
-  could be verified at pin time, so none is claimed. And whenever a
-  curated injection corpus does land, the data-pack treatment of
-  [Refresh wordlists and data packs](../admin/data-packs.html) applies
-  in full: the *repo* licence never establishes per-file **content**
-  licences of curated attack text (manifest rows for the A-2 payload
-  packs state this explicitly, e.g. the L1B3RT-4S pack's "content
-  use-restrictions beyond the repo licence"). Check what you
+- **Why this page is a registry pointer, not a walkthrough:** the
+  book's no-invented-evidence rule degrades gracefully — an
+  unverifiable surface never renders as tool commands. The pre-#210
+  version of this page rendered the row's manifest contract as a
+  `PENDING` walkthrough-to-be; the row has since been REMOVED outright
+  (its claimed upstream was a phantom), so the page degrades further:
+  registry pointer + the real interim surfaces.
+- **The licence caveat still applies by class:** when a curated
+  injection corpus tool is rebuilt and lands, the data-pack treatment
+  of [Refresh wordlists and data packs](../admin/data-packs.html)
+  applies in full: the *repo* licence never establishes per-file
+  **content** licences of curated attack text (manifest rows for the
+  A-2 payload packs state this explicitly, e.g. the L1B3RT-4S pack's
+  "content use-restrictions beyond the repo licence"). Check what you
   redistribute before you redistribute it.
-- **If you need a curated-corpus surface today:** the manifest's
-  existing data-pack rows (`llm-red-team-col`, `jailbreak-payloads`,
-  `libertas-prompts`) deliver curated prompt collections into the
-  catalogue, and a pinned harness that consumes standardized corpora
+- **Curated-corpus surfaces that exist today:** the manifest's data
+  packs (`jailbreak-payloads`, `libertas-prompts`,
+  `llm-jailbreak-bench`) deliver curated prompt collections, and the
+  pinned harness recipe
   ([llm-jailbreak-bench](llm-jailbreak-bench-standardized.html)) is
-  real. Those are the honest interim surfaces this recipe points at.
-- **When this page gets re-worked:** the moment the upstream repo
-  exists and its CLI entrypoint is pinned (an nvfetcher entry +
-  derivation + smoke, like any bespoke tool per the §7.8 runbook), this
-  recipe takes real commands and real output shapes — and the
-  `PENDING` markers here go away. Pin moves after that re-open the
-  recipe per the standing upkeep rule.
+  real. The pre-#210 `llm-red-team-col` pack was phantom-upstream and
+  removed — its name rides the
+  [os#210 registry](https://github.com/kailash-os/kailash-os/issues/210).
 
 ## See also
 
-- inj3ct-llm reference page (`inj3ct-llm(1)`):
-  <https://docs.kailash.tools/reference/tools/inj3ct-llm.html>
 - [Scan a self-hosted model for prompt-injection
   resistance](garak-full-baseline.html) — the working scanner
   loop
@@ -119,20 +91,19 @@ pipeline ([PyRIT](pyrit-automation-pipeline.html)).
   surface available now
 - [Refresh wordlists and data packs](../admin/data-packs.html) — the
   payload-pack opt-in + licence-caveat pattern
-- Manifest lane row: KA-05.3, [kailash-os#76](https://github.com/kailash-os/kailash-os/issues/76) —
-  the commit that landed this row
+- The phantom-row provenance + rebuild contract:
+  [kailash-os#210](https://github.com/kailash-os/kailash-os/issues/210)
 - [Recipe directory](../directory.html)
 
 ---
 
-**Recipe provenance.** Manifest row read from the packages manifest
-(`id inj3ct-llm`, ATTACK/a-02, `LicenseRef-Unknown`, bespoke
-derivation path, requires-target, AML.T0051/T0068, owasp_llm
-{2026: [LLM01], v2: [LLM01]}); absence of the upstream repository
-verified live (github.com/kailash-os/inj3ct-llm → 404, main + master)
-and absence of `pkgs/inj3ct-llm/default.nix` verified against the
-packages tree at pin `138a457` (2026-10-13), verified 2026-10-14. The
-row landed in commit `91a9dde` (KA-05.3, 2026-10-11). NOT quoted: any
-CLI invocation (no upstream source exists to verify against). Smoke
-status: n/a — nothing packaged yet; hands-on run: PENDING (blocked on
-the upstream repository landing; follow-up = the KA-05.3 lane).
+**Recipe provenance.** The pre-purge row (`id inj3ct-llm`, ATTACK/a-02,
+`LicenseRef-Unknown`, bespoke, requires-target, AML.T0051/T0068) was
+read from the packages manifest at pin `138a457` (2026-10-13) and the
+upstream absence was verified live (`github.com/kailash-os/inj3ct-llm`
+→ 404 both branches). The os#210 audit (2026-10-14) then removed the
+row entirely (phantom-upstream, registry). NOT quoted at any point: a
+CLI invocation (no upstream source has ever existed). Smoke status:
+n/a — nothing packaged, nothing to remove from a closure; hands-on
+run: n/a (the tool does not exist; rebuild contract in
+[os#210](https://github.com/kailash-os/kailash-os/issues/210)).

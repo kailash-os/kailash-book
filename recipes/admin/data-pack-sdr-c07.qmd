@@ -84,7 +84,7 @@ What success looks like:
   is the substrate for AI/ML signal research — radio-based ML datasets,
   signal-capture corpora for audio/voice-model work, GNURadio's DSP
   ecosystem feeding ML pipelines. The A-6 multi-modal attack surface
-  (e.g. audio-voice-clone-injector) needs software DSP, not RF hardware
+  (e.g. the pre-#210 audio-voice-clone-injector row — aspirational-only, removed; os#210 registry) needs software DSP, not RF hardware
   stacks. Software-only: gnuradio/gqrx/hackrf-tools, plus the audio
   DSP support rows (sox, librosa, pysox).
 - **Data-row delivery is the same discipline, different shape:** these

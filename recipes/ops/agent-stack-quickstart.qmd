@@ -93,8 +93,10 @@ my-crew/
   `crewai install && crewai run` as the flow. The CLI is the
   manifest's declared surface — not a library-only import.
 - **The exp MCP rows stay gated — this recipe touches them not at
-  all:** several o-07-adjacent MCP tools (`kailash-mcp`,
-  `kailash-container`) are `safety.level: exp`. They install only
+  all:** the o-07 exp faces (`kailash-mcp`, `mcp-kali-server`,
+  `hexstrike-ai` — the pre-#210 `kailash-container` row was a
+  phantom deliverable, removed per os#210) are `safety.level: exp`.
+  They install only
   through the double-key lab gate and its wrapped paths (see
   [Gate lab-mode and exp-classified tools](../admin/lab-mode-gating.html)),
   and every one is gate-wrapped via

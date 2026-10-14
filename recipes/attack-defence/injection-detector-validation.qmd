@@ -5,7 +5,7 @@ toc-title: Recipe
 
 | Field | Value |
 |---|---|
-| Tools | ATTACK: `llm-red-team-col` + `libertas-prompts` + `jailbreak-payloads` (A-2 data packs, `safe`) ↔ DEFENCE: `rebuff` (d-01, `safe`) + `prompt-injection-detector-bert` (d-02, `safe`) + `nemo-guardrails` (d-01, `safe`) |
+| Tools | ATTACK: `libertas-prompts` + `jailbreak-payloads` (A-2 data packs, `safe`) ↔ DEFENCE: `rebuff` (d-01, `safe`) + a public DeBERTa-class detector + `nemo-guardrails` (d-01, `safe`) — the `llm-red-team-col` pack and the `prompt-injection-detector-bert` row were phantom-upstream (removed; the names ride the [os#210 registry](https://github.com/kailash-os/kailash-os/issues/210)) |
 | Section | Attack–defence pairs |
 | Level | hard |
 | Time | ~45 min first loop, then per-corpus-refresh |
@@ -35,9 +35,10 @@ later diff cites them:
 kailash list --category a-02-prompt-injection-jailbreaks
 kailash info libertas-prompts   # -> data pack, AGPL-3.0 repo licence,
 #                                  content use-restrictions beyond it
-#    llm-red-team-col: curated red-team prompt corpus with sources
 #    libertas-prompts: the L1B3RT-4S corpus, vendor-organized
 #    jailbreak-payloads: the same corpus packaged as the payload pack
+#    (llm-red-team-col from the pre-#210 text was a phantom-upstream
+#     pack — removed; registry: kailash-os#210)
 #    (data packs ride opt-in kailash-data.* derivations — never a
 #     default image; see [Refresh wordlists and data packs]
 #     (../admin/data-packs.html))
@@ -48,7 +49,8 @@ kailash info libertas-prompts   # -> data pack, AGPL-3.0 repo licence,
 #                       <pinecone_index>, <openai_model>)
 #        result = rb.detect_injection(<payload_text>)
 #        -> result.injection_detected: bool
-#    2b. prompt-injection-detector-bert (planned first-party classifier
+#    2b. the public DeBERTa-class detector (the pre-#210 first-party
+#        classifier row was phantom-upstream, removed — os#210)
 #        pack — PENDING CLI; the loader contract follows the
 #        DeBERTa-class detector + gate-loader shape the manifest
 #        description names)
@@ -76,7 +78,7 @@ kailash info libertas-prompts   # -> data pack, AGPL-3.0 repo licence,
 Expected output shape (abridged, shapes not transcripts):
 
 ```
-corpus: <n> payloads (llm-red-team-col rows + L1B3RT-4S samples)
+corpus: <n> payloads (libertas-prompts + jailbreak-payloads rows + L1B3RT-4S samples)
 detector verdicts (per payload):
   {payload_id, source_pack, rebuff: detected|missed,
    detector-bert: SAFE|INJECTION (planned pack — PENDING),
@@ -98,9 +100,7 @@ loop record (the diff): {seed, corpus_rev, detector_versions,
   material, not a launcher. What the rows DO carry is licence
   posture: L1B3RT-4S rows cite AGPL-3.0 with per-source content
   use-restrictions beyond the repo licence (the manifest comment
-  says so explicitly for this lane); llm-red-team-col is
-  first-party-curated with sources per prompt
-  (`LicenseRef-Unknown` until first-party licence grant). Redistribute
+  says so explicitly for this lane). Redistribute
   nothing until you have read what you would redistribute — the
   data-packs recipe's licence discipline applies verbatim.
 - **The defence side is three kinds of detector, on purpose.**
@@ -108,10 +108,11 @@ loop record (the diff): {seed, corpus_rev, detector_versions,
   vector-db similarity check — plus the canary-word leakage check
   that turns a detector into a tripwire (its manifest tag carries
   `prompt-injection`); note the SDK surface needs provider
-  credentials for its stages. prompt-injection-detector-bert: the
-  classifier row rides the DeBERTa-class public detector lineage
-  (SAFE/INJECTION label classes at the upstream reference;
-  kailash-os's loader pack is planned — PENDING with its row URL).
+  credentials for its stages. the DeBERTa-class detector: the
+  public detector lineage (SAFE/INJECTION label classes at the
+  upstream reference; the pre-#210 first-party loader-pack row was
+  phantom-upstream — removed, name in the
+  [os#210 registry](https://github.com/kailash-os/kailash-os/issues/210)).
   nemo-guardrails: the config-driven rail with documented jailbreak
   heuristics — length-per-perplexity and prefix/suffix-perplexity
   thresholds (defaults `89.79` / `1845.65`, config-validated at
@@ -136,11 +137,11 @@ loop record (the diff): {seed, corpus_rev, detector_versions,
   re-entering production — the d-01 rows are runtime gates, so the
   improved threshold config IS the deliverable; the corpus becomes
   the standing acceptance set that future detector bumps are diffed
-  against (the book's upkeep rule at pair granularity). When the
-  next wave's A-2 attack tools land (pyrit's automation pipelines,
-  inj3ct-llm's drive harness — both `requires-target`), this loop's
-  station 2 gains live-fire legs; the data-pack legs above are the
-  static half that never needs a target.
+  against (the book's upkeep rule at pair granularity). When a
+  rebuilt A-2 attack tool lands via the
+  [os#210 rebuild contract](https://github.com/kailash-os/kailash-os/issues/210),
+  this loop's station 2 gains live-fire legs; the data-pack legs
+  above are the static half that never needs a target.
 - **Authorisation framing carries:** the corpus is real attack
   material; running it against models or deployments you do not own
   is the A-2 lane's authorised-engagement business, not a cookbook
@@ -169,26 +170,27 @@ loop record (the diff): {seed, corpus_rev, detector_versions,
   <https://docs.nvidia.com/nemo/guardrails/configure-guardrails/guardrail-catalog/jailbreak-protection.html>
   · the DeBERTa-class detector reference weights
   <https://huggingface.co/protectai/deberta-v3-base-prompt-injection-v2>
-- Manifest row URLs for the planned first-party packs (CLI PENDING,
-  tracked at these rows):
-  <https://github.com/kailash-os/llm-red-team-col> ·
+- Manifest row URLs for the landed data packs:
   <https://github.com/kailash-os/libertas-prompts> ·
-  <https://github.com/kailash-os/jailbreak-payloads> ·
-  <https://github.com/kailash-os/prompt-injection-detector-bert>
+  <https://github.com/kailash-os/jailbreak-payloads>
+  (the pre-#210 `llm-red-team-col` + `prompt-injection-detector-bert`
+  pack rows were phantom-upstream, removed — names ride the
+  [os#210 registry](https://github.com/kailash-os/kailash-os/issues/210))
 - The A-2 payload-pack manifest lane:
   [kailash-os#76](https://github.com/kailash-os/kailash-os/issues/76)
 - [Recipe directory](../directory.html)
 
 ---
 
-**Recipe provenance.** Manifest facts (three A-2 data-pack rows:
-`status: data`, `safe`, AGPL-3.0 rows keyed to elder-plinius/L1B3RT4S
-with content use-restrictions; llm-red-team-col first-party-curate
-ATLAS AML.T0065, L1B3RT-4S rows AML.T0054/T0068 + T0054, OWASP LLM01
-both epochs; d-01 rebuff + nemo-guardrails bespoke Apache-2.0, d-02
-prompt-injection-detector-bert planned, all safety `safe`; update
-cadence tags) are from the packages manifest rows + lane comments,
-verified 2026-10-14. Upstream surfaces checked at each pinned source:
+**Recipe provenance.** Manifest facts post-os#210: two A-2 data-pack
+rows (`libertas-prompts`, `jailbreak-payloads` — `status: data`,
+`safe`, AGPL-3.0 keyed to elder-plinius/L1B3RT4S with content
+use-restrictions; ATLAS/OWASP mappings on the rows, OWASP LLM01 both
+epochs); d-01 rebuff + nemo-guardrails bespoke Apache-2.0 — all from
+the post-purge packages manifest, verified 2026-10-14. The pre-#210
+`llm-red-team-col` + `prompt-injection-detector-bert` rows were
+phantom-upstream (never-created kailash-os repos) and are REMOVED
+per the os#210 audit. Upstream surfaces checked at each pinned source:
 rebuff `RebuffSdk(...).detect_injection` / `add_canary_word` /
 `is_canaryword_leaked` (README at protectai/rebuff main),
 nemo-guardrails `jailbreak detection heuristics` flow + the two

@@ -98,7 +98,9 @@ Expected output shape (abridged, shapes not transcripts):
     an exp tool is still exp-gated even for an agent holding a
     grant.
 - **Gate wrap applies to grants too:** the o-07 exp MCP rows
-  (`kailash-mcp`, `kailash-container`, …) ride the SAME
+  (post-os#210: `kailash-mcp`, `mcp-kali-server`, `hexstrike-ai`,
+  `mcpoison` — the `kailash-container` pre-#210 row was a phantom,
+  removed) ride the SAME
   `kailash.safety.extraTools` gate-wrap as any exp row: opening
   them is a declared, double-key act, not a grant-holder act.
 - **mcp-inspector is the safe surfacing:** the one o-07 row that is

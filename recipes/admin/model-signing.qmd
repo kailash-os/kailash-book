@@ -5,7 +5,7 @@ toc-title: Recipe
 
 | Field | Value |
 |---|---|
-| Tool | modelsign (sigstore/model-signing) · sigstore-tools |
+| Tool | `model_signing` (sigstore/model-transparency; the manifest `modelsign` row) + `cosign` — the pre-#210 `sigstore-tools` helper-pack row was phantom-upstream (removed; registry: [os#210](https://github.com/kailash-os/kailash-os/issues/210)) |
 | Section | Administrator |
 | Level | medium |
 | Time | ~25 min (+ OIDC first run) |
@@ -22,8 +22,8 @@ as directories of files; a file-hash in a README is unauthenticated. You
 want an identity-bound, tamper-evident signature over the model
 directory that a verifier can check WITHOUT a key-distribution
 ceremony: exactly the Sigstore model-signing flow. The D-4 manifest
-rows carry it (`modelsign`, wrapping sigstore/model-signing, plus the
-`sigstore-tools` transparency-log helper pack).
+row carries it (`modelsign`, wrapping the real
+sigstore/model-transparency project — post-os#210 URL correction).
 
 ## Solution
 
@@ -33,8 +33,7 @@ identity back:
 
 ```bash
 # 1. Confirm the rows + the CLI surface at your pin
-kailash info modelsign        # d-04 row: wraps sigstore/model-signing
-kailash info sigstore-tools   # Rekor/fulcio transparency-log helpers
+kailash info modelsign        # d-04 row: wraps sigstore/model-transparency
 
 # 2. Sign a model directory, keyless (Sigstore default; opens an OIDC
 #    flow — browser or device-code — and records the event to Rekor)
@@ -64,8 +63,8 @@ openssl ec -in key.priv -pubout > key.pub
 model_signing sign key ./model-dir --private_key key.priv --signature model.sig
 model_signing verify key ./model-dir --signature model.sig --public_key key.pub
 
-# 6. Transparency-log side-quest: WHO signed WHAT, WHEN (the sigstore-tools
-#    pack's territory; cosign's container view for comparison):
+# 6. Transparency-log side-quest: WHO signed WHAT, WHEN (the Rekor
+#    log itself + cosign's container view for comparison):
 cosign verify <registry>/<image>:<tag> \
   --certificate-identity "<identity>" --certificate-oidc-issuer "<issuer>"
 #    -> container images verify against the registry; model dirs verify
@@ -143,11 +142,15 @@ What success looks like:
   provenance](sbom-artifact-verify.html) — the artefact-side of the
   same chain
 - [Boot a verified release image](../getting-started/first-image.html)
-- The D-4 manifest rows (modelsign, sigstore-tools, cosign — kailash
-  packages manifest, single source of truth):
+- The D-4 manifest rows (modelsign, cosign — kailash
+  packages manifest, single source of truth; the pre-#210
+  `sigstore-tools` pack row was phantom-upstream, removed per
+  os#210):
   <https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml>
-- sigstore/model-signing upstream (CLI + format spec):
-  <https://github.com/sigstore/model-signing> ·
+- sigstore/model-transparency upstream (CLI + format spec; the
+  project renamed from 'model-signing' — the manifest row's pre-#210
+  URL was corrected in the os#210 purge):
+  <https://github.com/sigstore/model-transparency> ·
   <https://pypi.org/project/model-signing/>
 - Sigstore transparency log + Fulcio explainer:
   <https://docs.sigstore.dev/about/bundle/>
@@ -155,8 +158,8 @@ What success looks like:
 
 ---
 
-ref: [D-4 manifest rows (modelsign → sigstore/model-signing;
-sigstore-tools first-party pack; cosign) + the upstream model_signing
+ref: [D-4 manifest rows (modelsign → sigstore/model-transparency;
+cosign) + the upstream model_signing
 CLI surface at current docs (sign/verify, sigstore|key|certificate,
 --signature, --identity/--identity_provider, --trust_config) —
 manifest + upstream README/Pypi at 1.1.1](https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml) - verified 2026-10-14.

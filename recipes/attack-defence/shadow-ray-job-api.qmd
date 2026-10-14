@@ -5,7 +5,7 @@ toc-title: Recipe
 
 | Field | Value |
 |---|---|
-| Tools | `shadow-ray` (A-7, exp) ↔ `ray` (O-2 lab target) + telemetry rows |
+| Tools | plain curl sweep over the Ray Jobs API (A-7 pairing instrument) ↔ `ray` (O-2 lab target) + telemetry rows — the aspirational attack-tool name rides the os#210 registry |
 | Section | Attack–defence pairs |
 | Level | hard |
 | Time | ~45 min (boot + job-API walk + telemetry leg) |
@@ -31,7 +31,8 @@ VENDOR-DISPUTED per NVD — Ray's maintainers push back that a
 cluster intentionally exposed to untrusted networks is not a
 vulnerability, which makes the CONFIGURATION the story, not the
 binary. The manifest maps the surface to OWASP LLM02 + LLM10 and the
-`shadow-ray` row to ATLAS AML.T0049 + T0050. You want the pair run
+public ATLAS matrix (the pre-#210 `shadow-ray` row rode the same
+mapping; phantom-upstream, removed — os#210). You want the pair run
 against your own cluster in your own lab: prove the API shape, prove
 the flag that binds it, and prove the flip closes it.
 
@@ -125,16 +126,17 @@ sweep again, posture: --dashboard-host 127.0.0.1
   language: you fix it with configuration (the bind, the firewall),
   and your report says "exposed Jobs API" rather than
   "unpatched CVE".
-- **Why plain curl and not a bespoke exploit script:** `shadow-ray`
-  is an A-7 row, `safety.level: exp`, licence `LicenseRef-Unknown`,
-  with its upstream repository missing at the pin
-  ([kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23)).
-  The probe leg runs the verified openapi.yml shapes (Jobs API v4.0.0
-  surface: `GET /api/version`, `POST /api/jobs` with
-  entrypoint+runtime_env, `GET /api/jobs`, `GET/DELETE
-  /api/jobs/{id}`, `POST .../stop`, `GET .../logs`); the real tool
-  takes over when its derivation lands, via the double-key lab gate
-  (walk: [Gate lab-mode and exp-classified
+- **Why plain curl and not a bespoke exploit script:** the
+  `shadow-ray` manifest row was a PHANTOM — its claimed kailash-os
+  upstream was never created — and the os#210 audit (2026-10-14)
+  removed it (https://github.com/kailash-os/kailash-os/issues/210;
+  the name rides the registry there). The probe leg runs the verified
+  openapi.yml shapes (Jobs API v4.0.0 surface: `GET /api/version`,
+  `POST /api/jobs` with entrypoint+runtime_env, `GET /api/jobs`,
+  `GET/DELETE /api/jobs/{{id}}`, `POST .../stop`, `GET .../logs`)
+  with the base system only — nothing invented; a real A-7 tool
+  re-enters via the os#210 rebuild contract through the double-key
+  lab gate (walk: [Gate lab-mode and exp-classified
   tools](../admin/lab-mode-gating.html)).
 - **The marker job is the whole RCE argument, made safely:**
   submission ACCEPTED an arbitrary `entrypoint` string and the logs
@@ -187,7 +189,9 @@ sweep again, posture: --dashboard-host 127.0.0.1
 
 ---
 
-**Recipe provenance.** Manifest facts (A-7 `shadow-ray` row exp +
+**Recipe provenance.** Manifest facts post-os#210 (ray O-2 row +
+telemetry rows; the pre-#210 `shadow-ray` A-7 row was phantom-upstream
+and removed — os#210)
 `LicenseRef-Unknown`, ATLAS AML.T0049 + T0050, OWASP LLM02 + LLM10
 both epochs; ray O-2 row — module + services.kailash module-shape)
 are from the packages manifest rows + lane comments, verified
@@ -204,4 +208,4 @@ wiring PENDING at the pin: quoted above as design, not as a landed
 surface.
 
 
-ref: [Ray Jobs API docs + ATLAS CS0023 + NVD CVE-2023-48022 + packages manifest rows](https://docs.ray.io/en/latest/cluster/running-jobs.html) - verified 2026-10-14. Missing A-7 repo: [kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23).
+ref: [Ray Jobs API docs + ATLAS CS0023 + NVD CVE-2023-48022 + packages manifest rows](https://docs.ray.io/en/latest/cluster/running-jobs.html) - verified 2026-10-14. The pre-#210 A-7 tool row was phantom-upstream (removed 2026-10-14): [https://github.com/kailash-os/kailash-os/issues/210](https://github.com/kailash-os/kailash-os/issues/210).
