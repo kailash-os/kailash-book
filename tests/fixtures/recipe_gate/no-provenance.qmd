@@ -1,0 +1,30 @@
+---
+title: "Recipe: fixture no-footer"
+---
+
+| Field | Value |
+|---|---|
+| Tool | `fixture` |
+| Section | Ops |
+| Level | easy |
+| Time | ~1 min |
+| Layer/Category | OPS / o-05 |
+| Tags | `fixture` |
+
+## Problem
+
+None.
+
+## Solution
+
+```bash
+kailash info fixture
+```
+
+## Discussion
+
+n/a.
+
+## See also
+
+- nothing

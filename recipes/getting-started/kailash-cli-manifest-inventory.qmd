@@ -160,6 +160,7 @@ KA-14.1 landed slice) and the OS spec's CLI chapter §6.2/§6.3,
 verified 2026-10-14 at main/master. The store-path bake fact
 (`wrapProgram`, per-file env) is read from `pkgs/kailash/default.nix`.
 Roadmap verbs are the spec §6.2 remainder — labelled roadmap-stage,
-not quoted. Worked transcript against an installed pin: PENDING (the
+not quoted. Worked transcript against an installed pin: PENDING (follow-up: the
+standing upkeep lane [kailash-book#12](https://github.com/kailash-os/kailash-book/issues/12); the
 repo-side self-test `checks.kailash-cli-self-test` is the standing
 instrument).
