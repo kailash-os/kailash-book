@@ -19,8 +19,7 @@ face value — model provenance, training-data posture, subprocessor
 list, incident history. Frameworks to review them against are REAL
 and published (ISO/IEC 42001, NIST AI RMF, the EU AI Act's obligations),
 but **Kailash ships no governance template pack** — the pre-#210 D-6
-rows (`ai-act-compliance-checker`, `nist-ai-rmf-toolkit`,
-`iso-42001-templates`, `genai-vendor-review-form`) were phantom-origin
+rows (the governance template-pack family) were phantom-origin
 template packs (no real upstream anywhere) and the os#210 audit
 removed them
 ([os#210](https://github.com/kailash-os/kailash-os/issues/210); the

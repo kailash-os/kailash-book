@@ -5,7 +5,7 @@ toc-title: Recipe
 
 | Field | Value |
 |---|---|
-| Tool | `guarddog` + `picklescan` + `modelscan` (all A-4, `safe`) — the pre-#210 inspector-quartet rows (`safetensors-checker`, `hf-repo-inspector`, `gguf-template-inspector`, `torch-load-poc`) were phantom-upstream (removed; names ride the [os#210 registry](https://github.com/kailash-os/kailash-os/issues/210)) |
+| Tool | `guarddog` + `picklescan` + `modelscan` (all A-4, `safe`) — the pre-#210 inspector-quartet rows were phantom-upstream (removed; names ride the [os#210 registry](https://github.com/kailash-os/kailash-os/issues/210)) |
 | Section | Administrator |
 | Level | medium |
 | Time | ~30 min per intake batch |
@@ -39,7 +39,7 @@ kailash list --category a-04-model-supply-chain
 
 # 2. Repo-level review FIRST (the repo is the artefact, not one file):
 #    hand-review the repo card/file tree at the hub (the pre-#210
-#    hf-repo-inspector row was phantom-upstream — removed, os#210):
+#    hub-inspector row was phantom-upstream — removed, os#210):
 #    mixed formats, loader scripts, freshness signals.
 
 # 3. Serialized-format scans — run BOTH scanners, they cover different
@@ -49,7 +49,7 @@ modelscan -p /srv/model-cache/<model-dir> -r json -o /tmp/modelscan-scan.json
 
 # 4. Safetensors artefacts — the safe-serialization format still
 #    carries a header/metadata surface: inspect it by hand
-#    (safetensors ships tools; the pre-#210 safetensors-checker row
+#    (safetensors ships tools; the pre-#210 checker row
 #     was phantom-upstream — removed, os#210):
 python3 - <<'PY'
 from safetensors import safe_open
@@ -60,7 +60,7 @@ PY
 # 5. GGUF: surface the embedded chat templates + metadata — the
 #    prompt-path injection vector inside quantized weights:
 #    (llama.cpp ships gguf-dump / gguf-py; the pre-#210
-#     gguf-template-inspector row was phantom-upstream — removed)
+#     template-inspector row was phantom-upstream — removed)
 python3 -m gguf.scripts.gguf_dump /srv/model-cache/<model>.gguf | head -50
 
 # 6. The environment the model repo tells you to build — the packages
@@ -100,7 +100,7 @@ guarddog    -> per-package findings table or JSON
 ```
 
 Then the WHY — why the queue exists and why it stays between pull and
-load. The pre-#210 `torch-load-poc` demo row was phantom-upstream
+load. The pre-#210 pickle-PoC demo row was phantom-upstream
 (removed, os#210) — the demonstration lives in the upstream's own
 documented PoC material: the pickle deserialization warning path
 (pytorch stable docs, `torch.load(weights_only=True)` mitigation) is
@@ -110,7 +110,7 @@ the honest citation — read it, never re-run a made-up CLI:
 # 7. The evidence pointer (authorised lab only):
 cat /etc/kailash/safety/wrapped-exp-tools.json   # the gate's state record
 #    (post-os#210: hexstrike-ai / kailash-mcp / mcp-kali-server /
-#     mcpoison — there is NO torch-load-poc row anymore; the removed
+#     mcpoison — there is no PoC row anymore; the removed
 #     row's name rides the os#210 registry)
 ```
 
@@ -143,8 +143,8 @@ intake guarantee.
   in the prompt path at serve time.
 - **Repo review rides top of the queue:** hand-review of the repo
   card + file tree catches what single-file scanners cannot — a repo
-  whose `.bin` is clean but whose loader script is not. (The pre-#210
-  `hf-repo-inspector` manifest row framed exactly this contract; it
+  whose `.bin` is clean but whose loader script is not. (A pre-#210
+  manifest row framed exactly this contract; it
   was phantom-upstream and removed, os#210 — the review duty it named
   is real and stays.)
 - **These are ATTACK-layer rows running as admin intake:** all three
@@ -203,7 +203,7 @@ picklescan, modelscan; safety `safe`; licences Apache-2.0/MIT/Apache;
 ATLAS AML.T0010/T0011 + OWASP LLM04→LLM03 epoch map; packaging:
 modelscan native, guarddog/picklescan bespoke with LANDED derivations)
 are quoted from the purged packages manifest, verified 2026-10-14.
-The pre-#210 inspector-quartet + torch-load-poc rows were
+The pre-#210 inspector-quartet + PoC rows were
 phantom-upstream (never-created kailash-os repos) and are REMOVED per
 the os#210 audit CLI shapes checked
 against upstream at each pinned repo's default branch (raw

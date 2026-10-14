@@ -94,7 +94,7 @@ my-crew/
   manifest's declared surface — not a library-only import.
 - **The exp MCP rows stay gated — this recipe touches them not at
   all:** the o-07 exp faces (`kailash-mcp`, `mcp-kali-server`,
-  `hexstrike-ai` — the pre-#210 `kailash-container` row was a
+  `hexstrike-ai` — the pre-#210 container-deliverable row was a
   phantom deliverable, removed per os#210) are `safety.level: exp`.
   They install only
   through the double-key lab gate and its wrapped paths (see

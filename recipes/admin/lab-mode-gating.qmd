@@ -18,7 +18,7 @@ toc-title: Recipe
 Tools whose manifest row reads `safety.level: exp` — experimental
 code-execution surfaces like `hexstrike-ai` or the `kailash-mcp`
 server face — ship in the catalogue but must be unreachable by
-default. (The pre-#210 documentation used `mlflow-bypass` as the
+default. (The pre-#210 documentation used the paired attack row as the
 demo name; that row was phantom-upstream and removed —
 [kailash-os#210](https://github.com/kailash-os/kailash-os/issues/210).) You want to demonstrate the gate
 actually works on your host: a bare run refuses, a half-opened gate

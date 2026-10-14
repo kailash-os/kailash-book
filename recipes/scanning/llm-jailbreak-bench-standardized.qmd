@@ -122,7 +122,7 @@ JailbreakInfo(
   grid is what you diff against — run your attack method over the same
   100 behaviours and compare `jailbroken` fractions; where Kailash's
   standards view cares:
-  the OS#210 registry (https://github.com/kailash-os/kailash-os/issues/210 — the pre-#210 llm-top10-toolkit row was phantom-upstream, removed)
+  the OS#210 registry (https://github.com/kailash-os/kailash-os/issues/210 — the pre-#10 standards-toolkit row was phantom-upstream, removed)
   (D-7) renders the OWASP LLM Top-10 evidence matrices — jailbreak
   robustness maps onto **LLM01** in this tool's manifest row (both
   epochs), and the recipe tags carry it for the Top-10 collection

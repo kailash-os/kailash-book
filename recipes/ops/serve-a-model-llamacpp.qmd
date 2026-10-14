@@ -112,8 +112,8 @@ main: server is listening on 127.0.0.1:9931(?)
   ([supply-chain-scan-models](../admin/supply-chain-scan-models.html))
   becomes a servable artefact — and the servable artefact is what
   your scan records should name.
-- **No `gguf-quantiser` exists:** the pre-#210 manifest carried a
-  `gguf-quantiser` row (a "planned wave-5 deliverable" claim) — the
+- **No GGUF-helper tool ships:** the pre-#210 manifest carried a
+  planned-wave-5 helper row (phantom) — the
   os#210 audit proved its claimed kailash-os upstream was NEVER
   created and the row is REMOVED
   ([os#210](https://github.com/kailash-os/kailash-os/issues/210)).

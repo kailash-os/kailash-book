@@ -27,7 +27,7 @@ the server runs without auth; Weaviate serves full schema and object
 dumps with vectors (`include=classification,vector`) under anonymous
 access — a posture upstream calls "strongly discouraged except for
 development". The manifest maps the lane to OWASP LLM02 + LLM10 and
-the published ATLAS matrix (the pre-#210 `vector-db-ripper` row rode
+the published ATLAS matrix (the pre-#210 paired attack row rode
 the same mapping; phantom-upstream, removed — os#210). The
 kailash twist is per-store: the NixOS `services.qdrant` module
 already binds 127.0.0.1 and disables telemetry BY DEFAULT (the lab
@@ -153,7 +153,7 @@ WEAVIATE @ :8080  exposed leg (backend on, anonymous)
   the `/api/v2` collection get, the `/v1/objects` dump — the rip
   patterns rhyme.
 - **Why plain curl and not a bespoke exploit script:** the
-  `vector-db-ripper` manifest row was a PHANTOM — its claimed
+  the paired attack manifest row was a PHANTOM — its claimed
   kailash-os upstream was never created — removed by the os#210 audit
   (2026-10-14; https://github.com/kailash-os/kailash-os/issues/210 —
   the name rides the registry). The probe legs run the verified
@@ -225,7 +225,7 @@ row's additional mapping; os#210 registry) — the data-
 ---
 
 **Recipe provenance.** Manifest facts post-os#210 (qdrant/chromadb/
-weaviate O-3 rows + hardening rows; the pre-#210 `vector-db-ripper` A-7
+weaviate O-3 rows + hardening rows; the pre-#210 paired A-7 attack row
 row was phantom-upstream and removed — os#210)
 exp + `LicenseRef-Unknown`, ATLAS AML.T0049 + T0050 + T0057, OWASP
 LLM02 + LLM10 both epochs; qdrant/chromadb/weaviate O-3 rows;

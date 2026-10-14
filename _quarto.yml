@@ -39,7 +39,6 @@ book:
         - recipes/scanning/garak-full-baseline.qmd
         - recipes/scanning/promptfoo-llm-redteam.qmd
         - recipes/scanning/pyrit-automation-pipeline.qmd
-        - recipes/scanning/inj3ct-llm-curated-injection.qmd
         - recipes/scanning/counterfit-adversarial-cli.qmd
         - recipes/scanning/llm-jailbreak-bench-standardized.qmd
     - part: "Attack–defence pairs"

@@ -39,7 +39,6 @@ build time — this page is a generated artifact, never hand-counted.
 |---|---|---|
 | [drive model attacks from the counterfit shell](scanning/counterfit-adversarial-cli.html) | medium | [counterfit](https://docs.kailash.tools/reference/tools/counterfit.html) |
 | [run the full garak baseline before sign-off](scanning/garak-full-baseline.html) | hard | [garak](https://docs.kailash.tools/reference/tools/garak.html) |
-| [the curated injection harness: registry pointer](scanning/inj3ct-llm-curated-injection.html) | medium | removed phantom row — rebuild contract (os#210); run garak/promptfoo/PyRIT today |
 | [use the standardized jailbreak benchmark corpus](scanning/llm-jailbreak-bench-standardized.html) | medium | [llm-jailbreak-bench](https://docs.kailash.tools/reference/tools/llm-jailbreak-bench.html) |
 | [red-team an LLM application with promptfoo](scanning/promptfoo-llm-redteam.html) | medium | [promptfoo](https://docs.kailash.tools/reference/tools/promptfoo.html) |
 | [automate an attack pipeline with PyRIT](scanning/pyrit-automation-pipeline.html) | medium | [pyrit](https://docs.kailash.tools/reference/tools/pyrit.html) |

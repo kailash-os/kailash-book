@@ -30,7 +30,7 @@ CVE-2024-35199 exposing the gRPC management/inference plane on all
 interfaces (fixed 0.11.0). Upstream's own banner says the maintenance
 story out loud: "Limited Maintenance — no planned security patches".
 The manifest maps the surface to OWASP LLM02 + LLM10 and the
-published ATLAS matrix (the pre-#210 `torchserve-pwn` row rode the
+published ATLAS matrix (the pre-#210 paired attack row rode the
 same mapping; phantom-upstream, removed — os#210). You want a
 reproducible audit that maps the surface, proves WHICH flag closes
 each leg, and never fires a transcript-grade payload.
@@ -163,7 +163,7 @@ sweep again, hardened posture (defaults + loopback mgmt)
   visibility of management-API calls (register/delete) and inference
   volume — the anomaly view the probe sweep hand-verified.
 - **Why plain probes and not a bespoke exploit script:** the
-  `torchserve-pwn` manifest row was a PHANTOM — its claimed kailash-os
+  the paired attack manifest row was a PHANTOM — its claimed kailash-os
   upstream was never created — removed by the os#210 audit
   (2026-10-14; https://github.com/kailash-os/kailash-os/issues/210 —
   the name rides the registry). The probe leg runs with base-system
@@ -194,7 +194,7 @@ sweep again, hardened posture (defaults + loopback mgmt)
 ---
 
 **Recipe provenance.** Manifest facts post-os#210 (torchserve O-2 row
-+ observability rows; the pre-#210 `torchserve-pwn` A-7 row was
++ observability rows; the pre-#210 paired A-7 attack row was
 phantom-upstream and removed — os#210)
 + `LicenseRef-Unknown`, ATLAS AML.T0049 + T0050, OWASP LLM02 + LLM10
 both epochs; torchserve O-2 row) are from the packages manifest rows

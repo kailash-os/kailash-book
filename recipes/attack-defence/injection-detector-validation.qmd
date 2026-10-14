@@ -5,7 +5,7 @@ toc-title: Recipe
 
 | Field | Value |
 |---|---|
-| Tools | ATTACK: `libertas-prompts` + `jailbreak-payloads` (A-2 data packs, `safe`) ↔ DEFENCE: `rebuff` (d-01, `safe`) + a public DeBERTa-class detector + `nemo-guardrails` (d-01, `safe`) — the `llm-red-team-col` pack and the `prompt-injection-detector-bert` row were phantom-upstream (removed; the names ride the [os#210 registry](https://github.com/kailash-os/kailash-os/issues/210)) |
+| Tools | ATTACK: `libertas-prompts` + `jailbreak-payloads` (A-2 data packs, `safe`) ↔ DEFENCE: `rebuff` (d-01, `safe`) + a public DeBERTa-class detector + `nemo-guardrails` (d-01, `safe`) — the pre-#210 data-pack + detector rows were phantom-upstream (removed; the names ride the [os#210 registry](https://github.com/kailash-os/kailash-os/issues/210)) |
 | Section | Attack–defence pairs |
 | Level | hard |
 | Time | ~45 min first loop, then per-corpus-refresh |
@@ -37,7 +37,7 @@ kailash info libertas-prompts   # -> data pack, AGPL-3.0 repo licence,
 #                                  content use-restrictions beyond it
 #    libertas-prompts: the L1B3RT-4S corpus, vendor-organized
 #    jailbreak-payloads: the same corpus packaged as the payload pack
-#    (llm-red-team-col from the pre-#210 text was a phantom-upstream
+#    (the pre-#210 data-pack citation was a phantom-upstream
 #     pack — removed; registry: kailash-os#210)
 #    (data packs ride opt-in kailash-data.* derivations — never a
 #     default image; see [Refresh wordlists and data packs]
@@ -173,7 +173,7 @@ loop record (the diff): {seed, corpus_rev, detector_versions,
 - Manifest row URLs for the landed data packs:
   <https://github.com/kailash-os/libertas-prompts> ·
   <https://github.com/kailash-os/jailbreak-payloads>
-  (the pre-#210 `llm-red-team-col` + `prompt-injection-detector-bert`
+  (the pre-#210 data-pack + detector rows
   pack rows were phantom-upstream, removed — names ride the
   [os#210 registry](https://github.com/kailash-os/kailash-os/issues/210))
 - The A-2 payload-pack manifest lane:
@@ -188,7 +188,7 @@ rows (`libertas-prompts`, `jailbreak-payloads` — `status: data`,
 use-restrictions; ATLAS/OWASP mappings on the rows, OWASP LLM01 both
 epochs); d-01 rebuff + nemo-guardrails bespoke Apache-2.0 — all from
 the post-purge packages manifest, verified 2026-10-14. The pre-#210
-`llm-red-team-col` + `prompt-injection-detector-bert` rows were
+The pre-#210 data-pack + detector rows were
 phantom-upstream (never-created kailash-os repos) and are REMOVED
 per the os#210 audit. Upstream surfaces checked at each pinned source:
 rebuff `RebuffSdk(...).detect_injection` / `add_canary_word` /
