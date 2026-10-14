@@ -1,0 +1,211 @@
+---
+title: "Recipe: scan pulled model artefacts before they enter your lab"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tool | `guarddog` + `picklescan` + `modelscan` + `safetensors-checker` + `hf-repo-inspector` + `gguf-template-inspector` (all A-4, `safe`) |
+| Section | Administrator |
+| Level | medium |
+| Time | ~30 min per intake batch |
+| Layer/Category | ATTACK / a-04-model-supply-chain (+ the lab intake gate) |
+| Tags | `admin`, `supply-chain`, `model-artefacts`, `scanners`, `torch`, `huggingface`, `owasp-llm04` |
+
+## Problem
+
+Model artefacts now arrive from download-first-ask-later ecosystems:
+a Hugging Face pull lands a `.bin` or `.safetensors` file that your
+loader will deserialize, and a GGUF file that embeds the chat template
+text your runtime will splice into every prompt. Pickled weights are
+the documented sharp edge — loading a model is deserialization, and
+deserialization runs code. The manifest dedicates Layer ATTACK's
+a-04-model-supply-chain to exactly this surface (guarddog, picklescan,
+modelscan + the artefact-inspector quartet, torch-load-poc as the
+demonstration), and as the lab operator you want the scan queue
+between "downloaded" and "torch-loaded" to exist by policy, not by
+mood.
+
+## Solution
+
+The queue runs in one order — repo review, serialized-format scans,
+safe-format checks, template inspection, then the environment the
+model asks you to build — and nothing that fails it ever reaches
+`torch.load`:
+
+```bash
+# 1. What the manifest declares for the A-4 scan surface
+kailash list --category a-04-model-supply-chain
+
+# 2. Repo-level review FIRST (the repo is the artefact, not one file):
+hf-repo-inspector <org>/<model>
+#    -> artefact-level review: mixed formats, suspicious payloads,
+#       org signals (planned first-party pack — CLI surface PENDING,
+#       follow-up pointer below)
+
+# 3. Serialized-format scans — run BOTH scanners, they cover different
+#    corners of the pickle family:
+picklescan --path /srv/model-cache/<model-dir> --include='\.pkl$|\.bin$|\.pth$'
+modelscan -p /srv/model-cache/<model-dir> -r json -o /tmp/modelscan-scan.json
+
+# 4. Safetensors artefacts — the safe-serialization format still
+#    carries a header/metadata surface worth checking:
+safetensors-checker /srv/model-cache/<model-dir>/*.safetensors
+#    -> malformed-tensor + metadata anomaly checks (planned first-party
+#       pack — CLI surface PENDING)
+
+# 5. GGUF: surface the embedded chat templates + metadata — the
+#    prompt-path injection vector inside quantized weights:
+gguf-template-inspector /srv/model-cache/<model>.gguf
+#    -> embedded chat-template + metadata dump (planned first-party
+#       pack — CLI surface PENDING)
+
+# 6. The environment the model repo tells you to build — the packages
+#    around the weights are as attackable as the weights:
+guarddog pypi verify /srv/model-cache/<model-dir>/requirements.txt
+guarddog pypi scan <pinned-package> --version <ver>
+```
+
+Both serialized-format scanners are file-local analyses with
+ClamAV-style exit contracts — CI-gateable as-is:
+
+```bash
+# the queue as a gate: fail the intake batch on any non-zero scan
+picklescan --path /srv/model-cache/<batch-dir> \
+    --include='\.pkl$|\.bin$|\.pth$' --exclude-dir='^\.git$'
+modelscan -p /srv/model-cache/<batch-dir> --exit-status-when-issues  # shape: see CLI flags below
+```
+
+Expected output shape (abridged, shapes not transcripts):
+
+```
+picklescan  -> per-file line(s):
+  <model-path>:archive/data.pkl: global import '<module> <function>' FOUND
+  ----------- SCAN SUMMARY -----------
+  Scanned files: <n>    Infected files: <n?>    Dangerous globals: <n?>
+  (exit 0 clean / 1 malware found / 2 scan failed — ClamAV-style)
+
+modelscan   -> console/json report:
+  issue rows: {format/serialization family, severity: CRITICAL|HIGH|
+  MEDIUM|LOW, code-signature summary, file}
+  exits: 0 no vulnerabilities / 1 vulnerabilities found / 2 scan error /
+  3 no supported files passed / 4 usage error
+
+guarddog    -> per-package findings table or JSON
+  (-r/--rules and -x/--exclude-rules select heuristics;
+   --exit-non-zero-on-finding flips any issue into a gate failure)
+```
+
+Then the WHY — why the queue exists and why it stays between pull and
+load. The manifest ships `torch-load-poc` for this, exp-gated:
+
+```bash
+# 7. THE demonstration leg (authorised lab only, see the gate recipe):
+cat /etc/kailash/safety/wrapped-exp-tools.json   # the gate's state record
+KAILASH_LAB_MODE=1 torch-load-poc <poc-args>
+#    -> demonstrates arbitrary-code execution via weights_only=False
+#       deserialization paths — the reason step 3 sits in the queue
+```
+
+The policy line this recipe encodes: **no file that failed (or skipped)
+the queue is loaded, `weights_only=True` does not replace the queue** —
+current stable `torch.load` defaults to `weights_only=True`, which
+narrows the unpickler surface but is a loader-side mitigation, not an
+intake guarantee.
+
+## Discussion
+
+- **Why six scanners and not one:** the formats fail differently.
+  `picklescan` reads pickle/PyTorch files by opcode and flags
+  dangerous globals (`eval`-class imports, `os.system`, the
+  `torch.*` code-execution paths in its global blocklist) — upstream
+  README cites its canonical demo as catching `eval` inside a
+  "totally-harmless-model". `modelscan` reads byte-wise across
+  formats — pickle, dill, joblib, cloudpickle for classic ML, plus
+  H5/Keras/SavedModel — ranking findings CRITICAL/HIGH/MEDIUM/LOW.
+  `guarddog` does not touch the weights at all: it scans the *package
+  environment* (Semgrep source rules + metadata heuristics, typosquat
+  detection) for whatever the model's dependencies pull in.
+  `safetensors-checker` and `gguf-template-inspector` cover the
+  modern era's own vectors; HF's own pickle-scanning doc notes the
+  pickle threat is the `STACK_GLOBAL`/`GLOBAL`/`REDUCE` opcodes while
+  safetensors' header carries a free-form `__metadata__` string map,
+  and llama.cpp's gguf constants carry
+  `tokenizer.chat_template`(+named variants) keys — text that lands
+  in the prompt path at serve time.
+- **Repo review rides top of the queue:** `hf-repo-inspector`'s
+  manifest contract is the artefact-level review — mixed unsafe
+  formats, suspicious payloads, org signals — because single-file
+  scanners cannot see a repo whose `.bin` is clean but whose loader
+  script is not. The d-04 sister row (`hf-repo-auditor`) pairs this
+  with licence drift, on the provenance side.
+- **These are ATTACK-layer rows running as admin intake:** all six
+  scanner rows carry `safety.level: safe` — the guide's safety-classes
+  table means self-contained, no live firing — because every scan is a
+  file-local analysis. The manifests map the risk in the abstract:
+  the core trio cites ATLAS AML.T0010 + AML.T0011 and OWASP LLM04
+  (2026 epoch) / LLM03 (v2); `gguf-template-inspector` additionally
+  cites AML.T0051 + OWASP LLM01 (both epochs), its chat-template
+  vector being an injection vector at serve time.
+- **The exp leg demonstrates, the scanners prevent:** torch-load-poc
+  runs only through the double-key lab gate (host `kailash.labMode`
+  + `KAILASH_LAB_MODE=1`, exit-126 wrappers otherwise — walk the full
+  gate in [Gate lab-mode and exp-classified tools](lab-mode-gating.html)).
+  Keep the demonstration ON a lab host against the curated PoC
+  artefacts — never against a colleague's working directory.
+- **Nothing here loads your data:** every scanner above operates on
+  the artefact bytes directly. That is the design point of the queue —
+  it is provably pre-load analysis, so a malicious artefact cannot
+  self-protect by defending its own deserialization.
+- **Exit contracts make it CI:** `picklescan` (0/1/2),
+  `modelscan` (0/1/2/3/4) and `guarddog --exit-non-zero-on-finding`
+  all give the gate a mechanical success predicate; wire the same
+  three into the CI intake job rather than a human's memory.
+
+## See also
+
+- [Boot a verified release image](../getting-started/first-image.html)
+  — the verified pull that starts the intake
+- [Gate lab-mode and exp-classified tools](lab-mode-gating.html) —
+  the gate the PoC leg runs behind
+- [Refresh wordlists and data packs](data-packs.html) — the opt-in
+  data-pack mechanism, same discipline for cache corpora
+- [Serve a local model for scanning](../ops/serve-a-model.html) —
+  what runs after the intake passes
+- The guide's reference coverage (per-tool pages generate from the
+  manifest): <https://docs.kailash.tools/reference/coverage.html>
+- Upstream surfaces: guarddog README
+  <https://github.com/DataDog/guarddog> · picklescan
+  <https://github.com/mmaitre314/picklescan> · modelscan
+  <https://github.com/protectai/modelscan> · llama.cpp gguf constants
+  <https://github.com/ggml-org/llama.cpp> · safetensors format
+  <https://github.com/huggingface/safetensors>
+- Manifest row URLs for the planned first-party inspectors (CLI
+  surfaces PENDING, tracked at these rows):
+  <https://github.com/kailash-os/hf-repo-inspector> ·
+  <https://github.com/kailash-os/safetensors-checker> ·
+  <https://github.com/kailash-os/gguf-template-inspector> ·
+  <https://github.com/kailash-os/torch-load-poc>
+- The A-4 manifest lane (rows + Appendix-A corrections at the pin):
+  [kailash-os#76](https://github.com/kailash-os/kailash-os/issues/76)
+- [Recipe directory](../directory.html)
+
+---
+
+**Recipe provenance.** Manifest facts (a-04 safety levels all `safe`;
+licences Apache-2.0/MIT + `LicenseRef-Unknown` on the planned pack
+rows; `torch-load-poc` exp; ATLAS AML.T0010/T0011, T0051, T0004; OWASP
+LLM04→LLM03 epoch map + LLM01 on the gguf row; packaging native for
+modelscan at the pin, bespoke elsewhere) are quoted from the packages
+manifest rows + comments, verified 2026-10-14. CLI shapes checked
+against upstream at each pinned repo's default branch (raw
+`guarddog/cli.py`, `picklescan` + modelscan READMEs including exit
+codes and `--include`/`--exclude` filtering, guarddog
+`--exit-non-zero-on-finding`, `safe_open`/`__metadata__` from the
+safetensors README, `tokenizer.chat_template` keys from llama.cpp
+`gguf-py/constants.py`, `torch.load(weights_only)` from the pytorch
+stable docs) — verified 2026-10-14. Worked hands-on run of the queue
+against a real pulled artefact batch: PENDING — smoke status lives
+with the A-4 packaging lane (kailash-os#76) per tool.
+
+ref: [a-04 manifest rows + cli/README shapes at the pins](https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml) - verified 2026-10-14.

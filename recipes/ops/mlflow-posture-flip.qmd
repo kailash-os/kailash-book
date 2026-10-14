@@ -1,0 +1,128 @@
+---
+title: "Recipe: flip the MLflow posture to production"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tool | `services.kailash.mlflow` (NixOS module) |
+| Section | Ops |
+| Level | medium |
+| Time | ~20 min (+ reverse-proxy setup) |
+| Layer/Category | OPS / O-1 |
+| Tags | `ops`, `mlflow`, `hardening`, `reverse-proxy`, `nixos-module` |
+
+## Problem
+
+The lab posture `mlflow-lab-target` declares is for lab VMs on an
+isolated segment. The hardened posture asks a specific question: can
+the SAME server run with `labReachable = false` and a loopback
+`host`, fronted by a reverse proxy for the real deployment, and can
+you SHOW the flip moved the surface (every probe that succeeded
+against the lab posture re-run and now refused)?
+
+## Solution
+
+Tighten the posture in the configuration, front it, and re-probe with
+the SAME instrument (`../attack-defence/attack-then-verify.html`'s
+probe pair):
+
+```nix
+# configuration.nix — the hardened posture
+services.kailash.mlflow.labReachable = false;   # back to the default
+# and an explicit loopback bind; NOTE: labReachable and host are
+# mutually exclusive options (the module asserts this at eval),
+services.kailash.mlflow.host = "127.0.0.1";     # so set only this
+services.kailash.mlflow.openFirewall = false;   # stays false — see below
+
+# the proxy is YOURS to declare (the module ships no auth option):
+services.nginx.enable = true;
+# nginx site: proxy_pass http://127.0.0.1:5000; + your TLS + authn
+```
+
+Re-probe with the same instrument, same seed — the pair recipe's
+stages MUST refuse when pointed at the hardened posture:
+
+```bash
+# same seed, same probes, posture flipped (see attack-then-verify):
+kailash-integration-mlflow-attack --seed
+# -> ATTEMPTED/FAIL verdicts: the hardened bind closes the surface
+#    the unauthenticated tracking + artefact probes now show FAIL
+```
+
+Expected output shape (abridged, shapes not transcripts):
+
+```
+== KA-23 integration-mlflow-attack acceptance pair ==
+tracking : http://127.0.0.1:5000
+track: ATTEMPTED — POST /api/2.0/mlflow/experiments/search (UNAUTH)
+track: FAIL — surface closed (auth/bind now gate it)
+bypass(seed): ATTEMPTED — ...
+bypass(seed): FAIL — surface closed
+mlflow-attack: seed verdict = FAIL (expected FAIL under hardened posture)
+```
+
+## Discussion
+
+- **The no-auth fact, explicitly:** the kailash mlflow service
+  module at the pin ships NO first-class auth option (no
+  `auth.enable`, no basic-auth token, no service account). The
+  intended production posture is therefore
+  **reverse-proxy-with-auth on your side** — nginx/Envoy/what-you-declare
+  in front of 127.0.0.1:5000. If a future module pin adds auth
+  options, re-read the module and re-write this recipe in the same
+  change.
+- **The option truth table at the pin:**
+
+  | Option (at pin) | Lab posture | Hardened posture |
+  |---|---|---|
+  | `labReachable` | `true` → `0.0.0.0:5000` | `false` (default; loopback) |
+  | `host` | (unset; labReachable instead) | `"127.0.0.1"` explicit |
+  | `openFirewall` | `false` | `false` — stays false |
+  | auth | none offered | reverse proxy (your config) |
+
+- **Why `openFirewall` stays `false` in both postures:** the module
+  defaults `openFirewall = false` and the hardened posture must not
+  undo that — loopback bind + proxy is the design; a firewall hole
+  would defeat the point of the bind. Treat any future
+  firewall-open change as a red flag in review, not a convenience.
+- **Same-seed re-probe FAIL pattern:** the lab→hardened flip is the
+  same instrument with posture options reversed; the expected
+  verdict moves from `ok` to `FAIL` for the pair's two
+  probes. Compare with the pair recipe's acceptance record:
+  `ok` under lab posture, `FAIL` under hardened — a config diff,
+  not a code diff, is what moved the verdicts. If hardened probes
+  still show `ok`, the flip did not land; do NOT write that up as
+  success.
+- **The upstream caveat still applies:** the mlflow server's own
+  `--host` warning ("NOT a security setting") is why the hardened
+  posture is BIND + PROXY, not "rely on defaults". Loopback is the
+  transport boundary; the proxy's auth is the API boundary; both are
+  needed before the tracking API can be called production.
+
+## See also
+
+- [Stand up the MLflow lab target as declared](mlflow-lab-target.html)
+  — the lab-posture counterpart this recipe hardens
+- [Attack the platform, then verify](../attack-defence/attack-then-verify.html)
+  — the probe pair driving leg 3 of this flip
+- [Gate lab-mode and exp-classified tools](../admin/lab-mode-gating.html)
+  — how lab-mode and the posture interact administratively
+- The OS repo's mlflow service module source:
+  <https://github.com/kailash-os/kailash-os/blob/master/modules/services/mlflow-service.nix>
+
+---
+
+**Recipe provenance.** Module facts (`labReachable` default false +
+`0.0.0.0` posture when true, `host` null→loopback + the
+mutually-exclusive assertion, `openFirewall` default false, and the
+module shipping NO first-class auth option at the pin) read from the
+OS repo's mlflow service module (master, 2026-10-14); the probe pair
+shapes are the same instrument as
+`../attack-defence/attack-then-verify.html` (its verdict names and
+stage list, not its lab-posture results). Same-seed re-probe FAIL
+verdicts are the expected outcome of the flip, derived from the pair
+instrument, not claimed as a live transcript.
+ref: [OS mlflow service module at master](https://github.com/kailash-os/kailash-os/blob/master/modules/services/mlflow-service.nix) - verified 2026-10-14.
+Live hardened-posture re-probe smoke PENDING (wave-2 ops lane:
+the FAIL verdicts above are the pattern, not a recorded run).

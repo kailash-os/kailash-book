@@ -1,0 +1,148 @@
+---
+title: "Recipe: Adopt a single-tool bump without moving the whole lock"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tool | kailash (nvfetcher pin + manifest row) |
+| Section | Administrator |
+| Level | medium |
+| Time | ~40 min (mostly CI) |
+| Layer/Category | admin (packaging/lock) |
+| Tags | `admin`, `updates`, `nvfetcher`, `renovate`, `pin` |
+
+
+## Problem
+
+One tool upstream moved — say a scanner shipped a fix you need — and
+your lock, machine, and documentation are all pinned at the current
+verified state. You do NOT want the monthly nixpkgs refresh, and you do
+not want a full release adoption: you want one tool's source rev to
+move, deliberately, with the build proven before anything else moves —
+and with the documentation obligation (the version-lock contract) paid
+in the same change, or the book's own gate turns red.
+
+## Solution
+
+The whole move is one reviewed PR in the packages repo: pin → manifest →
+smoke gate → docs regeneration. Never edit `nvfetcher/_sources/` by
+hand — pins are contract, they change only with the manifest entry they
+belong to:
+
+```bash
+# 1. In a kailash-packages checkout (branch, never main):
+nvfetcher update garak          # or: nvfetcher update (scoped per config.toml)
+nvfetcher --output-directory nvfetcher/_sources gen
+git diff nvfetcher/_sources/    # <- the rev + SRI hash delta; REVIEW THIS
+#    expected: exactly one tool's generated source entry moves
+
+# 2. Bump the tool's manifest row facts that the rev changes
+#    (version/pin-date fields, staleness class if upstream's cadence
+#     changed) — the manifest row is the routing record; a rev change
+#     without its manifest entry is rejected by the wellformed gate
+$EDITOR manifest/tools.yaml
+
+# 3. Build + smoke the NEW rev before the PR exists
+nix build ./pkgs/<tool>       # or the packages flake ref for the tool
+
+# 4. Regenerate every manifest-derived view in the same change
+make gen        # module lists, menu, docs stubs, site sections
+
+# 5. Pay the version-lock contract: every page that names this tool's
+#    pinned version gets regenerated in THIS change (guide man-page with
+#    its `ref: [pin](url) - verified <date>` + this cookbook's recipe
+#    footer). A page whose recorded pin no longer matches the lock
+#    blocks merge — the red-regenerate rule; upstream interface drift is
+#    answered by regeneration, never by hand-editing a generated page.
+
+# 6. Open the bump PR (conventional commit, signed); the PR carries the
+#    build status; merge = green CI + one human approval (even for bot
+#    PRs — Renovate/nvfetcher automation proposes, a human approves)
+gh pr create --title "chore(<tool>): bump to <rev>"
+
+# 7. Adopt it on your host — scoped input update, then the rebuild dance
+#    from [Ride a release without breaking pinned tooling](updates.html):
+nix flake lock --update-input kailash-packages   # after the packages tag lands
+sudo nixos-rebuild switch
+```
+
+Expected output shape (abridged):
+
+```
+$ git diff nvfetcher/_sources/
+--- a/nvfetcher/_sources/garak.json
++++ b/nvfetcher/_sources/garak.json
+-  "rev": "<old-rev>",
++  "rev": "<new-rev>",
+-  "hash": "sha256-<old>",
++  "hash": "sha256-<new>",
+nix build ./pkgs/garak    ->  /nix/store/<hash>-garak-<newver>
+manifest validate: <green>
+CI: build-packages[garak] green · smoke ok
+```
+
+What success looks like:
+
+- the `_sources` diff touches exactly one tool; the manifest delta and
+  the regen delta are the same PR
+- the new rev's build + smoke passed BEFORE the PR went up (a cadence
+  check becomes a PR only when the new rev passes its smoke check)
+- every page carrying the tool's pin carries the NEW pin — no merge with
+  a stale recorded version
+- your host rebuilt against the bumped lock shows the new version
+
+## Discussion
+
+- **Why the whole flow is one PR and not three:** the lockfile is the
+  version, and a single-tool bump is exactly one lock-delta line —
+  which means the review surface (diff-closures on your host after the
+  packages tag) shows only that tool. Anything wider snuck into a
+  "single bump" is the thing this recipe refuses. The monthly nixpkgs
+  refresh (first Monday, Renovate, PR-gated) is a different cadence and
+  different PR.
+- **Renovate vs nvfetcher, by row:** bespoke tools move via nvfetcher
+  (source pin per `config.toml`, `_sources` committed with SRI hashes);
+  nixpkgs-native rows ride the lock (Renovate refreshes nixpkgs at its
+  monthly cadence; "slow/locked" class = no dedicated cadence). Update
+  classes are recorded per tool in the manifest (`update:fast` /
+  `update:steady` / `update:slow`) — a fast-moving scanner checked
+  weekly, a steady tool fortnightly, everything else with nixpkgs.
+- **The smoke gate is the propose/PR boundary:** automation may dry-run
+  on cadence, but the PR only opens when the new rev builds and smokes
+  — so an approved merge is never the first test of a rev.
+- **The regen obligation is not paperwork, it is the contract:** the
+  guide's man pages carry the exact pinned version they were written
+  against; this book's recipes carry provenance footers naming their
+  pin and date. When a pin moves without regeneration, the recorded
+  version and the built version diverge — the gates are CI-enforced to
+  make that divergence unmergeable (the guide's gate; the book's gate
+  lane mirrors it). Update the page in the same change or mark it
+  stale explicitly.
+- **One-package-set-per-tool caveat:** heavy python tooling builds in
+  its own package set (garak's torch pins stay in garak's derivation),
+  so one tool's rev bump never recompiles the others' envs — the slow
+  path is paid once per tool, and the cache amortises it.
+
+## See also
+
+- [Ride a release without breaking pinned tooling](updates.html) —
+  the lock/whole-system move and the release ladder
+- [Refresh wordlists and data packs](data-packs.html) — the data-row
+  half of the same pin discipline
+- [Boot a verified release image](../getting-started/first-image.html)
+- The nvfetcher update loop (spec §4.4) + update-cadence tables
+  (spec §7.5):
+  <https://github.com/kailash-os/kailash-os/blob/master/docs/spec.md>
+- The version-lock contract (guide regeneration chapter):
+  <https://docs.kailash.tools/admin/guide-regeneration.html>
+- The manifest rows (single source of truth):
+  <https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml>
+- [Recipe directory](../directory.html)
+
+---
+
+ref: [nvfetcher update loop + cadence tables (spec §4.4/§7.5) + guide
+version-lock contract](https://github.com/kailash-os/kailash-os/blob/master/docs/spec.md) - verified 2026-10-14.
+worked single-tool bump on a live host: PENDING — the command shapes are
+the landed contract; the end-to-end run lands with the upkeep lane.

@@ -3,9 +3,15 @@ title: "Recipe: serve a local model for scanning"
 toc-title: Recipe
 ---
 
-**Tool:** ollama · **Section:** Ops · **Level:** medium · **Time:**
-~20 min + model download · **Layer/Category:** OPS / o-04 · **Tags:**
-ops, serving, target-endpoint, ollama
+| Field | Value |
+|---|---|
+| Tool | ollama |
+| Section | Ops |
+| Level | medium |
+| Time | ~20 min + model download |
+| Layer/Category | OPS / o-04 |
+| Tags | `ops`, `serving`, `target-endpoint`, `ollama` |
+
 
 ## Problem
 
@@ -70,7 +76,7 @@ What success looks like:
 - **The scan's target grammar:** garak consumes this endpoint with
   `--target_type ollama --target_name <model>` — see
   [Scan a self-hosted model for prompt-injection
-  resistance](../scanning/garak-llm01-prompt-injection.html).
+  resistance](../scanning/garak-full-baseline.html).
 - **vLLM variant:** same shape, different engine — `vllm serve`
   (manifest row native, safety `safe`, o-02); the high-throughput
   option when you need `--parallel_attempts` headroom.
@@ -78,7 +84,7 @@ What success looks like:
 ## See also
 
 - [Scan a self-hosted model for prompt-injection
-  resistance](../scanning/garak-llm01-prompt-injection.html) — the
+  resistance](../scanning/garak-full-baseline.html) — the
   consumer of this endpoint
 - Ollama upstream docs: <https://ollama.com/> · vLLM upstream docs:
   <https://docs.vllm.ai/>
@@ -86,13 +92,4 @@ What success looks like:
 
 ---
 
-**Recipe provenance.** Manifest facts (ollama native/safe/o-04
-primary + o-02 secondary, tiny-test-model documentation; vllm
-native/safe/o-02) are read from the packages manifest (verified
-2026-10-14 at main); the Ollama CLI surfaces (`pull`, `OLLAMA_HOST`,
-`/api/generate`, `stream:false`) are the upstream Ollama CLI/API
-contract at the pinned version, and endpoint/health examples follow
-upstream documented shapes rather than invented transcripts. A
-hands-on loop of this recipe against a real pin: PENDING — see the
-integration-garak-local integration test in the OS spec's test
-chapter for the CI-side equivalent.
+ref: [manifest row + Ollama CLI/API docs](https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml) - verified 2026-10-14.

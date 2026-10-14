@@ -29,20 +29,58 @@ book:
         - recipes/getting-started/first-image.qmd
         - recipes/getting-started/first-profile.qmd
         - recipes/getting-started/first-category.qmd
+        - recipes/getting-started/choose-your-profile.qmd
+        - recipes/getting-started/verify-your-download.qmd
+        - recipes/getting-started/first-scan-ollama.qmd
+        - recipes/getting-started/kailash-cli-manifest-inventory.qmd
+        - recipes/getting-started/first-report.qmd
     - part: "Scanning recipes"
       chapters:
-        - recipes/scanning/garak-llm01-prompt-injection.qmd
+        - recipes/scanning/garak-full-baseline.qmd
+        - recipes/scanning/promptfoo-llm-redteam.qmd
+        - recipes/scanning/pyrit-automation-pipeline.qmd
+        - recipes/scanning/inj3ct-llm-curated-injection.qmd
+        - recipes/scanning/counterfit-adversarial-cli.qmd
+        - recipes/scanning/llm-jailbreak-bench-standardized.qmd
     - part: "Attack–defence pairs"
       chapters:
         - recipes/attack-defence/attack-then-verify.qmd
+        - recipes/attack-defence/ollama-pwn-exposed-api.qmd
+        - recipes/attack-defence/vllm-pwn-openai-surface.qmd
+        - recipes/attack-defence/triton-pwn-http-inference.qmd
+        - recipes/attack-defence/torchserve-handler-deser.qmd
+        - recipes/attack-defence/shadow-ray-job-api.qmd
+        - recipes/attack-defence/vector-db-ripper-unauth-dump.qmd
+        - recipes/attack-defence/injection-detector-validation.qmd
     - part: "Ops"
       chapters:
         - recipes/ops/serve-a-model.qmd
+        - recipes/ops/serve-a-model-vllm.qmd
+        - recipes/ops/serve-a-model-llamacpp.qmd
+        - recipes/ops/mlflow-lab-target.qmd
+        - recipes/ops/mlflow-posture-flip.qmd
+        - recipes/ops/vector-store-quickstart.qmd
+        - recipes/ops/agent-stack-quickstart.qmd
+        - recipes/ops/headless-agent-quickstart.qmd
+        - recipes/ops/report-verification-loop.qmd
     - part: "Administrator"
       chapters:
         - recipes/admin/updates.qmd
+        - recipes/admin/update-single-tool.qmd
+        - recipes/admin/release-ladder-adopt.qmd
         - recipes/admin/lab-mode-gating.qmd
+        - recipes/admin/lab-mode-gate-inventory.qmd
         - recipes/admin/data-packs.qmd
+        - recipes/admin/data-pack-sdr-c07.qmd
+        - recipes/admin/sbom-artifact-verify.qmd
+        - recipes/admin/model-signing.qmd
+        - recipes/admin/standards-evidence.qmd
+        - recipes/admin/threat-model-worksheet.qmd
+        - recipes/admin/govern-vendor-review.qmd
+        - recipes/admin/incident-playbooks.qmd
+        - recipes/admin/supply-chain-scan-models.qmd
+        - recipes/admin/secrets-scan-repos.qmd
+        - recipes/admin/fairness-eval-baseline.qmd
     - part: "Indexes"
       chapters:
         - recipes/directory.qmd
@@ -52,3 +90,4 @@ format:
     theme: cosmo
     toc: true
     code-copy: true
+    css: docs/custom.css

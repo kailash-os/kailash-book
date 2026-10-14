@@ -3,10 +3,15 @@ title: "Recipe: refresh wordlists and data packs"
 toc-title: Recipe
 ---
 
-**Tool:** kailash (`kailash-data.*` packs) · **Section:**
-Administrator · **Level:** easy · **Time:** ~10 min ·
-**Layer/Category:** CLASSIC / c-05 (+ the C-7 SDR pack) · **Tags:**
-admin, data-packs, wordlists, opt-in
+| Field | Value |
+|---|---|
+| Tool | kailash (`kailash-data.*` packs) |
+| Section | Administrator |
+| Level | easy |
+| Time | ~10 min |
+| Layer/Category | CLASSIC / c-05 (+ C-7 SDR) |
+| Tags | `admin`, `data-packs`, `wordlists`, `opt-in` |
+
 
 ## Problem
 
@@ -82,11 +87,4 @@ status:  data pack installed, default-OFF pack opted in
 
 ---
 
-**Recipe provenance.** Data-pack facts (seclists riding
-`kailash-data.wordlists-mega` KA-29, pw-packs as rockyou.txt, C-7 SDR
-opt-in pack, default-OFF posture, licence caveats per row, packaging
-status `data`) are from the packages manifest rows + the guide's
-images/install chapters, verified 2026-10-14. The host-level pack
-PATH layout on a live system: PENDING — the delivery path is the
-pack derivation's own record; the worked verification lands with the
-upkeep lane's host checks.
+ref: [manifest data rows + guide images chapter](https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml) - verified 2026-10-14.

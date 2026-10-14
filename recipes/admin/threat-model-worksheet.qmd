@@ -1,0 +1,171 @@
+---
+title: "Recipe: Run an AI threat-model session with the D-5 pack"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tool | D-5 pack: maestro · stride-ai-worksheet · genai-threat-modelling-templates · atlas-visualiser |
+| Section | Administrator |
+| Level | medium |
+| Time | ~60 min (a real session) |
+| Layer/Category | DEFENCE / d-05-threat-modelling |
+| Tags | `threat-model`, `maestro`, `stride`, `atlas`, `agentic`, `d-05` |
+
+
+## Problem
+
+You are about to stand up (or audit) an agentic or LLM-backed system in
+the lab — an MCP server, a multi-agent pipeline, a model endpoint — and
+the honest first artefact of doing that safely is a threat model: what
+does this system trust, from whom, where are the boundaries, which ATLAS
+techniques map onto which component. Kali culture has a strong habit
+here ("do the model first"); the D-5 pack exists so the AI-side session
+starts from real worksheets instead of a blank page.
+
+## Solution
+
+One session, four instruments: MAESTRO's layer walk for agentic
+systems, STRIDE-for-AI for the trust-boundary elicitation, the GenAI
+templates for per-component worksheets, the ATLAS visualiser (and case
+studies) to keep the finding vocabulary real:
+
+```bash
+# 1. Confirm the pack rows (all D-5, all safe — pure content, no firing):
+kailash info maestro
+kailash info stride-ai-worksheet
+kailash info genai-threat-modelling-templates
+kailash info atlas-visualiser
+kailash info atlas-case-study-explorer
+
+# 2. Scope the session: pick your lab SURFACE and its boundary map
+#    (draw it, even on paper):
+#    e.g. the mlflow pairing lab: an O-1 tracking server + an A-7 probe
+#    surface + a client; boundaries = lab network edge, the tracking API,
+#    the artefact store, the operator shell.
+#             [your lab's system-under-model]  <- name it in writing
+
+# 3. MAESTRO walk — the framework key for AGENT/LLM systems; per layer
+#    (L1 foundation model, L2 data ops, L3 agent framework, L4 deploy
+#    infra, L5 eval/observability, L6 security/compliance, L7 agent
+#    ecosystem):
+maestro <session-start>            # the packaged CLI's elicitation entry
+#    (its manifest row: threat elicitation keyed to the OWASP MAESTRO
+#     framework; --help at your pin for the real verb list — the playbook
+#     itself is the upstream's 10-phase process with state files when
+#     used as a doc/agent workflow)
+
+# 4. STRIDE-for-AI, per trust boundary you named in step 2 — one row per
+#    crossing: S/T/R/I/D/E + who is on each side + the control that
+#    currently (claims to) hold it:
+#    the stride-ai-worksheet pack's sheets are the artefact; fill them
+#    with the ACTUAL lab facts (ports, hosts, auth posture) — the
+#    worksheets drive the session; the system stays the source of truth.
+
+# 5. Map findings to ATLAS — real technique IDs, real case studies:
+kailash info mlflow-bypass | grep -i atlas   # e.g. AML.T0049/T0050 class
+#    the atlas-visualiser renders tactic/technique coverage over the
+#    target-system map you drew; atlas-case-study-explorer points your
+#    workshop at REAL incidents (e.g. CS0023 ShadowRay class) — use
+#    them as the "does this boundary hold in the real world" prompts.
+
+# 6. Write the session out: the model IS the deliverable. Store it next
+#    to the system it describes (config comments, the lab's README) —
+#    versioned with the same declarative care as the system itself.
+```
+
+Expected output shape (abridged):
+
+```
+system-under-model: <lab surface + version/lock>
+boundaries:
+  <b1>: operator-shell -> tracking API  (auth: <posture>, port: 5000)
+  <b2>: tracking API -> artefact store  (auth: <posture>)
+layers (MAESTRO):
+  L1: <model/provider>      L3: <agent framework, MCP servers>
+  L4: <compute, net>        L6: <authn/z, secrets posture>
+threats:
+  <id> <boundary> <STRIDE letter> <atlas ref> <probes-to-run>
+```
+
+What success looks like:
+
+- every boundary in the model names BOTH sides and the current control
+- every threat row carries an ATLAS reference and at least one probe you
+  can actually run (which turns the model into a plan — the D-5 pack is
+  deliberately near the ATTACK-layer surface it informs)
+- the session artefact is committed (the model is versioned with its
+  system; a threat model without the system's version is orphaned)
+- case-study prompts are IN the artifact (real incidents named real
+  your-boundaries; not just framework letters)
+
+## Discussion
+
+- **Why MAESTRO for agentic systems and STRIDE-for-AI for boundaries:**
+  MAESTRO's seven layers (CSA lineage, OWASP MAS threat-modelling guide)
+  are the AGENT-system decomposition; STRIDE is the classic
+  trust-boundary elicitation adapted to AI surfaces (model-input as an
+  untrusted source at the boundary, RAG ingestion, MCP tool results).
+  A real session uses BOTH: MAESTRO for the layer walk, STRIDE sheet per
+  boundary the layer walk surfaced. The GenAI-templates pack carries the
+  per-component worksheets for the LLM-app specifics (system-prompt
+  handling, plugin/tool surfaces, retrieval paths).
+- **The session must touch a REAL system map.** D-5 content packs are
+  deliberately software-light (templates, small CLIs, visualiser) — the
+  tooling's job is to force specificity: name the port, name the
+  posture, name the ATLAS technique. A threat model produced with no
+  actual system under it is theatre; the pairing lab makes this recipe
+  honest (the mlflow/attack lab pair is the in-distro worked example).
+- **ATLAS case studies are the calibration surface:** MITRE ATLAS's
+  curated real-world set (per the ATLAS data releases; the
+  case-study-explorer row wraps them browsably) gives every abstract
+  threat a real precedent — a technique that has actually been
+  demonstrated against production AI systems (e.g. namespace-reuse
+  supply-chain attacks) outranks a purely theoretical entry.
+- **The threat model is a defence-INPUT, not a doc-only artefact:**
+  Kailash's own manifest carries `atlas_tactics` per ATTACK-layer tool
+  (the technique-to-tool join) and `owasp_llm` epoch maps — the outputs
+  of a session slot straight into
+  [Map a lab run to standards evidence](standards-evidence.html)
+  (D-7) and into red-team plans. Model → probes → evidence are one
+  pipeline; D-5 is its first stage.
+- **Keep MAESTRO's honesty rule:** upstream's security notices (verify
+  your clone's remote; forks may alter agent instructions) apply to any
+  AI-assisted session: an LLM-in-the-loop workshop is fine, but the
+  CONTENT of your model must come from YOUR system's facts, not from
+  the assistant's imagination — same rule as this book's
+  no-invented-evidence rule.
+- **Session output discipline:** the pack rows carry
+  `LicenseRef-Unknown` where upstream licences are pending
+  re-confirmation — before you redistribute a filled workbook or a
+  derived template outside your org, re-check the pack's licence note
+  in the manifest row (the same per-file content licence caveat that
+  all Kailash data rows carry).
+
+## See also
+
+- [Map a lab run to OWASP/NIST/ISO evidence with the
+  verifier](standards-evidence.html) — where session findings become
+  cited control statements
+- [Attack the platform, then verify](../attack-defence/attack-then-verify.html)
+  — the probe-pair discipline the session's planned probes plug into
+- [Rehearse an AI incident with the playbook packs](incident-playbooks.html)
+  — what happens when a modelled threat is actually observed
+- MAESTRO upstream (the 10-phase playbook + quickstart):
+  <https://github.com/agentic-threat-modeling/MAESTRO>
+- MITRE ATLAS (techniques + case studies): <https://atlas.mitre.org/studies>
+- The D-5 manifest rows (source of truth):
+  <https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml>
+- [Recipe directory](../directory.html)
+
+---
+
+ref: [D-5 manifest rows (genai-threat-modelling-templates,
+atlas-visualiser, stride-ai-worksheet, maestro,
+atlas-case-study-explorer — kailash-packages manifest) + MAESTRO
+upstream playbook/quickstart (7 layers, 10-phase process) + MITRE
+ATLAS case-study index](https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml) - verified 2026-10-14.
+maestro row = the OWASP-MAESTRO-keyed elicitation CLI (first-party
+bespoke) — its own verb list: PENDING at this pin; the upstream
+playbook's shapes are verified here. Worked D-5 session write-up:
+PENDING — lands with the upkeep lane.

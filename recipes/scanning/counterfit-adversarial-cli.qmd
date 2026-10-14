@@ -1,0 +1,175 @@
+---
+title: "Recipe: drive model attacks from the counterfit shell"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tool | [counterfit](https://docs.kailash.tools/reference/tools/counterfit.html) |
+| Section | Scanning |
+| Level | medium |
+| Time | ~20 min (sample-target loop) |
+| Layer/Category | ATTACK / a-05-model-extraction-inversion |
+| Tags | `scan`, `llm02`, `adversarial-ml`, `shell`, `counterfit` |
+
+## Problem
+
+The model-extraction/inversion lane (A-5) needs a way to drive
+adversarial-ML attacks — evasion, inversion, inference — against a
+model surface from one automation layer instead of hand-driving four
+frameworks. Counterfit is that layer: a shell-style CLI that wraps ART,
+TextAttack and augly attacks under one command surface. Its manifest
+row is a **pinned reference posture** (upstream dormant since
+2025-07) and `requires-target`.
+
+**Verify-first note:** upstream's shell is a *cmd2* REPL, not a
+classic `-i/-t/-a` one-shot flag CLI — the task's assumed
+`counterfit -i`, `-t target`, `-a attack` shape does not exist at this
+pin. The commands below are the verified in-shell surface instead.
+
+## Solution
+
+The packaged binary starts the interactive shell; everything else is a
+command inside it (all commands verified against the pinned
+`examples/terminal` source at rev `c00edbf5`):
+
+```bash
+# 1. Confirm the manifest row, then start the shell
+kailash info counterfit
+counterfit
+#    -> the ASCII banner + Version: 1.1.0, then the counterfit> prompt
+
+# 2. What's in the environment? (rich tables)
+list targets                # name, model type, data type, input shape,
+                            # #samples, endpoint (file path at this pin)
+list attacks                # attack catalogue w/ category + framework
+list frameworks             # art / textattack / augly counts
+
+# 3. Interact with a target, then pick an attack
+set_target <target>         # e.g. creditfraud  (tabular, closed-box)
+set_attack <attack>         # e.g. hop_skip_jump → "[+] success: Using <id>"
+
+# 4. Inspect & tune before spending queries
+show info                   # attack field table (name/type/category/tags)
+show options                # attack parameters + CFAttack options
+set_params --<param> <value>          # e.g. --max_iter 5 --max_eval 1250
+predict -i range(10)        # baseline labels for sample indices
+
+# 5. Run, then read the evidence
+run                         # progress bar → "[+] success: Attack completed <id>"
+show results                # success/elapsed/total-queries + per-sample rows
+save --results              # persist the active attack's summary (or
+                            # --parameters) into its results folder
+
+# 6. Bulk shape for the impatient
+scan -a <attack> [<attack>...]    # one or more attacks against the
+                                  # active target; flags: -i/--sample_index,
+                                  # -n/--num_iters, -s/--summary, -o/--optimize
+```
+
+Expected output shape (abridged):
+
+```
+counterfit> set_target <target>
+<target>
+<target>> set_attack <attack>
+[+] success:  Using <attack-id>
+<target>><AttackTitle>:<attack-id>> run
+<AttackTitle>: 100%|██████████████| 1/1 [00:<ss><...>]
+[+] success:  Attack completed <attack-id>
+<target>><AttackTitle>:<attack-id>> show results
+ Attack id | Target Name | Attack Name | Status   | Success
+ *<id>     | <target>    | <Attack>    | complete | {'default': True/False}
+```
+
+## Discussion
+
+- **Targets at this pin are sample packs, not HTTP endpoints:** the
+  bundled targets are closed-box classes loading local model files
+  (`creditfraud/creditfraud_sklearn_pipeline.pkl`, digit/satellite
+  `.h5` models, the movie-reviews torch model) through a
+  `load()`/`predict(x)` CFTarget interface. The threat model in
+  upstream's demos is API access to the model, implemented through
+  that predict interface — driving a *served* model means writing (or
+  `new`-wizarding) a small CFTarget whose `predict` calls your
+  endpoint; the upstream Python-API shape
+  (`counterfit.Counterfit.build_attack(target, attack_name)` /
+  `run_attack`) is the programmatic alternative. Pair the "which
+  endpoint" question with
+  [Serve a local model for scanning](../ops/serve-a-model.html).
+- **Attack compatibility is by data type:** each attack carries
+  `image, tabular, text` tags; HopSkipJump (evasion, closed-box, ART)
+  runs on image+tabular targets, not the text target — `list attacks`
+  shows the tags before you set them. Inversion-namespace attacks
+  (`copycat_cnn`, `knockoff_nets`,
+  `functionally_equivalent_extraction`) are the extraction lane's
+  headline attack class; the manifest row maps the tool to OWASP
+  **LLM02** (sensitive information disclosure, both Top-10 epochs) and
+  ATLAS **AML.T0024**.
+- **Reference posture, pinned frozen:** upstream is dormant (main tip
+  `c00edbf5`, 2025-07-18) and the derivation records that — no
+  freshness claim. Two packaging repairs ride the pinned build (both
+  documented in the derivation): the upstream console-script entry
+  point is broken at this pin (its setup.py points at
+  `examples.terminal.terminal:main` while excluding `examples` from
+  the package set — the packaged build repoints it, so `counterfit`
+  invokes the terminal upstream's docs describe), and the textattack/
+  augly frameworks degrade to "unavailable" exactly as upstream's own
+  scanner degrades optional frameworks when imports are missing (the
+  sample targets on ART still run).
+- **Results are folders, not just tables:** attack runs write into
+  `counterfit/targets/results/…` (per-run JSON summaries, generated
+  samples/predict images, logs) — `show results` renders the run
+  summary; the folder is what you archive into a report. This is the
+  A-5 evidence lane's counterpart to garak's JSONL.
+- **Safety class:** `requires-target` — the shell self-fires nothing
+  until you `set_target`/`set_attack`/`run` against a declared model.
+  Authorised-work-only framing applies as for every ATTACK row
+  (responsible-use statement, spec §9.1).
+- **Pair lane:** attack → verify reads well into the A-5 ↔ D-* side;
+  the pair-recipe lane owns those walkthroughs — start from
+  [Attack the platform, then verify](../attack-defence/attack-then-verify.html)
+  and the A-2 scanner recipes for the model-endpoint half.
+
+## See also
+
+- counterfit reference page (`counterfit(1)`):
+  <https://docs.kailash.tools/reference/tools/counterfit.html>
+- [Serve a local model for scanning](../ops/serve-a-model.html) — the
+  endpoint half of a lab pairing
+- [Scan a self-hosted model for prompt-injection
+  resistance](../scanning/garak-full-baseline.html) — LLM-side
+  scanning sibling
+- [Attack the platform, then verify](../attack-defence/attack-then-verify.html) —
+  the pair-recipe lane
+- Counterfit upstream wiki:
+  <https://github.com/Azure/counterfit/wiki>
+- Packaging record: [kailash-os#85](https://github.com/kailash-os/kailash-os/issues/85) —
+  counterfit pinned derivation + manifest entries
+- [Recipe directory](../directory.html)
+
+---
+
+**Recipe provenance.** Shell surface verified against the pinned
+upstream source `Azure/counterfit` at rev `c00edbf5` (pin 2025-07-18,
+reference posture): `examples/terminal/terminal.py`,
+`core/terminal.py` (prompt + `cmdloop`), `commands/__init__.py`
+(registered verbs `set_target`, `set_attack`, `list {targets,attacks,
+frameworks}`, `predict`, `run`, `scan`, `set_params`, `show
+{info,options,results,attacks}`, `save`, `docs_server`, `exit`),
+`commands/scan.py` (`scan` flags `-a -o -n -v -s -i`),
+`commands/use.py`, `commands/show.py` (`results|info|options|attacks`),
+and the banner in `core/config.py` (Version 1.1.0) — fetched raw at
+the pin, flag-by-flag, verified 2026-10-14. The `-i/-t/-a`
+**one-shot** invocation shape is NOT verified and is not quoted:
+upstream README + demos at this pin launch the REPL bare (`counterfit`),
+as do the shipped DEMO1/DEMO2 walkthroughs (their walkthrough flows —
+`set_target`/`set_attack`/`set_params`/`run`/`show results` and
+`[+] success:` verdict lines — are the documented upstream shape).
+Manifest facts (ATTACK/a-05; MIT; bespoke pinned reference;
+requires-target; AML.T0024; owasp_llm {2026: [LLM02], v2: [LLM02]})
+read from the packages manifest at main.
+Tool version at the pin: `1.1.0-unstable-2025-07-18`. Smoke status of
+the packaged binary: the derivation's import gate proves the surface;
+a hands-on sample-target run: PENDING (follow-up on
+[kailash-os#85](https://github.com/kailash-os/kailash-os/issues/85)).

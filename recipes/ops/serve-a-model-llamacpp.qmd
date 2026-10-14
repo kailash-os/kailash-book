@@ -1,0 +1,153 @@
+---
+title: "Recipe: serve a llama.cpp scan target"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tool | `llama-cpp` (llama-server) |
+| Section | Ops |
+| Level | medium |
+| Time | ~20 min + model download |
+| Layer/Category | OPS / o-04 |
+| Tags | `ops`, `serving`, `target-endpoint`, `llama.cpp`, `gguf` |
+
+## Problem
+
+You want a model target without a model-server runtime footprint — a
+single binary that loads a GGUF file and answers HTTP. llama.cpp's
+`llama-server` is that shape, and its GGUF/quant toolchain doubles as
+the place where a model artefact you have verified elsewhere gets
+packaged for serving. On a Kailash host the catalogue row is the
+llama.cpp package (native, safety `safe`, category o-04 with o-02 as
+secondary); you need the server's real invocation shapes and the pin
+honesty about the packaging alias.
+
+## Solution
+
+Serve a GGUF model on loopback, gate it with an API key, and prove
+health before the scanner touches it:
+
+```bash
+# 0. Packaging honesty (the pin fact, checked in the nix repl):
+#    the catalogue row is pkgs.llama-cpp (v0.6.0 at the packages
+#    pin). There is NO `pkgs.llama.cpp` dotted alias at this pin —
+#    that alias is guard-dropped, so never script against it.
+
+# 1. Serve a model from -hf by repo tag (quant default Q4_K_M),
+#    bound to loopback; the port default is 9931
+llama-server -hf ggml-org/gemma-3-4b-it-GGUF \
+      --host 127.0.0.1 --port 9931 -ngl 99 -c 8192
+
+# 2. Same shape, local GGUF file, with an API key on the routes
+llama-server -m ./model.gguf --host 127.0.0.1 --port 9931 \
+      --api-key <lab-key> -c 8192
+
+# 3. Prove health BEFORE scanning: /health is public (no key check;
+#    /v1/health also works), API routes are not
+curl http://127.0.0.1:9931/health
+curl -H 'Authorization: Bearer <lab-key>' \
+     -H 'Content-Type: application/json' \
+     -d '{"model":"<alias>","messages":[{"role":"user","content":"Reply OK."}]}' \
+     http://127.0.0.1:9931/v1/chat/completions
+```
+
+The quant flow — verify a model, convert it, quantise it:
+
+```bash
+# 4. Convert a verified HF checkpoint to GGUF
+python3 convert_hf_to_gguf.py <model-dir> --outfile model-f16.gguf
+
+# 5. Quantise it (the lab-favorite 4-bit shape)
+./build/bin/llama-quantize model-f16.gguf model-Q4_K_M.gguf Q4_K_M
+
+# 6. Optional imatrix flow for better low-bit quality (the
+#    tools/quantize/README.md path); GGUF-my-repo automates the
+#    whole conversion + quantise + upload pipeline
+```
+
+Expected output shape (abridged, shapes not transcripts):
+
+```
+# server banner
+main: server is listening on 127.0.0.1:9931(?)
+# health
+{"status":"ok"}
+# chat completion
+{"choices":[{"message":{"role":"assistant","content":"OK…"}}],…}
+```
+
+## Discussion
+
+- **The alias fact, stated once and honestly:** at the current
+  packages pin the live attribute is `pkgs.llama-cpp` (0.6.0); the
+  `pkgs.llama.cpp` dotted alias is guard-dropped. If a release bumps
+  the packager and an alias appears, re-read the row before scripting
+  against it — the pin is the contract.
+- **Default bind is already safe, but say it:** `--host` defaults to
+  `127.0.0.1` and `--port` to `9931`. Loopback is therefore the boot
+  posture by default — keep it: a model endpoint is an attack surface
+  you created. Upstream is explicit that the loopback default is
+  convenience, not a security setting; treat the port as a local
+  dev/scan socket, never as a perimeter control.
+- **`-c` is the context dial, not a free lunch:** scanners push long
+  prompts and multi-attempt conversations; a small `-c` keeps RAM
+  bounded on a lab box but truncates. Budget it against your probe
+  families.
+- **`-ngl` is the speed dial:** layer offload to GPU. `auto` (the
+  default) fills VRAM; `-ngl 99` is the lab idiom for "as many
+  layers as fit". On a CPU-only box skip it.
+- **`--api-key` / `--api-key-file`:** one or more bearer keys
+  (comma-separated keys, or one-per-line in a file with `#`
+  comment lines) gate the API routes; an unauthenticated request
+  returns 401. `/health` stays public by design so boot-wait health
+  polling (the pattern the pair recipes use) works without a key.
+- **The Anthropic-compatible route:** upstream documents an
+  Anthropic Messages-compatible chat route alongside the OpenAI
+  API surface — useful when a client stack already speaks that
+  shape; the scanner families in this book speak OpenAI/anthropic
+  via their generator configs.
+- **Why the quant flow lives in an Ops recipe:** the conversion +
+  quantise loop is how a model you vetted
+  ([supply-chain-scan-models](../admin/supply-chain-scan-models.html))
+  becomes a servable artefact — and the servable artefact is what
+  your scan records should name.
+- **Roadmap flag — gguf-quantiser:** the manifest's `gguf-quantiser`
+  row is a bespoke, safety `safe` tool whose LICENSE is
+  `LicenseRef-Unknown`, and its manifest row records a *planned
+  wave-5 deliverable* — it is NOT landed tooling at this pin. Do not
+  script `gguf-quantiser` today; the manual
+  `convert_hf_to_gguf.py` + `llama-quantize` shapes above are the
+  working path.
+
+## See also
+
+- [Serve a high-throughput scan target with
+  vLLM](serve-a-model-vllm.html) — the GPU-engine sibling
+- [Serve a local model for scanning](serve-a-model.html) — the
+  Ollama sibling (the smallest zero-to-target loop)
+- [Serve a tiny local model and run your first LLM01 scan
+  end-to-end](../getting-started/first-scan-ollama.html) — the
+  scoped-scan consumer
+- garak scanner-side reference:
+  <https://docs.kailash.tools/reference/garak.html>
+- Upstream llama.cpp server + quantize READMEs:
+  <https://github.com/ggml-org/llama.cpp> (`tools/server/README.md`,
+  `tools/quantize/README.md`)
+
+---
+
+**Recipe provenance.** Manifest row: llama.cpp — packaging native,
+safety `safe`, category o-04 with o-02 secondary (packages manifest,
+verified 2026-10-14). Packaging alias fact: at the pin the attr is
+`pkgs.llama-cpp` (0.6.0), guard-dropped as `llama.cpp` (re-checked
+at this write). Server surfaces (`-m/-c/-ngl/--api-key(-file)`,
+`--host`/`--port` defaults 127.0.0.1/9931, public `/health`,
+`/v1/chat/completions`, Anthropic-compatible route, `-hf
+repo[:quant]` default Q4_K_M) verified against upstream
+`tools/server/README.md` at main, 2026-10-14. Quant flow
+(`convert_hf_to_gguf.py`, `llama-quantize Q4_K_M`, imatrix,
+GGUF-my-repo) per `tools/quantize/README.md` + upstream READMEs.
+ref: [llama.cpp tools/server + tools/quantize READMEs](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md) - verified 2026-10-14.
+Hands-on smoke of the packaged llama-cpp row on a Kailash boot
+PENDING (wave-2 ops lane).

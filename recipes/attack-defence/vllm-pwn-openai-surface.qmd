@@ -1,0 +1,189 @@
+---
+title: "Recipe: pwn an exposed vLLM OpenAI surface, then close it"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tools | `vllm-pwn` (A-7, exp) ↔ `vllm` (O-2 lab target) + observability rows |
+| Section | Attack–defence pairs |
+| Level | medium |
+| Time | ~40 min (serve + key-on probe pair + posture flip) |
+| Layer/Category | ATTACK / A-7 + OPS / O-2 ↔ DEFENCE / d-02 (pending rows) |
+| Tags | `pair`, `platform`, `vllm`, `exp`, `owasp-llm02`, `owasp-llm10` |
+
+## Problem
+
+A vLLM server answers the OpenAI-compatible protocol — `/v1/models`,
+`/v1/completions`, `/v1/chat/completions` — on port 8000, and the
+operator's instinct is that `--api-key` secures it. Upstream documents
+otherwise: the key guards ONLY the `/v1`, `/v2`, `/inference`,
+`/cohere` path prefixes, while utility and control endpoints on the
+same server — `/metrics`, `/load`, `/invocations`, `/pause`,
+`/abort_requests`, `/update_weights` — authenticate NOTHING even when
+the key is set. A server you believe is keyed is still running an
+unauthenticated inference route (`/invocations`) plus its Prometheus
+telemetry to anyone on the segment, and vLLM's own security page says
+so in one line worth quoting verbatim: "Do not rely exclusively on
+`--api-key` for securing access to vLLM. Additional security measures
+are required for production deployments." The manifest maps the
+surface to OWASP LLM02 + LLM10 and the `vllm-pwn` row to ATLAS
+AML.T0049 + T0050. You want the key-on probe pair to split those two
+classes — guarded vs unauthenticated on the same port — then flip the
+posture and watch both close.
+
+## Solution
+
+Serve the lab target, set the key, and run BOTH classes of probe —
+the point of the pair is that they behave differently on one port:
+
+```bash
+# 1. BOOT THE LAB TARGET in the keyed-and-exposed posture:
+#      vllm serve <model> --api-key <sk-lab-key> --host 0.0.0.0
+#    (uvicorn's host default is 127.0.0.1 — an explicit broad bind is
+#     the deliberate lab act; run it in an isolated lab segment, and
+#     see [Gate lab-mode and exp-classified tools]
+#    (../admin/lab-mode-gating.html) for how exp A-7 rows reach a lab
+#     host — this recipe drives the shapes with curl, base system)
+#
+# 2. KEYED CLASS — /v1/* rejects the keyless request, honours it:
+curl -s -o /dev/null -w '%{http_code}\n' http://<target>:8000/v1/models
+#    -> 401  (Bearer key required on the /v1 prefix)
+curl -s -H 'Authorization: Bearer <sk-lab-key>' http://<target>:8000/v1/models
+#    -> {"object":"list","data":[{"id":"<model>", ...}]}
+curl -s -H 'Authorization: Bearer <sk-lab-key>' \
+     http://<target>:8000/v1/completions \
+     -d '{"model":"<model>","prompt":"Reply OK only.","max_tokens":4}'
+#    -> {"id":"cmpl-...","choices":[{"text":"OK", ...}]}
+
+# 3. UNGUARDED CLASS — SAME server, SAME port, key SET, no Bearer sent:
+curl -fsS http://<target>:8000/metrics | head
+#    -> Prometheus exposition (request latencies, token counts, queue) —
+#       no 401; vLLM's docs list /metrics among endpoints needing NO key
+curl -fsS http://<target>:8000/load
+#    -> server-load surfaces, no key required
+curl -s http://<target>:8000/tokens -o /dev/null; echo
+#    utility route class: the /v1 gate does not cover it (probe the
+#    shape you care about; /tokenize-class routes answer without 401)
+#    /invocations routes to the SAME inference functions as /v1 —
+#    unauthenticated inference on the same port, the strongest probe.
+#    Control verbs (/pause, /abort_requests, /update_weights) are
+#    unauthenticated per upstream's unprotected list — treat their
+#    shapes as read-only reconnaissance unless your lab authorises the
+#    state change; the PROBE evidence does not need them fired.
+```
+
+Then the verification leg — flip the posture, re-run BOTH classes:
+
+```bash
+# 4. THE FLIP: loopback bind (module posture) — the segment loses the
+#    whole port, guarded and unguarded alike; with it up, a firewall
+#    policy in front of vLLM is the load-bearing control, because the
+#    key never covered the unguarded class:
+sudo nixos-rebuild test     # lab configuration: loopback-only serve
+
+# 5. SAME probes, same box:
+curl -s -o /dev/null -w '%{http_code}\n' http://<target>:8000/metrics
+#    -> FAIL (refused) from the segment — /metrics no longer reachable
+curl -s -o /dev/null -w '%{http_code}\n' \
+     -H 'Authorization: Bearer <sk-lab-key>' http://<target>:8000/v1/models
+#    -> FAIL (refused) — the keyed class closed with it. Diff = evidence.
+```
+
+Expected output shape (abridged, shapes not transcripts):
+
+```
+sweep @ http://<target>:8000  posture: --api-key set, bind 0.0.0.0
+  /v1/models  (no key)     -> 401        # guard holds on /v1
+  /v1/models  (Bearer)     -> ok {"object":"list",...}
+  /v1/completions (Bearer) -> ok {"id":"cmpl-...",...}
+  /metrics    (no key)     -> 200 PROMETHEUS EXPOSITION  # unguarded
+  /load       (no key)     -> 200                        # unguarded
+  /invocations(no key)     -> inference without 401      # unguarded
+sweep again, posture: loopback-only
+  all probes -> FAIL (refused) — both classes closed to the segment
+```
+
+## Discussion
+
+- **Why plain curl and not a bespoke exploit script:** `vllm-pwn` is
+  an A-7 row, `safety.level: exp`, licence `LicenseRef-Unknown`, with
+  the upstream repository missing at the pin
+  ([kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23),
+  the missing-repository note the whole lane shares). The probe leg
+  runs the protocol directly; per the pair playbook the real tool
+  takes over when its derivation lands, installing only via the
+  double-key lab gate (walk:
+  [Gate lab-mode and exp-classified
+  tools](../admin/lab-mode-gating.html)).
+- **The verbatim caveat is the recipe's thesis.** vLLM's security
+  page states the key guards only the `/v1`, `/v2`, `/inference`,
+  `/cohere` path prefixes, and then: "Do not rely exclusively on
+  `--api-key` for securing access to vLLM. Additional security
+  measures are required for production deployments." Upstream's own
+  recommendation for anything others can reach is a reverse proxy (or
+  firewall) allowing only the routes you intend to expose. That is
+  why the defence leg is a network policy — the key was never the
+  whole answer for the unguarded class, and no vLLM flag makes it be.
+- **/metrics is the sleeper finding:** every scrape target you publish
+  is an unauthenticated read of token counts, latencies and error
+  rates — request-pattern inference about your tenants, no key ever
+  checked. Gate it at the proxy/firewall like the unguarded
+  inference route; scraping from an exporter that runs on the machine
+  itself keeps the port closed to the segment.
+- **Bind discipline is the second control:** uvicorn defaults to
+  127.0.0.1:8000; an explicit `--host 0.0.0.0` is a deliberate act
+  and a lab-segment one. The posture flip here is coarse on purpose —
+  it closes everything at once so the diff is unambiguous — but
+  production vLLM wants bind discipline PLUS a proxy allowlist on the
+  prefixes you intend to keep public.
+- **The observability defence leg is a pending row, stated honestly:**
+  Langfuse is the trace destination the manifest owns for LLM
+  request/answer telemetry — self-host via docker-compose, or emit
+  from the app: OTel endpoint `/api/public/otel`,
+  `OTEL_EXPORTER_OTLP_HEADERS` carrying `Basic <pk-lf-…>:<sk-lf-…>`,
+  plus the `x-langfuse-ingestion-version: 4` header, and per-request
+  cost/latency tracing lands next to the probe findings (the
+  kailash-langfuse module row is pending/unwired at the pin, PENDING
+  — the upstream export shape above is quoted as the design). Traces
+  give you the anomaly view the probes hand-verified: requests that
+  bypassed expectation, token counts that never reconcile.
+- **This is the transferable pattern:** lab target up → keyed +
+  keyless probes against one port → posture flip → same probes →
+  diff. Origin walk with the verdict instrument:
+  [Attack the platform, then verify](attack-then-verify.html).
+
+## See also
+
+- [Attack the platform, then verify](attack-then-verify.html) — the
+  mlflow pair; the verdict + record discipline this recipe follows
+- [Serve a local model for scanning](../ops/serve-a-model.html) —
+  the loopback-only posture of the same serving lane
+- [Gate lab-mode and exp-classified
+  tools](../admin/lab-mode-gating.html) — the exp gate the real tool
+  rides when its derivation lands
+- Upstream security page (the verbatim caveat + endpoint classes):
+  <https://docs.vllm.ai/en/stable/usage/security/>
+- Upstream missing-repository note:
+  [kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23)
+- [Recipe directory](../directory.html)
+
+---
+
+**Recipe provenance.** Manifest facts (A-7 `vllm-pwn` row exp +
+`LicenseRef-Unknown`, ATLAS AML.T0049 + T0050, OWASP LLM02 + LLM10
+both epochs; vllm O-2 row) are from the packages manifest rows + lane
+comments, verified 2026-10-14. Upstream surface checked at the
+security page at the pin: `--api-key` guarding only `/v1`,`/v2`,
+`/inference`,`/cohere` prefixes; `/metrics`,`/load`,`/invocations`,
+`/pause`,`/abort_requests`,`/update_weights` listed under endpoints
+requiring NO key; the "Do not rely exclusively on `--api-key` …"
+warning verbatim; port 8000; uvicorn host default 127.0.0.1 —
+verified 2026-10-14. Langfuse OTel endpoint/headers + docker-compose
+self-host: upstream docs at the pin. llm-firewall's kailash row is
+bespoke-pending: the policy-firewall defence leg is PENDING-kailash
+until its module lands — the posture-flip leg above (loopback bind)
+is the control you can exercised today.
+
+
+ref: [vLLM security page + packages manifest rows](https://docs.vllm.ai/en/stable/usage/security/) - verified 2026-10-14. Missing A-7 repo: [kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23).

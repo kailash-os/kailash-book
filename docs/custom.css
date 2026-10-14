@@ -1,0 +1,17 @@
+/* Kailash OS Cookbook — page spacing overrides */
+pre {
+  margin: 1.6em 0 1.6em 0;
+  padding: 1.1em 1.3em;
+  line-height: 1.6;
+  overflow-x: auto;
+}
+p {
+  margin-top: 0;
+  margin-bottom: 1.15em;
+}
+table {
+  margin: 1.4em 0;
+}
+#TOC .toc-number {
+  opacity: 0.65;
+}

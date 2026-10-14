@@ -1,0 +1,140 @@
+---
+title: "Recipe: boot the headless-agent image and operate it"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tool | kailash (headless-agent profile) |
+| Section | Ops |
+| Level | medium |
+| Time | ~30 min (+ image download) |
+| Layer/Category | OPS / o-07 |
+| Tags | `ops`, `headless-agent`, `grants`, `openssh`, `mcp-inspector`, `o-07` |
+
+## Problem
+
+The agent-operated box is its own profile: `headless-agent` ships
+base + CLI with no desktop, small enough that the qcow2 can grow at
+first boot, and a grants system (o-07) that decides what an agent
+process may do. You want the boot → first-login → grants → MCP
+tooling loop that turns the image into a working automation host.
+
+## Solution
+
+Build the image from the declared ref, boot it, then declare SSH and
+grants:
+
+```bash
+# 1. Build ref from the images table (or pull the release asset):
+nix build github:kailash-os/kailash-os/2026.01-alpha.1#kailash-images-qemu-headless-agent
+#    (name shape: kailash-<tag>-kailash-headless-agent.qcow2)
+
+# 2. Boot it in qemu with UEFI; disk is a GROWING qcow2 (≤1.5 GB
+#    budget is the boot-time floor — it grows at first boot)
+qemu-system-x86_64 -m 2048 -bios edk2-x86_64-code.fd \
+    -drive file=kailash-<tag>-kailash-headless-agent.qcow2,format=qcow2
+
+# 3. SSH is a DECLARED operator addition (not a default service):
+#    in configuration.nix:
+#      services.openssh.enable = true;
+#      services.openssh.settings.PermitRootLogin = "no";
+#      # + your hardening choices — the profile ships no SSH posture
+#      # by design; opening the daemon is yours to declare
+#    then: sudo nixos-rebuild switch
+```
+
+The grants system (o-07): every agent capability is a declared,
+time-bounded grant in `/etc/kailash/grants/grants.json`:
+
+```json
+{
+  "holder": "scan-runner",
+  "categories": ["o-04"],
+  "tools": ["ollama"],
+  "allowExp": false,
+  "allowServiceStart": false,
+  "readOnly": true,
+  "notBefore": "2026-10-14T00:00:00Z",
+  "notAfter": "2026-10-15T00:00:00Z"
+}
+```
+
+```bash
+# 4. Inspect the live grants store (deny-by-default, so absence=
+#    permission-withheld)
+cat /etc/kailash/grants/grants.json
+
+# 5. The one safe MCP surface: mcp-inspector (the o-07 row that is
+#    NOT exp-gated):
+npx @modelcontextprotocol/inspector   # upstream inspector flow
+```
+
+Expected output shape (abridged, shapes not transcripts):
+
+```
+# boots to a text console (no desktop); login prompt on tty1
+# grants store: JSON list of holders/categories/time windows
+# inspector: browser UI on localhost:<port>(?)
+```
+
+## Discussion
+
+- **The image budget is the boot-time floor:** the ≤1.5 GB disk
+  budget bounds the SHIPPED image; the qcow2 GROWS at first boot —
+  budget the host disk for the growth, not just the download.
+- **SSH is deliberately not default:** the profile ships no
+  `services.openssh` posture by design; a headless box you cannot
+  reach is the safe default. Opening the daemon is a *declared
+  operator addition* (in configuration.nix, reviewable, with your
+  hardening choices on top) — never assume a live port 22 on a
+  fresh headless-agent boot.
+- **Grants, in their own words:**
+  - deny-by-default: a capability is not present unless a holder
+    grants it;
+  - `notAfter` REQUIRED for any non-`readOnly` holder: standing
+    write/execute grants expire, by construction;
+  - the grant system NEVER bypasses the double-key lab-mode gate —
+    an exp tool is still exp-gated even for an agent holding a
+    grant.
+- **Gate wrap applies to grants too:** the o-07 exp MCP rows
+  (`kailash-mcp`, `kailash-container`, …) ride the SAME
+  `kailash.safety.extraTools` gate-wrap as any exp row: opening
+  them is a declared, double-key act, not a grant-holder act.
+- **mcp-inspector is the safe surfacing:** the one o-07 row that is
+  NOT exp-gated — upstream's own `npx
+  @modelcontextprotocol/inspector` flow — the honest default for an
+  agent host whose MCP needs are inspection, not capability
+  expansion.
+- **Responsible automation:** the grants store is your audit trail.
+  Prefer `readOnly` holders, time-window everything else, and keep
+  `allowExp` false unless a lab pair (like the attack-defence
+  recipes) needs it.
+
+## See also
+
+- [Boot a verified release image](../getting-started/first-image.html)
+  — the download/verification chain for the qcow2
+- [Choose between minimal, redteam-ai, full and
+  headless-agent](../getting-started/choose-your-profile.html) —
+  when this profile is the right one
+- [Gate lab-mode and exp-classified tools](../admin/lab-mode-gating.html)
+  — the gate grants never bypass
+- The OS spec's headless-agent + grants chapters:
+  <https://github.com/kailash-os/kailash-os/blob/master/docs/spec.md>
+- mcp-inspector upstream: <https://modelcontextprotocol.io/>
+
+---
+
+**Recipe provenance.** The profile facts (base+CLI only, hostname
+`kailash-headless-agent`, no desktop, qcow2 ≤1.5 GB growing at
+first boot, NO default openssh — a DECLARED operator addition,
+`pkgs.kailash` null-guard) and the grants contract (holders with
+`categories/tools/allowExp/allowServiceStart/readOnly/notBefore/
+notAfter`, `notAfter` required for non-read holders, deny-by-default,
+grants never bypass the double-key gate) are the OS repo's landed
+headless-agent profile + grants module, verified 2026-10-14. The
+mcp-inspector row is the one safe (non-exp) o-07 surface; exp MCP
+rows ride `kailash.safety.extraTools` gate-wrap.
+ref: [headless-agent profile + grants module at master](https://github.com/kailash-os/kailash-os/blob/master/docs/spec.md) - verified 2026-10-14.
+Live boot smoke PENDING (wave-2 ops lane).

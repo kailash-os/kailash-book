@@ -1,0 +1,126 @@
+---
+title: "Recipe: choose between minimal, redteam-ai, full and headless-agent"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tool | kailash (profiles, image matrix) |
+| Section | Getting started |
+| Level | easy |
+| Time | ~10 min (a read + one download decision) |
+| Layer/Category | CLASSIC (profile system) |
+| Tags | `getting-started`, `profile`, `images`, `decision` |
+
+## Problem
+
+You are about to download an image and the release names twelve
+targets — profiles × formats × architectures — and you want to pick
+once, correctly, by role: not too little tooling to work with, not
+gigabytes of lab weight you will never fire, and no desktop on a box
+that only an agent will ever touch. Choosing a profile IS choosing
+your image; make it a decision, not a guess.
+
+## Solution
+
+Match your role to the profile; the image-matrix table then names the
+exact artefact and its size budget:
+
+| Profile | Carries | Choose it when |
+|---|---|---|
+| `minimal` | the CORE substrate — kernel, base userland, hardening, safety defaults, desktop, CLI & menu engines; no tool categories enabled (categories are added declaratively later) | you are learning the system, building a hardened base, or you know exactly which categories you will enable |
+| `redteam-ai` | the AI red-team lab scope — ATTACK core plus its OPS/DEFENCE pairings | you are following the cookbook's scanning and pair recipes, or doing LLM red-team engagements |
+| `full` | the complete live catalogue ("kali-everything" lab scope) | you are running the live demonstrator, or want every category present to explore |
+| `headless-agent` | base + CLI only, no desktop; the qcow2 grows at first boot | you are standing up an automation host or an agent-operated box (O-7 grants apply) |
+
+The budget table (from the declared build matrix — every artefact's
+budget is enforced by construction):
+
+| Target (`nix build .#<ref>`) | Profile | System | Budget |
+|---|---|---|---|
+| `kailash-images-qemu-minimal` / `-iso-minimal` | minimal | x86_64 | ≤4 GB |
+| `kailash-images-qemu-redteam-ai` / `-iso-redteam-ai` | redteam-ai | x86_64 | ≤8 GB |
+| `kailash-images-qemu-full` / `-iso-full` | full | x86_64 | ≤10 GB |
+| `kailash-images-qemu-headless-agent` / `-iso-headless-agent` | headless-agent | x86_64 | ≤1.5 GB |
+| `kailash-images-…-aarch64-minimal` (qemu + iso) | minimal | aarch64 | ≤4 GB |
+| `kailash-images-…-aarch64-headless-agent` (qemu + iso) | headless-agent | aarch64 | ≤1.5 GB |
+
+Which profile for which cookbook section:
+
+| Cookbook section | Fits profile | Why |
+|---|---|---|
+| Scanning | `redteam-ai` | the a-02 scanner stack (garak…) rides the profile |
+| Attack–defence pairs | `redteam-ai` | the pair thesis needs the OPS target + ATTACK probe (pair recipes touching non-shipped postures read the module per release) |
+| Ops | `redteam-ai` or `full` | serving (o-04/o-02) ships with the lab scope |
+| Administrator | any — `minimal` is the honest start | admin recipes act on the base system, not a category |
+
+On the booted system, confirm the choice the release declares:
+
+```bash
+kailash profile list
+```
+
+Expected output shape (one row per profile, TAB-separated):
+
+```
+<name>	<layers-summary>	<description>
+```
+
+## Discussion
+
+- **The profile is baked into the image name:** a release asset reads
+  `kailash-<tag>-kailash-<profile>.<ext>` — you cannot pick a profile
+  at boot; you pick it at download (or pull the matching flake ref).
+  That is why this recipe is a download-time decision, not a
+  post-boot one.
+- **Categories beat profiles for precision:** between `redteam-ai`
+  and `full`, prefer the former unless you specifically want the
+  complete catalogue; anything narrower still comes as a declarative
+  category enablement + rebuild (see
+  [Enable your first category](first-category.html)) — the same
+  category modules the profiles are composed from.
+- **Data packs are never part of the choice:** wordlists, SDR and
+  other corpora ride opt-in `kailash-data.*` derivations and are
+  excluded from every default image by construction — no profile
+  carries them, and no profile choice can pull them in behind your
+  back (see
+  [Refresh wordlists and data packs](../admin/data-packs.html)).
+- **Safety posture is identical across profiles:** the double-key
+  lab-mode gate and the `requires-target` refusals are properties of
+  the manifest rows and the base safety module, not of the profile you
+  chose — `full` is not "more dangerous", only "more present".
+- **The aarch64 picture:** the arm slice is the arch strategy (x86
+  hosted builds, arm built locally on Apple Silicon);
+  `redteam-ai`/`full` aarch64 rows land with the KA-36 slice-2 sweep —
+  check the release's own artefact table before planning an arm lab.
+- **`headless-agent` grows:** the qcow2 budget is the boot-time floor;
+  the store grows as the agent enables categories and rebuilds. Budget
+  the host disk, not just the download.
+
+## See also
+
+- [Boot a verified release image](first-image.html) — the download +
+  verification walk for the image you just picked
+- [First profile and first run](first-profile.html) — the on-system
+  confirmation side of the same decision
+- [Enable your first category](first-category.html) — grow beyond the
+  image's default set
+- [Refresh wordlists and data packs](../admin/data-packs.html) — the
+  opt-in data lane no profile carries
+- Guide profiles chapter:
+  <https://docs.kailash.tools/admin/profiles.html>
+- The image matrix + budgets (canonical):
+  <https://github.com/kailash-os/kailash-os/blob/master/docs/guide/images.md>
+
+---
+
+**Recipe provenance.** The profile table (four profiles, one sentence
+each) is the guide's profiles chapter verbatim-in-meaning; the budget
+table is the declared `images/kailash-images-table.nix` matrix
+(budgets MB: 4096/8192/10240/1536; aarch64 rows per the KA-36 note) —
+both verified 2026-10-14. The `kailash profile list` row shape
+(≤name≤TAB≤layers≤TAB≤description≤) is the landed CLI contract
+(kailash-packages#52 + the KA-17.2 profiles.json stub at the packages
+repo main); a worked boot-and-list transcript: PENDING (upkeep lane) —
+the release notes' asset table is the per-release authority on which
+rows shipped.

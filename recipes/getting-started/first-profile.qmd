@@ -3,10 +3,15 @@ title: "Recipe: first profile and first run"
 toc-title: Recipe
 ---
 
-**Tool:** kailash (profiles, CLI) · **Section:** Getting started ·
-**Level:** easy · **Time:** ~15 min after boot · **Layer/Category:**
-CLASSIC (profile system) · **Tags:** getting-started, install,
-profile, cli
+| Field | Value |
+|---|---|
+| Tool | kailash (profiles, CLI) |
+| Section | Getting started |
+| Level | easy |
+| Time | ~15 min after boot |
+| Layer/Category | CLASSIC (profile system) |
+| Tags | `getting-started`, `install`, `profile`, `cli` |
+
 
 ## Problem
 
@@ -93,11 +98,4 @@ What success looks like:
 
 ---
 
-**Recipe provenance.** Profile table and declarative-enablement
-statements are from the guide's profiles chapter (verified
-2026-10-14 at main); CLI verbs are the landed slice per
-[kailash-packages#52](https://github.com/kailash-os/kailash-packages/pull/52)
-(list, search, info, profile list, manifest validate/check) verified
-against the CLI chapter of the
-[OS spec](https://github.com/kailash-os/kailash-os/blob/master/docs/spec.md)
-— roadmap verbs are labelled as such, not quoted.
+ref: [guide profiles chapter + CLI landed slice](https://docs.kailash.tools/admin/profiles.html) - verified 2026-10-14.

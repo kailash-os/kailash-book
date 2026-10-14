@@ -3,10 +3,15 @@ title: "Recipe: gate lab-mode and exp-classified tools"
 toc-title: Recipe
 ---
 
-**Tool:** kailash (safety classes, lab gate) · **Section:**
-Administrator · **Level:** medium · **Time:** ~20 min ·
-**Layer/Category:** admin (cross-layer) · **Tags:** admin, safety,
-lab-mode, exp
+| Field | Value |
+|---|---|
+| Tool | kailash (safety classes, lab gate) |
+| Section | Administrator |
+| Level | medium |
+| Time | ~20 min |
+| Layer/Category | admin (cross-layer) |
+| Tags | `admin`, `safety`, `lab-mode`, `exp` |
+
 
 ## Problem
 
@@ -95,12 +100,5 @@ What success looks like:
 
 ---
 
-**Recipe provenance.** The double-key mechanics (host option
-`kailash.labMode`, shell `KAILASH_LAB_MODE=1`, exit 126 wrappers,
-`wrapped-exp-tools.json`, refusal text citing responsible-use), the
-generator-parity contract and the manifest-routing statements are the
-landed gate contract per spec §9.2/§4.3 and the safety-exp-wrap
-validator, verified 2026-10-14 at master. behavioural transcript of
-each refusal/output: PENDING — the mechanism above is the verified
-contract; the worked host demonstration is the upkeep lane's
-obligation.
+ref: spec double-key gate (§9.2/§4.3 + tools/safety-exp-wrap.py) - verified 2026-10-14
+(source: [spec.md](https://github.com/kailash-os/kailash-os/blob/master/docs/spec.md)).

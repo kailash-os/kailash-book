@@ -3,10 +3,14 @@ title: "Recipe: boot a verified release image"
 toc-title: Recipe
 ---
 
-**Tool:** kailash (release images) · **Section:** Getting started ·
-**Level:** easy · **Time:** download 10–30 min · **Layer/Category:**
-CLASSIC (image matrix) · **Tags:** getting-started, install, images,
-verification
+| Field | Value |
+|---|---|
+| Tool | kailash (release images) |
+| Section | Getting started |
+| Level | easy |
+| Time | download 10–30 min |
+| Layer/Category | CLASSIC (image matrix) |
+| Tags | `getting-started`, `install`, `images`, `verification` |
 
 ## Problem
 
@@ -71,7 +75,7 @@ nix build github:kailash-os/kailash-os/2026.01-alpha.1#kailash-images-qemu-full
   profile table. Size budgets (≤1.5/4/8/10 GB by target) are enforced
   by construction; heavy corpora live in opt-in `kailash-data.*`
   packs, not in the default images — see
-  [Refresh wordlists and data packs](data-packs.html).
+  [Refresh wordlists and data packs](../admin/data-packs.html).
 - **Chunked assets are packaging, not fragility:** the 2 GiB legacy
   asset cap is answered with byte-exact split parts + per-part
   sheets on the same release; `cat` reproduces the original bits, and
@@ -97,8 +101,4 @@ nix build github:kailash-os/kailash-os/2026.01-alpha.1#kailash-images-qemu-full
 
 ---
 
-**Recipe provenance.** Download/verify surfaces (release naming, part
-splitting, `SHA256SUMS`, attestation chain, `nix build …#<ref>`,
-arm-builder command) are from the OS repo's images chapter,
-verified 2026-10-14 at master. Boot behaviour in a specific hypervisor
-is the operator's environment — not asserted here.
+ref: [OS images chapter](https://github.com/kailash-os/kailash-os/blob/master/docs/guide/images.md) - verified 2026-10-14.

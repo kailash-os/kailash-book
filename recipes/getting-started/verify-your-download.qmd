@@ -1,0 +1,156 @@
+---
+title: "Recipe: verify a release artefact end to end (checksums, attestations, tag)"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tools | sha256sum + gh attestation + git (release surfaces) |
+| Section | Getting started |
+| Level | medium |
+| Time | ~15 min per artefact (+ download time) |
+| Layer/Category | CLASSIC (release engineering) |
+| Tags | `getting-started`, `verification`, `supply-chain`, `slsa`, `spdx` |
+
+## Problem
+
+You downloaded an image — or you are about to — and "it booted" is not
+evidence that it is what the project built. The release ships a trust
+chain that is only as good as your willingness to run it: a checksum
+sheet as the identity authority, SLSA build provenance + an SPDX SBOM
+per artefact, and a GPG-signed release tag. This recipe is the deep
+dive on running that whole chain by hand — including the awkward case:
+an artefact above GitHub's per-file cap that arrives as split parts.
+
+## Solution
+
+The chain has four links. Run them in order; a failed link means the
+download does not get run.
+
+```bash
+# 0. Name the tag + artefact you are working with, from the release's
+#    own asset table (e.g. the first staged cut):
+#      tag      = 2026.01-alpha.1
+#      artefact = kailash-2026.01-alpha.1-kailash-iso-redteam-ai.iso
+#    Over-cap artefacts (every qcow2, iso-full) ship CHUNKED instead of
+#    attached: <name>.part-000 (each ≤1900 MiB) + SHA256SUMS-parts-<name>.
+
+# 1. LINK 1 — per-part digests (chunked artefacts only)
+sha256sum -c SHA256SUMS-parts-kailash-2026.01-alpha.1-kailash-qemu-full.qcow2
+
+# 2. Reassemble — byte-exact by construction, verify the ORDER-safety
+#    claim yourself (parts are named sequentially on purpose):
+cat kailash-2026.01-alpha.1-kailash-qemu-full.qcow2.part-* > \
+    kailash-2026.01-alpha.1-kailash-qemu-full.qcow2
+
+#    (tools/split-release-artefact.sh verify <artefact> <dir> drives
+#     this whole chunk stage as one command)
+
+# 3. LINK 2 — the whole-file identity check
+sha256sum -c SHA256SUMS
+
+# 4. LINK 3 — build provenance + SBOM, Sigstore over the repo's OIDC
+#    identity
+gh attestation verify kailash-2026.01-alpha.1-kailash-qemu-full.qcow2 \
+    -R kailash-os/kailash-os
+
+#    (SLSA v1.0 provenance + SPDX SBOM per artefact — KA-48)
+
+# 5. LINK 4 — the signed tag the artefacts were built from
+git clone --branch 2026.01-alpha.1 --depth 50 \
+      https://github.com/kailash-os/kailash-os.git
+git tag -v 2026.01-alpha.1
+```
+
+What success looks like:
+
+- the per-part sheet check reports `OK` for every `.part-*` line — a
+  truncated part fails loudly, before the (large) reassembly
+- `cat …part-* >` reproduces the file; the whole-file `sha256sum -c`
+  against `SHA256SUMS` — the release sheet, THE authority on artefact
+  identity — reports OK for your artefact's line
+- `gh attestation verify` PASSES and names the build provenance
+  predicate — the check is digest-bound to the ORIGINAL build's
+  records, so it stays valid after reassembly (the split is lossless
+  packaging; `cat` reproduces the attested subject's exact bytes)
+- `git tag -v` shows a good GPG signature (the release notes name the
+  signing key) on the tag whose lock bump the artefacts were built at
+
+Expected output shape (abridged, per link):
+
+```
+kailash-<…>.part-000: OK
+...
+<artefact>: OK                                       <- whole-file SHA256SUMS line
+Verified signature by a trusted GitHub artifact attestation service. <- (shape)
+Good "git" signature (GPG) for <key-id>               <- (shape)
+```
+
+## Discussion
+
+- **Why three digests, not one:** the per-part sheet authenticates each
+  chunk *in transit* (a corrupt part fails before you spend the disk),
+  the whole-file line in `SHA256SUMS` is the identity statement (what
+  the releaser built), and the attestation binds BOTH to the *build
+  event* (which workflow built it, under which repo identity) — the
+  SLSA/Sigstore layer answers a question checksums cannot: not "are
+  these bytes consistent" but "did the project's pipeline produce
+  them".
+- **The SBOM rides the same attestation:** every published artefact
+  carries an SPDX SBOM as a separate statement — a supply-chain audit
+  or an AI-BOM flow starts from it; keep the verified artefact and its
+  attestation together in your engagement records.
+- **Chunked ≠ suspicious:** the cap (2 147 483 648 bytes per upload)
+  is a GitHub endpoint limit, not a project hedge. The split tool's
+  contract is byte-exact reassembly, its self-test deliberately
+  crosses parts to prove reassembly ORDER, and the completeness gate
+  (`images-release-completeness` in the OS repo) fails CI if a matrix
+  row lacks its declared build surface — chunked publishing is how
+  every artefact still lives ON the release.
+- **The flake-pull alternative:** any artefact, any tag, can come from
+  the Cachix-held closure instead —
+  `nix build github:kailash-os/kailash-os/<tag>#<ref>` — for which the
+  nix fetch and the lock substitute verification; the SAME `SHA256SUMS`
+  line still pins whole-file identity after the build. The release
+  notes' artefact table states each artefact's surface.
+- **The tag is the frame:** every other link verifies an artefact, the
+  tag verifies the *release state* — the staged ladder (`-alpha.N` →
+  `-rc.N` → bare `YYYY.NN`) is visible in the tag name, and its lock
+  bump PR is the release review. If you intend to rebuild instead of
+  download (an equally valid path for a suspicious link), build
+  from this tag, not from a moving master.
+- **Where a mismatch lands:** a failing link is either transport
+  corruption (re-download; the sheets re-check in seconds) or a
+  genuinely wrong artefact (report it on the OS repo's tracker with
+  the release tag — the troubleshooting chapter's first move is
+  the same checksum you just ran).
+
+## See also
+
+- [Boot a verified release image](first-image.html) — the
+  getting-started version of the same chain (shorter, download-first)
+- [Choose between the profiles](choose-your-profile.html) — which
+  artefact to fetch at all
+- [Ride a release without breaking pinned tooling](../admin/updates.html) —
+  what happens to your system when the NEXT tag lands
+- The images chapter (canonical matrices + verify surfaces):
+  <https://github.com/kailash-os/kailash-os/blob/master/docs/guide/images.md>
+- The release-cut checklist (the release side of these gates):
+  <https://github.com/kailash-os/kailash-os/blob/master/docs/guide/release-checklist.md>
+- `gh attestation verify` usage (GitHub CLI docs):
+  <https://cli.github.com/manual/gh_attestation_verify>
+
+---
+
+**Recipe provenance.** Chain surfaces — `SHA256SUMS` + per-part
+`SHA256SUMS-parts-<name>` sheets, `.part-*` naming with ≤1900 MiB
+parts, the reassembly and identity-check order,
+`gh attestation verify <file> -R kailash-os/kailash-os`,
+`git tag -v`, SLSA v1.0 + SPDX per artefact, the
+`nix build github:…/<tag>#<ref>` alternative — are from the OS repo's
+images chapter + `tools/split-release-artefact.sh` (KA-33.4) + the
+release notes of `2026.01-alpha.1` (attestation evidence recorded on
+the cut issue), verified 2026-10-14 at master/the published release.
+Verbatim verify-output transcripts: PENDING — every rendered line
+above is a shape with placeholders, per the book's no-invented-evidence
+rule.

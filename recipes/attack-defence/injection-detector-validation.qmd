@@ -1,0 +1,203 @@
+---
+title: "Recipe: validate your injection detector against a real payload corpus"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tools | ATTACK: `llm-red-team-col` + `libertas-prompts` + `jailbreak-payloads` (A-2 data packs, `safe`) ↔ DEFENCE: `rebuff` (d-01, `safe`) + `prompt-injection-detector-bert` (d-02, `safe`) + `nemo-guardrails` (d-01, `safe`) |
+| Section | Attack–defence pairs |
+| Level | hard |
+| Time | ~45 min first loop, then per-corpus-refresh |
+| Layer/Category | ATTACK / a-02-prompt-injection-jailbreaks ↔ DEFENCE / d-01 + d-02 |
+| Tags | `pair`, `prompt-injection`, `jailbreaks`, `detector`, `owasp-llm01`, `data-packs` |
+
+## Problem
+
+You run an injection detector in front of a model — rebuff's
+multi-stage defence, a BERT-class classifier pack, a NeMo Guardrails
+config with input rails. None of those rows publish a false-negative
+count you can rely on, and a detector whose misses you have never
+measured is a rumour. Kailash ships both sides of the experiment as
+manifest rows: the A-2 payload packs (real-world attack corpora, data
+status, `safe` — they carry licence caveats, not safety gates) against
+the d-01/d-02 detector stack. The pairing thesis executed on the
+prompt-injection surface: corpus → detector → miss analysis → rule
+update, with the same-seed diff discipline keeping the numbers honest.
+
+## Solution
+
+The loop runs in four stations. Station names matter because every
+later diff cites them:
+
+```bash
+# 1. THE CORPUS (station 1): what the packs mount
+kailash list --category a-02-prompt-injection-jailbreaks
+kailash info libertas-prompts   # -> data pack, AGPL-3.0 repo licence,
+#                                  content use-restrictions beyond it
+#    llm-red-team-col: curated red-team prompt corpus with sources
+#    libertas-prompts: the L1B3RT-4S corpus, vendor-organized
+#    jailbreak-payloads: the same corpus packaged as the payload pack
+#    (data packs ride opt-in kailash-data.* derivations — never a
+#     default image; see [Refresh wordlists and data packs]
+#     (../admin/data-packs.html))
+
+# 2. THE DETECTOR (station 2): run the defence stack against the corpus
+#    2a. rebuff (python surface; Apache-2.0 upstream):
+#        rb = RebuffSdk(<openai_apikey>, <pinecone_apikey>,
+#                       <pinecone_index>, <openai_model>)
+#        result = rb.detect_injection(<payload_text>)
+#        -> result.injection_detected: bool
+#    2b. prompt-injection-detector-bert (planned first-party classifier
+#        pack — PENDING CLI; the loader contract follows the
+#        DeBERTa-class detector + gate-loader shape the manifest
+#        description names)
+#    2c. nemo-guardrails (config-driven; the input rail activation):
+#        rails:            # in your config.yml
+#          input:
+#            flows:
+#              - jailbreak detection heuristics
+#        (the heuristics are perplexity-based — see Discussion)
+
+# 3. MISS ANALYSIS (station 3): label the corpus against the detectors,
+#    then diff the misses — every payload the defence wave did NOT
+#    flag gets read as a sentence: what technique made it through?
+#    (mechanical pass: corpus row -> detector verdicts -> miss list;
+#     the miss list is the deliverable, not the rate alone)
+
+# 4. RULE UPDATE + SAME-SEED RE-RUN (station 4): tighten the detector
+#    (rules/thresholds/allow-lists), then re-run the ENTIRE corpus
+#    under the same seed/order — the diff between runs is the only
+#    admitted evidence that the update moved the surface
+#    (the walk-through of the same discipline on a platform target:
+#     [Attack the platform, then verify](attack-then-verify.html))
+```
+
+Expected output shape (abridged, shapes not transcripts):
+
+```
+corpus: <n> payloads (llm-red-team-col rows + L1B3RT-4S samples)
+detector verdicts (per payload):
+  {payload_id, source_pack, rebuff: detected|missed,
+   detector-bert: SAFE|INJECTION (planned pack — PENDING),
+   nemo: blocked|passed}
+miss list:
+  {payload_id, technique_class ("context-switch", "encoded",
+   "language-mix", ...), why_passed: <one-line analysis>}
+loop record (the diff): {seed, corpus_rev, detector_versions,
+  miss_rate_before: <float>, miss_rate_after: <float>,
+  fixed: [...], newly_missed: [...]}
+```
+
+## Discussion
+
+- **The attack side is data, and the licence caveats are part of the
+  row:** all three packs carry `packaging.status: data` and
+  `safety.level: safe` — the guide's safety-classes table means
+  self-contained, no live firing — because a corpus is analysis
+  material, not a launcher. What the rows DO carry is licence
+  posture: L1B3RT-4S rows cite AGPL-3.0 with per-source content
+  use-restrictions beyond the repo licence (the manifest comment
+  says so explicitly for this lane); llm-red-team-col is
+  first-party-curated with sources per prompt
+  (`LicenseRef-Unknown` until first-party licence grant). Redistribute
+  nothing until you have read what you would redistribute — the
+  data-packs recipe's licence discipline applies verbatim.
+- **The defence side is three kinds of detector, on purpose.**
+  rebuff: multi-stage defence — heuristics, an LLM check and a
+  vector-db similarity check — plus the canary-word leakage check
+  that turns a detector into a tripwire (its manifest tag carries
+  `prompt-injection`); note the SDK surface needs provider
+  credentials for its stages. prompt-injection-detector-bert: the
+  classifier row rides the DeBERTa-class public detector lineage
+  (SAFE/INJECTION label classes at the upstream reference;
+  kailash-os's loader pack is planned — PENDING with its row URL).
+  nemo-guardrails: the config-driven rail with documented jailbreak
+  heuristics — length-per-perplexity and prefix/suffix-perplexity
+  thresholds (defaults `89.79` / `1845.65`, config-validated at
+  create-time), activation via the `jailbreak detection heuristics`
+  input flow in `config.yml`. Layer mapping: rebuff +
+  nemo-guardrails sit in d-01-runtime-defence; the classifier rides
+  d-02-detection-monitoring-observability — the pair recipe cites
+  both categories because the surface is observed at two layers.
+- **Why same-seed diffs are the discipline:** a detector update that
+  fixes one payload often unfixed another (newly_missed is a first
+  class citizen of the diff, not a footnote). The A-2 packs refresh
+  on cadence (`libertas-prompts`/`jailbreak-payloads` carry
+  `update:steady`) — a corpus rev change invalidates every previous
+  miss-rate, so the loop record pins corpus_rev next to seed.
+  Without the seed+rev pin, "the detector improved" is unfalsifiable.
+- **Judge-model dependence, stated:** rebuff's LLM stage and
+  giskard-style judges consume provider keys — read from
+  `~/.config/kailash/keys/` per the OS secrets posture, never
+  committed, never in the store. A judge-driven verdict inherits the
+  judge's blind spots; that is miss-analyser material too.
+- **The pair completes itself:** the fixed detector graduates by
+  re-entering production — the d-01 rows are runtime gates, so the
+  improved threshold config IS the deliverable; the corpus becomes
+  the standing acceptance set that future detector bumps are diffed
+  against (the book's upkeep rule at pair granularity). When the
+  next wave's A-2 attack tools land (pyrit's automation pipelines,
+  inj3ct-llm's drive harness — both `requires-target`), this loop's
+  station 2 gains live-fire legs; the data-pack legs above are the
+  static half that never needs a target.
+- **Authorisation framing carries:** the corpus is real attack
+  material; running it against models or deployments you do not own
+  is the A-2 lane's authorised-engagement business, not a cookbook
+  exercise. Against your OWN detector stack in your own lab, this
+  recipe is the defender-validation case the responsible-use
+  statement names.
+
+## See also
+
+- [Attack the platform, then verify](attack-then-verify.html) —
+  the manifest's other pair recipe; the same-seed diff discipline's
+  origin walk
+- [Refresh wordlists and data packs](../admin/data-packs.html) —
+  the opt-in data-pack mechanism the payload packs ride
+- [Serve a local model for scanning](../ops/serve-a-model.html) —
+  standing the target endpoint up for live-fire legs
+- [Establish a fairness/robustness baseline for a deployed
+  model](../admin/fairness-eval-baseline.html) — the assurance
+  baseline the detector diffs feed
+- Guide safety classes chapter (data vs `requires-target` vs
+  `exp` postures): <https://docs.kailash.tools/governance/safety-classes.html>
+- Upstream surfaces: L1B3RT-4S corpus (AGPL-3.0)
+  <https://github.com/elder-plinius/L1B3RT4S> · rebuff
+  <https://github.com/protectai/rebuff> · NeMo Guardrails jailbreak
+  heuristics
+  <https://docs.nvidia.com/nemo/guardrails/configure-guardrails/guardrail-catalog/jailbreak-protection.html>
+  · the DeBERTa-class detector reference weights
+  <https://huggingface.co/protectai/deberta-v3-base-prompt-injection-v2>
+- Manifest row URLs for the planned first-party packs (CLI PENDING,
+  tracked at these rows):
+  <https://github.com/kailash-os/llm-red-team-col> ·
+  <https://github.com/kailash-os/libertas-prompts> ·
+  <https://github.com/kailash-os/jailbreak-payloads> ·
+  <https://github.com/kailash-os/prompt-injection-detector-bert>
+- The A-2 payload-pack manifest lane:
+  [kailash-os#76](https://github.com/kailash-os/kailash-os/issues/76)
+- [Recipe directory](../directory.html)
+
+---
+
+**Recipe provenance.** Manifest facts (three A-2 data-pack rows:
+`status: data`, `safe`, AGPL-3.0 rows keyed to elder-plinius/L1B3RT4S
+with content use-restrictions; llm-red-team-col first-party-curate
+ATLAS AML.T0065, L1B3RT-4S rows AML.T0054/T0068 + T0054, OWASP LLM01
+both epochs; d-01 rebuff + nemo-guardrails bespoke Apache-2.0, d-02
+prompt-injection-detector-bert planned, all safety `safe`; update
+cadence tags) are from the packages manifest rows + lane comments,
+verified 2026-10-14. Upstream surfaces checked at each pinned source:
+rebuff `RebuffSdk(...).detect_injection` / `add_canary_word` /
+`is_canaryword_leaked` (README at protectai/rebuff main),
+nemo-guardrails `jailbreak detection heuristics` flow + the two
+perplexity thresholds + validation rules (NVIDIA docs catalog at the
+current version), the detector-reference model's label classes
+`SAFE`/`INJECTION` (HF model card config.json), L1B3RT4S repo
+licence read at the pin (LICENSE: AGPL-3.0) — verified 2026-10-14.
+The loop's worked pass (labelled corpus → verdicts → miss list →
+same-seed diff): PENDING — operator-run by construction; the loop
+record schema above is the standing template.
+
+ref: [a-02/d-01/d-02 manifest rows + detector/corpus sources at the pins](https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml) - verified 2026-10-14.
