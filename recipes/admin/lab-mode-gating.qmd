@@ -1,0 +1,49 @@
+---
+title: "Recipe: gate lab-mode and exp-classified tools"
+toc-title: Recipe
+---
+
+# Gate lab-mode and exp-classified tools {#recipe-lab-mode-gating}
+
+**Tool:** kailash (lab-mode wrapper) · **Section:** Administrator ·
+**Level:** medium · **Time:** ~20 minutes · **Layer/Category:** admin ·
+**Tags:** admin, safety, lab-mode, exp
+
+## Problem
+
+Tools classified `exp` (or otherwise dual-use) sit behind the
+lab-mode wrapper: you want to demonstrate the gating works, prove the
+wrapper fires, and know how to legitimately enable the tools in a
+lab.
+
+## Solution
+
+<!-- PENDING: the lab-mode wrapper contract is proven via the OS
+repo's lab-mode wrapper verification; the recipe's worked verb
+sequence lands when verified against the current pin. -->
+
+Expected output shape:
+
+```
+lab-mode: DISABLED
+attempt:  blocked (tool is classified exp)
+lab-mode: ENABLED (lab session)
+attempt:  allowed
+```
+
+## Discussion
+
+Safety classes (safe / requires-target / exp) and the default-off
+posture are the build's safety story: the wrapper is the enforcement,
+and showing it firing is an admin routine, not an anecdote.
+
+## See also
+
+- Safety classes: [guide Part II](https://docs.kailash.tools/governance/safety-classes.html)
+- Responsible use in the OS repo's docs
+- [Recipe directory](../directory.html)
+
+---
+
+**Recipe provenance.** PENDING — will carry real command shapes,
+verified against the current released pin, before publication.

@@ -1,0 +1,48 @@
+---
+title: "Recipe: {{TITLE}}"
+toc-title: Recipe
+---
+
+# {{TITLE}} {#recipe-{{SLUG}} .recipe}
+
+**Tool:** `{{TOOL}}` · **Section:** {{SECTION}} · **Level:** {{LEVEL}} ·
+**Time:** {{TIME}} · **Layer/Category:** {{LAYER_CATEGORY}} ·
+**Tags:** {{TAGS}}
+
+## Problem
+
+{{PROBLEM_PARAGRAPH}}
+
+## Solution
+
+{{SOLUTION_WITH_REAL_COMMAND_SHAPES}}
+
+Expected output shape:
+
+```
+{{EXPECTED_OUTPUT_SHAPE_WITH_PLACEHOLDERS}}
+```
+
+## Discussion
+
+{{WHY_IT_WORKS_ALTERNATIVES_PITFALLS}}
+
+## See also
+
+- {{REFERENCE_PAGE_LINK}}
+- {{NEIGHBOUR_RECIPES}}
+- {{UPSTREAM_DOCS}}
+- {{PACKAGING_ISSUE_LINK}}
+
+---
+
+**Recipe provenance (template behaviour).** All commands in this
+recipe are real invocation shapes against the named tool version;
+expected output is shown as a shape with placeholders, never an
+invented transcript. Anything not yet worked against a real pin
+renders as an explicit `PENDING` marker — the same rule that governs
+the guide's man pages. This recipe was verified against **`{{TOOL_VERSION}}`**
+(pin source: `{{PIN_SOURCE}}`), verified {{VERIFIED_AT}}; smoke status:
+{{SMOKE_STATUS}}. If the pin of any named tool moves without this
+recipe being re-worked, the recipe is stale — update it in the same
+change (or mark it stale explicitly).

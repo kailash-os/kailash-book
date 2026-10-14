@@ -1,0 +1,19 @@
+---
+title: "Recipe directory"
+---
+
+# Recipe directory {#recipe-directory}
+
+One page indexing every recipe: theme section, level, tools used.
+Level counts regenerate from the recipe headers — the directory page
+is a build-time generated artifact, never hand-counted.
+
+## At a glance
+
+| Section | Recipes | Easy | Medium | Hard |
+|---|---|---|---|---|
+| Getting started | 2 | 2 | 0 | 0 |
+| Scanning | 1 | 1 | 0 | 0 |
+| Attack–defence pairs | 1 | 0 | 1 | 0 |
+| Ops | 1 | 0 | 1 | 0 |
+| Administrator | 3 | 0 | 1 | 0 |

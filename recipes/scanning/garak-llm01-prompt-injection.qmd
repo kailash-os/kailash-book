@@ -1,0 +1,115 @@
+---
+title: "Recipe: scan a self-hosted model for prompt-injection resistance"
+toc-title: Recipe
+---
+
+# Scan a self-hosted model for prompt-injection resistance {#recipe-garak-llm01}
+
+**Tool:** [garak](https://docs.kailash.tools/reference/garak.html) ·
+**Section:** Scanning · **Level:** easy · **Time:** minutes (scoped) to
+hours (full) · **Layer/Category:** ATTACK / A-2 · **Tags:** scan,
+llm01, prompt-injection, garak
+
+## Problem
+
+You run a model on your own infrastructure — a local Ollama server, a
+vLLM endpoint, a HF checkpoint on a lab box — and you need to know:
+*can it be jailbroken or prompt-injected?* You want a reproducible,
+reportable answer for the OWASP LLM01 class specifically, not a
+one-off chat-and-see impression, and you want the run cheap enough to
+repeat after every model or config change.
+
+## Solution
+
+Point garak at the model and scope the run to the LLM01-tagged probes:
+
+```bash
+# 1. (Kailash) tool is packaged under ATTACK/A-2 — confirm availability
+garak --version
+
+# 2. Scope it: list the probes you are about to pay for, before running
+garak --list_probes -v --spec tag:owasp:llm01
+
+# 3. Run the scoped scan against a local Ollama endpoint
+garak --target_type ollama --target_name llama3.2:latest \
+      --spec tag:owasp:llm01 -g 5 -s 42
+
+# 4. Read the result
+garak --report <run-report>.jsonl
+```
+
+What success looks like:
+
+- the run prints its banner (`garak … v…`), then
+  `📜 reporting to <file>` — that JSONL file is the deliverable
+- each probe prints a progress line and a final score per detector;
+  scores are per-probe pass/fail fractions
+- the JSONL report carries every attempt with a `status` field; the
+  hit log lists attempts that yielded a vulnerability
+- rerunning with the same `-s` seed reproduces the same
+  probe/target interaction set — diff two reports after a config
+  change to see what moved
+
+Expected output shape (abridged):
+
+```
+garak LLM safety & security scanning tool v<version> ( https://github.com/NVIDIA/garak ) at <ISO timestamp>
+📜 reporting to garak_<timestamp>.jsonl
+...
+🔍 probing <probe> (<n> generation(s))
+   <detector>  passed  <n>/<m>
+```
+
+## Discussion
+
+- **Why `--spec` and not the full run:** a default garak run is the
+  whole probe catalogue — minutes-to-hours per model and mostly noise
+  when the question is specifically injection/jailbreak resistance.
+  The unified spec grammar (`tag:owasp:llm01`) selects exactly the
+  probes tagged to that OWASP class. Drop the `--spec` for the full
+  baseline before an assessment is signed off.
+- **Why `-g 5`:** five generations per prompt keeps a scoped run quick
+  while giving detectors multiple samples. Raise `--generations` for
+  higher confidence on a gated model; raise `--parallel_attempts`
+  (e.g. 16) when targeting a hosted/local API that tolerates parallel
+  load — garak hints at this when the generator is parallel-capable.
+- **Why `-s 42`:** seeds make the scan a regression test. The workflow
+  this recipe enables is: scan → change something (system prompt,
+  guardrail config, model revision) → re-scan with the same seed →
+  diff the reports.
+- **The endpoint is the target, not the tool:** run the server on
+  `127.0.0.1` on a lab box, as you would for any attack-surface test.
+  garak drives the model hard with adversarial prompts by design —
+  that is its job — so never point it at a production endpoint you do
+  not own.
+- **Reports are the handoff:** convert with `--report` to AVID reports
+  for anything that must survive into a ticket or an assessment.
+- **Scope discipline:** this recipe covers LLM01 only.
+  Data-leakage/PII exposure is `tag:owasp:llm02`, hallucination
+  behaviour has its own families — add one tag per question you
+  actually have, and keep each run tied to one question.
+
+## See also
+
+- garak reference page (`garak(1)`) on the docs site:
+  <https://docs.kailash.tools/reference/garak.html>
+- Sister ATTACK A-2 tools in the Kailash catalogue (artifact,
+  counterfit, foolbox, …) for adversarial-ML testing beyond the prompt
+  surface — the [category directory](https://docs.kailash.tools/reference/directory.html)
+  lists them
+- [Serve a local model for scanning](serve-a-model.html) — the Ops
+  recipe that stands up the target endpoint itself
+- [Kailash OS #81](https://github.com/kailash-os/kailash-os/issues/81)
+  — garak packaging
+
+---
+
+**Recipe provenance.** Commands are real invocation shapes, not
+invented transcripts — expected outputs are shown as *shapes* with
+placeholders, per the no-invented-evidence rule. Content ported from
+the recipe-template acceptance sample on
+[kailash-website#31](https://github.com/kailash-os/kailash-website/issues/31#issuecomment-6122452780)
+(2026-10-12), aligned to the guide's garak page verified 2026-10-14
+against the guide's garak pin; smoke status of the packaged binary:
+recorded PENDING on [kailash-os#81](https://github.com/kailash-os/kailash-os/issues/81)
+(darwin lane box has no Linux build surface).

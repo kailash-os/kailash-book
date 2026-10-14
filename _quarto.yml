@@ -1,0 +1,53 @@
+project:
+  type: book
+  output-dir: _site
+
+book:
+  title: "Kailash OS Cookbook"
+  author: "Kailash OS Project"
+  description: >-
+    Task-oriented recipes for Kailash OS — attack, defence, ops and
+    administrator walkthroughs in the cookbook format: a problem, a
+    complete worked solution with real command shapes and expected
+    output, and a discussion of why it works. Companion to the user and
+    administrator guide at docs.kailash.tools.
+  site-url: https://book.kailash.tools
+  repo-url: https://github.com/kailash-os/kailash-book
+  repo-branch: main
+  repo-actions: [edit, issue]
+  open-graph: true
+  search: true
+  page-footer:
+    left: "Kailash OS Cookbook — BSD-3-Clause licensed."
+    right:
+      - icon: github
+        href: https://github.com/kailash-os
+  chapters:
+    - index.qmd
+    - part: "Getting started"
+      chapters:
+        - recipes/getting-started/first-profile.qmd
+        - recipes/getting-started/first-category.qmd
+    - part: "Scanning recipes"
+      chapters:
+        - recipes/scanning/garak-llm01-prompt-injection.qmd
+    - part: "Attack–defence pairs"
+      chapters:
+        - recipes/attack-defence/attack-then-verify.qmd
+    - part: "Ops"
+      chapters:
+        - recipes/ops/serve-a-model.qmd
+    - part: "Administrator"
+      chapters:
+        - recipes/admin/updates.qmd
+        - recipes/admin/lab-mode-gating.qmd
+        - recipes/admin/data-packs.qmd
+    - part: "Indexes"
+      chapters:
+        - recipes/directory.qmd
+
+format:
+  html:
+    theme: cosmo
+    toc: true
+    code-copy: true

@@ -1,0 +1,47 @@
+---
+title: "Recipe: enable your first category"
+toc-title: Recipe
+---
+
+# Enable your first category {#recipe-first-category}
+
+**Tool:** kailash (the distribution) · **Section:** Getting started ·
+**Level:** easy · **Time:** ~10 minutes · **Layer/Category:**
+CLASSIC · **Tags:** getting-started, taxonomy, category
+
+## Problem
+
+You have a profile applied; now you want to extend beyond the
+default tool set — say the ATTACK A-2 category for LLM
+prompt-injection work — while keeping the declarative build intact.
+
+## Solution
+
+<!-- PENDING: recipe not yet worked against the 2026.01 pin. The
+profile/category selection UI will be verified first (see the
+first-profile recipe and the guide's install chapter); this recipe
+lands its worked commands then — no invented flags before that. -->
+
+Expected output shape:
+
+```
+category: <id>
+tools enabled: <n>
+```
+
+## Discussion
+
+Categories are the taxonomy's working unit (four layers, 32
+categories). The declarative build means adding a category is a
+configuration act with a rebuild, not a package-manager side-effect.
+
+## See also
+
+- [First profile and first run](first-profile.html)
+- Taxonomy overview: [guide Part I](https://docs.kailash.tools/intro/taxonomy.html)
+- [Recipe directory](../directory.html)
+
+---
+
+**Recipe provenance.** PENDING — will carry real command shapes,
+verified against the current released pin, before publication.

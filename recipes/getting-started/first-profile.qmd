@@ -1,0 +1,84 @@
+---
+title: "Recipe: first profile and first run"
+toc-title: Recipe
+---
+
+# First profile and first run {#recipe-first-profile}
+
+**Tool:** kailash (the distribution) · **Section:** Getting started ·
+**Level:** easy · **Time:** ~15 minutes + install ·
+**Layer/Category:** CLASSIC · **Tags:** getting-started, install,
+profile
+
+## Problem
+
+Kailash OS is a NixOS-based distribution for AI security work, built
+declaratively from a manifest of 331+ tools across four layers. After
+an install, you need to know: which toolset is mine, how do I pick a
+profile that matches my role (redteam, blueteam, ops), and what does
+"the system works" look like before I plan my first real task?
+
+## Solution
+
+Select a profile and confirm the shape of the system:
+
+```bash
+# 1. What profiles exist
+kailash --help                     # real UI surface verified per release; see the guide's install chapter
+
+# 2. Pick your role profile and apply it
+kailash profile <select|set|switch|...> redteam
+
+# 3. Confirm what the profile provides
+kailash status                     # or the UI's status/list verb
+```
+
+What success looks like:
+
+- the selected profile is named in the UI output
+- the profile's tool set is listed (or countable) — redteam surfaces
+  the ATTACK tooling, blueteam the DEFENCE tooling, ops the OPS
+  layer
+- the base system boots clean into the profile; no manual shell
+  steps outside the documented UI
+
+Expected output shape (abridged):
+
+```
+profile: <name>
+tools: <n> enabled (CLASSIC <c> / ATTACK <a> / DEFENCE <d> / OPS <o>)
+```
+
+## Discussion
+
+- **Profiles are the role boundary:** a profile is a declarative
+  selection over the four-layer taxonomy (CLASSIC / ATTACK / DEFENCE
+  / OPS, 32 categories) — picking one is a statement about intent,
+  enforced by the build, not a suggestion.
+- **Safety classes gate runnable tooling:** tools marked
+  `requires-target` refuse to run bare, `exp` tools sit behind the
+  lab-mode wrapper — an easy profile with hard edges is the design,
+  not a defect.
+- **Grounded guidance only:** the UI verbs are verified against the
+  released UI at each release window; where a verb is not yet proven
+  on the current pin the guide's install chapter governs — this
+  recipe deliberately points there rather than inventing flags.
+- **Next step:** enable your first category on top of the profile —
+  see [First category](first-category.html).
+
+## See also
+
+- Install chapter — [Administrator guide:
+  install](https://docs.kailash.tools/admin/install.html) — the
+  grounded install walk
+- [First category](first-category.html) — the next getting-started
+  recipe
+- The lab thesis: [What is Kailash](https://docs.kailash.tools/intro/what-is-kailash.html)
+
+---
+
+**Recipe provenance.** Commands are real invocation shapes with
+placeholders where UI verbs are still being proven (guide install
+chapter governs); expected output is shown as a shape. Verified
+against the 2026.01 guide prose (2026-10-14); smoke status: PENDING —
+first worked run lands with the guide's first-run verification.

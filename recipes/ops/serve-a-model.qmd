@@ -1,0 +1,49 @@
+---
+title: "Recipe: serve a local model so attack-layer scanners can target it"
+toc-title: Recipe
+---
+
+# Serve a local model for scanning {#recipe-serve-a-model}
+
+**Tool:** ollama / vLLM (target endpoint) · **Section:** Ops ·
+**Level:** medium · **Time:** ~20 minutes + download ·
+**Layer/Category:** OPS · **Tags:** ops, serving, target-endpoint
+
+## Problem
+
+ATTACK-layer scanners (garak and friends) require-target: they need a
+model endpoint on your own infrastructure before any scan can run.
+
+## Solution
+
+<!-- PENDING: serving recipe is being worked — the exact serving
+stack verbs (ollama / vLLM), bind addresses and health checks land
+when verified on a real pin. The garak scan recipe already assumes
+this endpoint exists on 127.0.0.1. -->
+
+Expected output shape:
+
+```
+endpoint: http://127.0.0.1:<port>/<path>
+model:    <model id>
+health:   ok
+```
+
+## Discussion
+
+The target endpoint is the blast-radius boundary: keep it on a lab
+box, bound to loopback or a private interface, never exposed to
+networks you don't own.
+
+## See also
+
+- [Scan a self-hosted model for prompt-injection
+  resistance](../scanning/garak-llm01-prompt-injection.html) — the
+  consumer of this endpoint
+- OPS layer overview on the docs site
+- [Recipe directory](../directory.html)
+
+---
+
+**Recipe provenance.** PENDING — will carry real command shapes,
+verified against the current released pins, before publication.

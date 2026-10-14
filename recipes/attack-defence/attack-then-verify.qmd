@@ -1,0 +1,49 @@
+---
+title: "Recipe: attack tool, then verify with its defence counterpart"
+toc-title: Recipe
+---
+
+# Attack tool, then verify with its defence counterpart {#recipe-attack-then-verify}
+
+**Tool:** (pair TBD) · **Section:** Attack–defence pairs ·
+**Level:** medium · **Time:** TBD · **Layer/Category:** ATTACK +/-
+DEFENCE · **Tags:** pair, attack, defence
+
+## Problem
+
+An attack finding from an ATTACK-layer tool must be paired with a
+DEFENCE-layer verification: you exploit a weakness, then prove the
+detection or mitigation that catches it.
+
+## Solution
+
+<!-- PENDING: the first pair recipe is being worked — target pair,
+command shapes and expected output land when worked against real
+pins. Candidates: pyrit/counterfit attack surface vs a DETECTOR
+counterpart; garak find vs a matching DEFENCE validator. -->
+
+Expected output shape:
+
+```
+attack: <finding>          (from the ATTACK tool's report artefact)
+verify: <detection result> (from the DEFENCE tool's counterpart run)
+```
+
+## Discussion
+
+Pairing is the book's core idea: attack → matching detection /
+verification, per kailash-website#31. The pair selection follows the
+layer taxonomy (A-x paired with the D-category that observes the same
+surface).
+
+## See also
+
+- [Scan a self-hosted model for prompt-injection
+  resistance](../scanning/garak-llm01-prompt-injection.html)
+- Category directory on the docs site
+- [Recipe directory](../directory.html)
+
+---
+
+**Recipe provenance.** PENDING — will carry real command shapes,
+verified against the current released pins, before publication.

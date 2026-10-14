@@ -1,0 +1,51 @@
+---
+title: "Recipe: ride a release without breaking pinned tooling"
+toc-title: Recipe
+---
+
+# Ride a release without breaking pinned tooling {#recipe-updates}
+
+**Tool:** kailash (nixos-rebuild / flake update) · **Section:**
+Administrator · **Level:** medium · **Time:** ~30 minutes ·
+**Layer/Category:** admin · **Tags:** admin, updates, release
+
+## Problem
+
+Kailash updates ride the YYYY.NN release ladder (`2026.01` →
+`2026.02`, staged `-alpha.N`/`-rc.N` cuts, material re-cuts dotted
+like `2026.01.1`). Pulling a newer lock moves versions; you want the
+update without surprise breakage, with documentation that says what
+moved.
+
+## Solution
+
+<!-- PENDING: the exact rebuild/update verb sequence is being proven
+against the 2026.01 release tooling; the guide's updates chapter
+governs until this recipe is worked. Never invent flags. -->
+
+Expected output shape:
+
+```
+old lock: <rev>  ->  new lock: <rev>
+tools moved: <n> (guide pages regenerated for those tools)
+```
+
+## Discussion
+
+The no-surprise contract is the version-lock system: every tool's
+docs page carries the pin it was written against, and a moving pin is
+a red-regenerate event enforced by CI — the same contract binds this
+book's recipes.
+
+## See also
+
+- Guide updates chapter:
+  <https://docs.kailash.tools/admin/updates.html>
+- Release model: [guide Part II](https://docs.kailash.tools/governance/release-model.html)
+- [Recipe directory](../directory.html)
+
+---
+
+**Recipe provenance.** PENDING — will carry real command shapes,
+verified against the current released pin, before publication; release
+naming per the guide's releases page.
