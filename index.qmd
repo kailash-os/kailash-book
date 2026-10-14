@@ -1,5 +1,3 @@
-# Kailash OS Cookbook {#cookbook-home}
-
 This book is the task-oriented companion to the [Kailash OS
 guide](https://docs.kailash.tools). Where the guide explains what a
 tool **is** (man-style reference pages for the whole catalogue), the

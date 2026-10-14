@@ -3,45 +3,97 @@ title: "Recipe: enable your first category"
 toc-title: Recipe
 ---
 
-# Enable your first category {#recipe-first-category}
-
-**Tool:** kailash (the distribution) · **Section:** Getting started ·
-**Level:** easy · **Time:** ~10 minutes · **Layer/Category:**
-CLASSIC · **Tags:** getting-started, taxonomy, category
+**Tool:** kailash (category modules, declarative config) ·
+**Section:** Getting started · **Level:** easy · **Time:** ~10 min +
+a rebuild · **Layer/Category:** CLASSIC (+ any layer) · **Tags:**
+getting-started, taxonomy, category, nixos
 
 ## Problem
 
-You have a profile applied; now you want to extend beyond the
-default tool set — say the ATTACK A-2 category for LLM
+You have a booted Kailash system; you want to extend beyond your
+image's default tool set — say the ATTACK A-2 category for LLM
 prompt-injection work — while keeping the declarative build intact.
+There is no `apt install` on Kailash: enabling a category is a
+configuration change that a rebuild applies, so the result is
+reproducible and the change reviewable.
 
 ## Solution
 
-<!-- PENDING: recipe not yet worked against the 2026.01 pin. The
-profile/category selection UI will be verified first (see the
-first-profile recipe and the guide's install chapter); this recipe
-lands its worked commands then — no invented flags before that. -->
+Find the category id, enable it in the system configuration,
+rebuild, verify:
 
-Expected output shape:
+```bash
+# 1. Identify the category a tool belongs to
+kailash info garak            # -> category: a-02-prompt-injection-jailbreaks
 
+# 2. Add the enablement option to your system configuration
+#    (configuration.nix or your host module), layer-scoped per the
+#    category-module contract:
+#
+#    kailash.layers.attack.categories.a-02-prompt-injection-jailbreaks.enable = true;
+#
+#    (a `kailash enable <category>` helper that emits this snippet is
+#     roadmap-stage — the landed CLI slice is list/search/info/
+#     profile list/manifest validate; until it lands, write the
+#     option path directly as above)
+
+# 3. Rebuild and switch
+sudo nixos-rebuild switch
+
+# 4. Verify what the manifest declares for that category
+kailash list --category a-02-prompt-injection-jailbreaks
 ```
-category: <id>
-tools enabled: <n>
-```
+
+What success looks like:
+
+- the rebuild applies cleanly (the category module's package list
+  comes straight from the manifest — no hand-maintained package set)
+- `kailash list --category <cat-id>` returns the category's row
+  inventory, and those tools are on the system's PATH
+- rebuilding again without changes reproduces the same tool set
+  byte-for-byte (same lock)
 
 ## Discussion
 
-Categories are the taxonomy's working unit (four layers, 32
-categories). The declarative build means adding a category is a
-configuration act with a rebuild, not a package-manager side-effect.
+- **One category = one module:** every category is a single module
+  file that mounts its configuration from the manifest's package
+  list — enabling it is a declarative act over the four-layer,
+  32-category taxonomy (CLASSIC / ATTACK / DEFENCE / OPS), the same
+  surface the profiles are built from.
+- **Safety classes still govern:** enabling a category does not
+  flatten safety classes — `requires-target` tools (most of ATTACK)
+  refuse to fire without an explicit target, and `exp` rows
+  (e.g. mlflow-bypass in A-7) install only via gate wrappers and stay
+  double-keyed — see [Gate lab-mode and exp-classified
+  tools](../admin/lab-mode-gating.html).
+- **Data packs are NOT categories:** wordlists and corpus packs
+  (seclists, pw-packs, the C-7 SDR pack) ride opt-in `kailash-data.*`
+  derivations and are excluded from every default image by
+  construction — enabling a category never pulls a wordlist
+  surprise; see [Refresh wordlists and data
+  packs](../admin/data-packs.html).
+- **Choose your target scope deliberately:** a profile statement
+  (via image choice) plus enabled categories is how you express
+  intent on Kailash; the build (flake lock) makes that intent exact.
 
 ## See also
 
 - [First profile and first run](first-profile.html)
-- Taxonomy overview: [guide Part I](https://docs.kailash.tools/intro/taxonomy.html)
-- [Recipe directory](../directory.html)
+- [Boot a verified release image](first-image.html)
+- Taxonomy overview and the category-module contract:
+  [guide Part I](https://docs.kailash.tools/intro/taxonomy.html) ·
+  [the OS spec](https://github.com/kailash-os/kailash-os/blob/master/docs/spec.md)
+- [Refresh wordlists and data packs](../admin/data-packs.html) — the
+  deliberate opt-in path for corpora
 
 ---
 
-**Recipe provenance.** PENDING — will carry real command shapes,
-verified against the current released pin, before publication.
+**Recipe provenance.** The option-path shape
+(`kailash.layers.<layer>.categories.<cat>.enable`) is the landed
+category-module contract, verified from the OS spec's module
+listing (2026-10-14 at master); `nixos-rebuild switch` is standard
+NixOS practice for applying a declarative system configuration.
+The `kailash enable` helper is roadmap-stage — flagged inline, not
+quoted as landed. Smoke evidence of this recipe on a live boot:
+PENDING — tracked by the book's upkeep lane; the underlying
+category-VM tests boot-and-smoke per category in the OS repo's CI.

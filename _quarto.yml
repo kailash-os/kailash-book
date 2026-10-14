@@ -26,6 +26,7 @@ book:
     - index.qmd
     - part: "Getting started"
       chapters:
+        - recipes/getting-started/first-image.qmd
         - recipes/getting-started/first-profile.qmd
         - recipes/getting-started/first-category.qmd
     - part: "Scanning recipes"

@@ -1,0 +1,104 @@
+---
+title: "Recipe: boot a verified release image"
+toc-title: Recipe
+---
+
+**Tool:** kailash (release images) · **Section:** Getting started ·
+**Level:** easy · **Time:** download 10–30 min · **Layer/Category:**
+CLASSIC (image matrix) · **Tags:** getting-started, install, images,
+verification
+
+## Problem
+
+You are starting from zero: you need a Kailash OS system to work in.
+The deliverables are bootable images in two formats per profile (a
+QEMU disk image — the primary shape — and a bootable ISO), published
+as release assets on a signed tag. You want a downloaded artefact
+you can state is exactly what the project built — checksums, build
+provenance and the signed tag all agreeing — before anything boots.
+
+## Solution
+
+Pick your target from the declared matrix, download from the tagged
+release, then run the three-step verification chain:
+
+```bash
+# 1. Download the artefact for your target from the tagged release
+#    (e.g. the first release, 2026.01-alpha.1):
+#      kailash-2026.01-alpha.1-kailash-qemu-full.qcow2
+#    Above-cap artefacts ship split: <…>.part-000 (each chunk ≤1900 MiB)
+#    plus a per-part sheet per chunk.
+
+# 2. If chunked, reassemble — then run the whole-file check (the identity check):
+sha256sum -c SHA256SUMS-parts-kailash-2026.01-alpha.1-kailash-qemu-full.qcow2
+cat kailash-2026.01-alpha.1-kailash-qemu-full.qcow2.part-* > \
+    kailash-2026.01-alpha.1-kailash-qemu-full.qcow2
+sha256sum -c SHA256SUMS
+
+# 3. Verify build provenance + the signed tag:
+gh attestation verify kailash-2026.01-alpha.1-kailash-qemu-full.qcow2 \
+    -R kailash-os/kailash-os
+git tag -v 2026.01-alpha.1
+```
+
+What success looks like:
+
+- the whole-file `sha256sum -c` against `SHA256SUMS` — the release
+  sheet is THE authority on artefact identity — reports OK for your
+  download
+- `gh attestation verify` confirms SLSA v1.0 build provenance (plus
+  the SPDX SBOM) built over the repo's OIDC identity, even after a
+  chunk reassembly — the `cat` step is byte-exact, so the attested
+  subject is preserved
+- `git tag -v` shows a good GPG signature on the release tag
+- the qcow2 boots in any UEFI-capable hypervisor (choose your own:
+  QEMU/KVM, virt-manager, UTM on Apple Silicon); the ISO boots the
+  same profile from optical/USB media
+
+Every artefact is alternatively buildable from the release closure:
+
+```bash
+nix build github:kailash-os/kailash-os/2026.01-alpha.1#kailash-images-qemu-full
+```
+
+## Discussion
+
+- **Which profile:** `minimal` boots the CORE substrate with no tool
+  categories, `redteam-ai` is the AI red-team lab scope, `full` is
+  the complete live catalogue, `headless-agent` is base + CLI with no
+  desktop. The image name encodes the profile — see
+  [First profile and first run](first-profile.html) for the
+  profile table. Size budgets (≤1.5/4/8/10 GB by target) are enforced
+  by construction; heavy corpora live in opt-in `kailash-data.*`
+  packs, not in the default images — see
+  [Refresh wordlists and data packs](data-packs.html).
+- **Chunked assets are packaging, not fragility:** the 2 GiB legacy
+  asset cap is answered with byte-exact split parts + per-part
+  sheets on the same release; `cat` reproduces the original bits, and
+  the attestation verifies the whole file after reassembly.
+- **Aarch64 rows exist:** x86_64 targets are hosted-built; the
+  aarch64 (Apple Silicon native) rows build via the project's
+  `tools/build-arm-images.sh` — see the images chapter for the
+  build-from-tag procedure.
+- **Trust chain summary:** signed tag → SLSA provenance + SBOM per
+  artefact → SHA256SUMS as the whole-file identity. A download that
+  fails any link of that chain does not get booted — re-download or
+  build from the tag yourself.
+
+## See also
+
+- [First profile and first run](first-profile.html) — choose the
+  profile that matches your role
+- The images chapter on the OS repo:
+  <https://github.com/kailash-os/kailash-os/blob/master/docs/guide/images.md>
+  — the full matrix, budget and build-surface record
+- Release notes for `2026.01-alpha.1`:
+  <https://github.com/kailash-os/kailash-os/releases/tag/2026.01-alpha.1>
+
+---
+
+**Recipe provenance.** Download/verify surfaces (release naming, part
+splitting, `SHA256SUMS`, attestation chain, `nix build …#<ref>`,
+arm-builder command) are from the OS repo's images chapter,
+verified 2026-10-14 at master. Boot behaviour in a specific hypervisor
+is the operator's environment — not asserted here.

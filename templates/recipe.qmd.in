@@ -1,9 +1,9 @@
 ---
 title: "Recipe: {{TITLE}}"
 toc-title: Recipe
+params:
+  slug: "{{SLUG}}"
 ---
-
-# {{TITLE}} {#recipe-{{SLUG}} .recipe}
 
 **Tool:** `{{TOOL}}` · **Section:** {{SECTION}} · **Level:** {{LEVEL}} ·
 **Time:** {{TIME}} · **Layer/Category:** {{LAYER_CATEGORY}} ·

@@ -3,8 +3,6 @@ title: "Recipe: scan a self-hosted model for prompt-injection resistance"
 toc-title: Recipe
 ---
 
-# Scan a self-hosted model for prompt-injection resistance {#recipe-garak-llm01}
-
 **Tool:** [garak](https://docs.kailash.tools/reference/garak.html) ·
 **Section:** Scanning · **Level:** easy · **Time:** minutes (scoped) to
 hours (full) · **Layer/Category:** ATTACK / A-2 · **Tags:** scan,

@@ -3,44 +3,90 @@ title: "Recipe: refresh wordlists and data packs"
 toc-title: Recipe
 ---
 
-# Refresh wordlists and data packs {#recipe-data-packs}
-
-**Tool:** kailash (manifest data rows) · **Section:** Administrator ·
-**Level:** easy · **Time:** ~10 minutes · **Layer/Category:** admin /
-CLASSIC c-07 · **Tags:** admin, data-packs, wordlists
+**Tool:** kailash (`kailash-data.*` packs) · **Section:**
+Administrator · **Level:** easy · **Time:** ~10 min ·
+**Layer/Category:** CLASSIC / c-05 (+ the C-7 SDR pack) · **Tags:**
+admin, data-packs, wordlists, opt-in
 
 ## Problem
 
-Part of the catalogue is data, not commands: wordlists and data-pack
-rows (the c-07 data-pack decision). You want to refresh them and know
-what versions landed.
+Part of the catalogue is data, not commands: wordlists, password
+packs and specialised corpora ride as DATA-pack manifest rows
+(seclists, pw-packs/rockyou.txt, the C-7 signal/SDR pack). They are
+excluded from every default image by construction and never ride a
+default profile — you opt in deliberately, and you can state exactly
+which revision of a corpus you installed and whether its content
+licences are established.
 
 ## Solution
 
-<!-- PENDING: the data-pack refresh verbs land when proven against
-the 2026.01 pin; the manifest's data rows describe the packs — the
-recipe works the refresh path then. -->
+Inspect the pack rows, add the opt-in derivation, rebuild, verify:
+
+```bash
+# 1. See the pack rows the manifest declares
+kailash info seclists        # status: data; rides kailash-data.wordlists-mega (KA-29)
+kailash info pw-packs        # rockyou.txt as the pw-packs DATA pack
+kailash list --status data
+
+# 2. Opt in via the pack's derivation in your host configuration, e.g.:
+#    environment.systemPackages = [ kailash-data.wordlists-mega ];
+#
+#    (packs are opt-in derivations, NOT a category enablement — they
+#     never ride a default profile)
+
+# 3. Rebuild and switch
+sudo nixos-rebuild switch
+
+# 4. Verify what landed and from which source revision
+ls /opt/seclists/ 2>/dev/null || nix build github:kailash-os/kailash-packages#seclists -o result && ls result/
+```
 
 Expected output shape:
 
 ```
-pack: <name>
-version: <rev>   (nvfetcher sources)
-rows refreshed: <n>
+pack:    seclists          (KA-29, pkgs/seclists)
+version: <nvfetcher rev>   (the lock/sources revision)
+status:  data pack installed, default-OFF pack opted in
 ```
 
 ## Discussion
 
-Data packs are manifest rows like any other tool row (single source of
-truth, six views, one truth) — a refresh is a lock/sources event, and
-the provenance rules apply to them exactly as to tools.
+- **Why data packs are special rows:** manifest rows may carry data
+  rather than command invocations — the treatment is the same
+  single-source-of-truth discipline (the pack row IS the routing
+  record), but the delivery is an opt-in derivation, because a
+  multi-gigabyte corpus has no business inside a ≤4 GB image budget.
+- **The licence caveat is part of the row:** the repository licence
+  (MIT for seclists) does NOT establish per-file corpus content
+  licences — the manifest rows say so explicitly. Check what you
+  redistribute before you redistribute it.
+- **Refresh is a sources/lock event, not a background updater:**
+  upstream pins are re-checked on cadence (update:slow for these
+  packs); a refresh lands as a reviewed PR — a system pinned to last
+  month's lock keeps rebuilding the same corpus until its operator
+  pulls a newer lock, the exact anti-churn posture of
+  [Ride a release without breaking pinned tooling](updates.html).
+- **The provenance rules apply to data exactly as to tools:** the
+  guide's man-page version-lock contract and this book's recipe
+  provenance footers exist so any pin movement is a visible,
+  reviewable event.
 
 ## See also
 
-- Data-pack decision in the guide's taxonomy chapter
+- Guide install chapter — the opt-in pack design:
+  <https://docs.kailash.tools/admin/install.html>
+- Data-pack treatment in the guide's coverage plan:
+  <https://docs.kailash.tools/reference/coverage.html>
+- [Ride a release without breaking pinned tooling](updates.html)
 - [Recipe directory](../directory.html)
 
 ---
 
-**Recipe provenance.** PENDING — will carry real command shapes,
-verified against the current pin, before publication.
+**Recipe provenance.** Data-pack facts (seclists riding
+`kailash-data.wordlists-mega` KA-29, pw-packs as rockyou.txt, C-7 SDR
+opt-in pack, default-OFF posture, licence caveats per row, packaging
+status `data`) are from the packages manifest rows + the guide's
+images/install chapters, verified 2026-10-14. The host-level pack
+PATH layout on a live system: PENDING — the delivery path is the
+pack derivation's own record; the worked verification lands with the
+upkeep lane's host checks.

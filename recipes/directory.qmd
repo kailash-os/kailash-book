@@ -2,18 +2,41 @@
 title: "Recipe directory"
 ---
 
-# Recipe directory {#recipe-directory}
-
 One page indexing every recipe: theme section, level, tools used.
-Level counts regenerate from the recipe headers — the directory page
-is a build-time generated artifact, never hand-counted.
+Level counts are hand-counted until the directory generator lands
+(the [directory + Top-10 views lane](https://github.com/kailash-os/kailash-book/issues/10)),
+then they regenerate from the recipe headers at build time and this
+page becomes a generated artifact — never hand-counted again.
 
 ## At a glance
 
 | Section | Recipes | Easy | Medium | Hard |
 |---|---|---|---|---|
-| Getting started | 2 | 2 | 0 | 0 |
+| Getting started | 3 | 3 | 0 | 0 |
 | Scanning | 1 | 1 | 0 | 0 |
-| Attack–defence pairs | 1 | 0 | 1 | 0 |
+| Attack–defence pairs | 1 | 0 | 0 | 1 |
 | Ops | 1 | 0 | 1 | 0 |
-| Administrator | 3 | 0 | 1 | 0 |
+| Administrator | 3 | 1 | 2 | 0 |
+
+## Recipes
+
+| Recipe | Section | Level | Tools |
+|---|---|---|---|
+| [Boot a verified release image](getting-started/first-image.html) | Getting started | easy | kailash images |
+| [First profile and first run](getting-started/first-profile.html) | Getting started | easy | kailash CLI |
+| [Enable your first category](getting-started/first-category.html) | Getting started | easy | kailash categories |
+| [Scan a self-hosted model for prompt-injection resistance](scanning/garak-llm01-prompt-injection.html) | Scanning | easy | garak |
+| [Attack the platform, then verify](attack-defence/attack-then-verify.html) | Attack–defence pairs | hard | mlflow-bypass + mlflow |
+| [Serve a local model for scanning](ops/serve-a-model.html) | Ops | medium | ollama |
+| [Refresh wordlists and data packs](admin/data-packs.html) | Administrator | easy | kailash-data packs |
+| [Ride a release without breaking pinned tooling](admin/updates.html) | Administrator | medium | flake update |
+| [Gate lab-mode and exp-classified tools](admin/lab-mode-gating.html) | Administrator | medium | lab-mode gate |
+
+## Top-10 collections (generated views, planned)
+
+Per the organisation ADR, Top-10 collections render as build-time
+generated index pages over recipe tags — recipes never move between
+sections. Planned sets: OWASP LLM Top-10 (the garak recipe already
+carries `llm01`; mappings per manifest row), OWASP ML Top-10, OWASP
+API Top-10. No collection page renders until its tagged recipes
+exist — never an empty view.

@@ -3,82 +3,101 @@ title: "Recipe: first profile and first run"
 toc-title: Recipe
 ---
 
-# First profile and first run {#recipe-first-profile}
-
-**Tool:** kailash (the distribution) · **Section:** Getting started ·
-**Level:** easy · **Time:** ~15 minutes + install ·
-**Layer/Category:** CLASSIC · **Tags:** getting-started, install,
-profile
+**Tool:** kailash (profiles, CLI) · **Section:** Getting started ·
+**Level:** easy · **Time:** ~15 min after boot · **Layer/Category:**
+CLASSIC (profile system) · **Tags:** getting-started, install,
+profile, cli
 
 ## Problem
 
 Kailash OS is a NixOS-based distribution for AI security work, built
-declaratively from a manifest of 331+ tools across four layers. After
-an install, you need to know: which toolset is mine, how do I pick a
-profile that matches my role (redteam, blueteam, ops), and what does
-"the system works" look like before I plan my first real task?
+declaratively from a manifest of 337 tools across four layers. A
+profile selects which tool categories a Kailash system carries — you
+want to pick the one that matches your role (red-team, blue-team,
+ops, agent infrastructure), know exactly how you choose it, and
+verify the system you booted actually is what you asked for.
 
 ## Solution
 
-Select a profile and confirm the shape of the system:
+The profile is encoded in the image you download — choosing a profile
+IS choosing your image. Match your role:
+
+| Profile | Carries |
+|---|---|
+| `minimal` | the CORE substrate — kernel, base userland, hardening, safety defaults, desktop, CLI & menu engines; no tool categories enabled |
+| `redteam-ai` | the AI red-team lab scope — ATTACK core plus its OPS/DEFENCE pairings |
+| `full` | the complete live catalogue ("kali-everything" lab scope) |
+| `headless-agent` | base + CLI only, no desktop; the qcow2 grows at first boot |
+
+On the booted system, confirm the landed CLI surfaces:
 
 ```bash
-# 1. What profiles exist
-kailash --help                     # real UI surface verified per release; see the guide's install chapter
+# 1. The profiles the release declares
+kailash profile list
 
-# 2. Pick your role profile and apply it
-kailash profile <select|set|switch|...> redteam
+# 2. What the manifest carries for your interest area
+#    (manifest inventory — every command reads the manifest)
+kailash list --layer ATTACK
+kailash search prompt-injection
 
-# 3. Confirm what the profile provides
-kailash status                     # or the UI's status/list verb
+# 3. One tool's full record: ATLAS tactics, OWASP mapping, docs pointer
+kailash info garak
+
+# 4. The manifest invariants, locally (the CI gate, runnable by hand)
+kailash manifest validate
 ```
 
 What success looks like:
 
-- the selected profile is named in the UI output
-- the profile's tool set is listed (or countable) — redteam surfaces
-  the ATTACK tooling, blueteam the DEFENCE tooling, ops the OPS
-  layer
-- the base system boots clean into the profile; no manual shell
-  steps outside the documented UI
-
-Expected output shape (abridged):
-
-```
-profile: <name>
-tools: <n> enabled (CLASSIC <c> / ATTACK <a> / DEFENCE <d> / OPS <o>)
-```
+- `kailash profile list` names the release's declared profiles
+- `kailash info garak` returns the full manifest record — layer
+  ATTACK, category a-02, safety `requires-target`, ATLAS tactics
+  (AML.T0051, AML.T0054), OWASP LLM01 both epochs, docs pointer
+- `kailash manifest validate` passes — the loader self-inventory is
+  green on your installation
 
 ## Discussion
 
-- **Profiles are the role boundary:** a profile is a declarative
-  selection over the four-layer taxonomy (CLASSIC / ATTACK / DEFENCE
-  / OPS, 32 categories) — picking one is a statement about intent,
-  enforced by the build, not a suggestion.
-- **Safety classes gate runnable tooling:** tools marked
-  `requires-target` refuse to run bare, `exp` tools sit behind the
-  lab-mode wrapper — an easy profile with hard edges is the design,
-  not a defect.
-- **Grounded guidance only:** the UI verbs are verified against the
-  released UI at each release window; where a verb is not yet proven
-  on the current pin the guide's install chapter governs — this
-  recipe deliberately points there rather than inventing flags.
-- **Next step:** enable your first category on top of the profile —
-  see [First category](first-category.html).
+- **Declarative, not imperative:** categories are enabled in the
+  system configuration and a rebuild is the install step; there is no
+  imperative package action that can drift the system away from its
+  declaration. Rebuilding against the same lock reproduces the same
+  tool set exactly — see
+  [Enable your first category](first-category.html).
+- **`kailash list` shows the manifest, not your boot state:** every
+  CLI command reads the manifest (the CLI derivation bakes the
+  manifest to a store path, so the CLI can never disagree with the
+  declared build). Listing what a profile carries is a build-time
+  fact: per-category VM tests boot a VM and `--help`-smoke the tool
+  list from the manifest — that is the verified instrument, not a
+  hand-run command surface. A `kailash doctor`-style per-tool
+  installed/version/smoke check is specified but lands per the
+  roadmap — track it on the OS repo's CLI lane, not here.
+- **Pick `redteam-ai` for the cookbook's attack lanes:** the
+  scanning and pair recipes assume ATTACK tooling present; pick
+  `headless-agent` for automation hosts without a desktop.
+- **Safety posture comes with the profile:** even on `full`, exp-class
+  tools stay behind the [lab-mode gate](../admin/lab-mode-gating.html)
+  and `requires-target` tools refuse to self-fire — the profile
+  states the tool set, the safety classes govern the run behaviour.
 
 ## See also
 
-- Install chapter — [Administrator guide:
-  install](https://docs.kailash.tools/admin/install.html) — the
-  grounded install walk
-- [First category](first-category.html) — the next getting-started
-  recipe
+- [Boot a verified release image](first-image.html) — where this
+  starts
+- [Enable your first category](first-category.html) — the next
+  getting-started recipe
+- Guide profiles chapter:
+  <https://docs.kailash.tools/admin/profiles.html>
 - The lab thesis: [What is Kailash](https://docs.kailash.tools/intro/what-is-kailash.html)
 
 ---
 
-**Recipe provenance.** Commands are real invocation shapes with
-placeholders where UI verbs are still being proven (guide install
-chapter governs); expected output is shown as a shape. Verified
-against the 2026.01 guide prose (2026-10-14); smoke status: PENDING —
-first worked run lands with the guide's first-run verification.
+**Recipe provenance.** Profile table and declarative-enablement
+statements are from the guide's profiles chapter (verified
+2026-10-14 at main); CLI verbs are the landed slice per
+[kailash-packages#52](https://github.com/kailash-os/kailash-packages/pull/52)
+(list, search, info, profile list, manifest validate/check) verified
+against the CLI chapter of the
+[OS spec](https://github.com/kailash-os/kailash-os/blob/master/docs/spec.md)
+— roadmap verbs are labelled as such, not quoted.

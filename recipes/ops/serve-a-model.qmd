@@ -1,49 +1,98 @@
 ---
-title: "Recipe: serve a local model so attack-layer scanners can target it"
+title: "Recipe: serve a local model for scanning"
 toc-title: Recipe
 ---
 
-# Serve a local model for scanning {#recipe-serve-a-model}
-
-**Tool:** ollama / vLLM (target endpoint) · **Section:** Ops ·
-**Level:** medium · **Time:** ~20 minutes + download ·
-**Layer/Category:** OPS · **Tags:** ops, serving, target-endpoint
+**Tool:** ollama · **Section:** Ops · **Level:** medium · **Time:**
+~20 min + model download · **Layer/Category:** OPS / o-04 · **Tags:**
+ops, serving, target-endpoint, ollama
 
 ## Problem
 
-ATTACK-layer scanners (garak and friends) require-target: they need a
-model endpoint on your own infrastructure before any scan can run.
+ATTACK-layer scanners are `requires-target`: they fire requests at a
+model endpoint but never self-serve a model. You need a target
+endpoint on your own infrastructure — a real model, answering on a
+port you control — before any scan can run. Ollama is the manifest's
+primary home for local LLM serving (category o-04, its documented
+tiny-test-model home), with vLLM as the high-throughput alternative
+in o-02.
 
 ## Solution
 
-<!-- PENDING: serving recipe is being worked — the exact serving
-stack verbs (ollama / vLLM), bind addresses and health checks land
-when verified on a real pin. The garak scan recipe already assumes
-this endpoint exists on 127.0.0.1. -->
+Serve a small model with Ollama, bound to loopback, and prove the
+endpoint is healthy before the scanner touches it:
 
-Expected output shape:
+```bash
+# 1. Install-side: ollama is manifest-native (status native, safety
+#    safe) — confirm the row from the manifest view
+kailash info ollama
 
+# 2. Pull a small model for lab use (keep it small: short scans,
+#    fast iterations)
+ollama pull smollm2:360m           # the documented tiny test model
+
+# 3. Serve it bound to loopback ONLY (the blast-radius boundary)
+OLLAMA_HOST=127.0.0.1:11434 ollama serve
+
+# 4. In another terminal: prove the endpoint is alive BEFORE scanning
+curl http://127.0.0.1:11434/                 # -> "Ollama is running"
+curl http://127.0.0.1:11434/api/generate \
+     -d '{"model":"smollm2:360m","prompt":"Reply with OK only.","stream":false}'
 ```
-endpoint: http://127.0.0.1:<port>/<path>
-model:    <model id>
-health:   ok
-```
+
+What success looks like:
+
+- the root endpoint answers `Ollama is running`
+- the generate call returns a JSON object with a `response` field
+  (your model's answer) — round-trip proven
+- the server socket is bound to `127.0.0.1`, not `0.0.0.0` (netstat /
+  lsof on port 11434 shows the loopback bind)
 
 ## Discussion
 
-The target endpoint is the blast-radius boundary: keep it on a lab
-box, bound to loopback or a private interface, never exposed to
-networks you don't own.
+- **Why Ollama first:** the manifest lists it as the primary local
+  serving home (native packaging, safety `safe`, category o-04 with
+  o-02 as secondary); vLLM (o-02) is the high-throughput engine for
+  parallel probe load — garak's parallel-hint path — but Ollama is
+  the smallest verified loop from zero to a target.
+- **Why loopback binding is non-negotiable:** a target endpoint is
+  an attack surface you are deliberately creating; a `0.0.0.0` bind
+  puts it on your network. Bind `127.0.0.1` on a lab box; anything
+  more open is a deliberate, documented decision — not a flag
+  accident.
+- **Why a small model:** scanners drive the target hard
+  (garak runs `--generations` per probe, repeated across probes); a
+  360M test model keeps the loop fast and the disk light while
+  exercising the full request path. Scale up when the recipe's
+  question demands it, not the default.
+- **Streaming off:** the `stream:false` generate call returns one
+  JSON object — simpler to assert in health checks than a stream.
+- **The scan's target grammar:** garak consumes this endpoint with
+  `--target_type ollama --target_name <model>` — see
+  [Scan a self-hosted model for prompt-injection
+  resistance](../scanning/garak-llm01-prompt-injection.html).
+- **vLLM variant:** same shape, different engine — `vllm serve`
+  (manifest row native, safety `safe`, o-02); the high-throughput
+  option when you need `--parallel_attempts` headroom.
 
 ## See also
 
 - [Scan a self-hosted model for prompt-injection
   resistance](../scanning/garak-llm01-prompt-injection.html) — the
   consumer of this endpoint
-- OPS layer overview on the docs site
+- Ollama upstream docs: <https://ollama.com/> · vLLM upstream docs:
+  <https://docs.vllm.ai/>
 - [Recipe directory](../directory.html)
 
 ---
 
-**Recipe provenance.** PENDING — will carry real command shapes,
-verified against the current released pins, before publication.
+**Recipe provenance.** Manifest facts (ollama native/safe/o-04
+primary + o-02 secondary, tiny-test-model documentation; vllm
+native/safe/o-02) are read from the packages manifest (verified
+2026-10-14 at main); the Ollama CLI surfaces (`pull`, `OLLAMA_HOST`,
+`/api/generate`, `stream:false`) are the upstream Ollama CLI/API
+contract at the pinned version, and endpoint/health examples follow
+upstream documented shapes rather than invented transcripts. A
+hands-on loop of this recipe against a real pin: PENDING — see the
+integration-garak-local integration test in the OS spec's test
+chapter for the CI-side equivalent.

@@ -3,49 +3,102 @@ title: "Recipe: ride a release without breaking pinned tooling"
 toc-title: Recipe
 ---
 
-# Ride a release without breaking pinned tooling {#recipe-updates}
-
-**Tool:** kailash (nixos-rebuild / flake update) · **Section:**
-Administrator · **Level:** medium · **Time:** ~30 minutes ·
-**Layer/Category:** admin · **Tags:** admin, updates, release
+**Tool:** kailash (flake update / nixos-rebuild) · **Section:**
+Administrator · **Level:** medium · **Time:** ~30 min ·
+**Layer/Category:** admin (whole-system) · **Tags:** admin, updates,
+release, reproducibility
 
 ## Problem
 
-Kailash updates ride the YYYY.NN release ladder (`2026.01` →
-`2026.02`, staged `-alpha.N`/`-rc.N` cuts, material re-cuts dotted
-like `2026.01.1`). Pulling a newer lock moves versions; you want the
-update without surprise breakage, with documentation that says what
-moved.
+A Kailash installation never updates anything in the background — no
+package re-links, no tool moves, no lock drift. The flip side: when
+you DO want the newer release, you want it deliberate — an update
+without surprise breakage, where you can name what moved before you
+switch, and where documentation keeps pace with the pins it
+describes.
 
 ## Solution
 
-<!-- PENDING: the exact rebuild/update verb sequence is being proven
-against the 2026.01 release tooling; the guide's updates chapter
-governs until this recipe is worked. Never invent flags. -->
+Pull the lock delta, review what moved, rebuild, verify — on your own
+cadence:
 
-Expected output shape:
+```bash
+# 1. Record where you are now
+nix flake metadata github:kailash-os/kailash-os/2026.01-alpha.1 | head -5
+nix profile list 2>/dev/null | head -5   # or your system's current generation
 
+# 2. Update your host's lock (the review point — nothing moves yet)
+nix flake update
+
+# 3. See exactly what the delta moves before building
+nix flake lock --update-input kailash-packages   # scoped, or the full bump
+nix --profile diff-closures /run/current-system \
+    "$(nix build --no-link --print-out-paths .#nixosConfigurations.<host>.config.system.build.toplevel)"
+
+# 4. Rebuild and switch
+sudo nixos-rebuild switch
+
+# 5. Verify the declared build state
+kailash manifest validate
 ```
-old lock: <rev>  ->  new lock: <rev>
-tools moved: <n> (guide pages regenerated for those tools)
-```
+
+What success looks like:
+
+- the diff-closures step names the versions that moved
+  (up/down/changed) BEFORE anything is switched — no surprise in the
+  apply step
+- `nixos-rebuild switch` completes; the boot entry for the previous
+  generation remains (rollback is a reboot away)
+- `kailash manifest validate` is green after the switch
+- the release naming holds: `2026.01` → staged `2026.02-alpha.1` →
+  `2026.02` GA; a material same-month re-cut is dotted `2026.01.1` —
+  a staged cut carries the suffix honestly (`git tag -v` shows it),
+  and the bare name stays reserved for GA
 
 ## Discussion
 
-The no-surprise contract is the version-lock system: every tool's
-docs page carries the pin it was written against, and a moving pin is
-a red-regenerate event enforced by CI — the same contract binds this
-book's recipes.
+- **The lockfile is the version:** rolling changes merge on main
+  between releases, but a system pinned to last month's lock keeps
+  rebuilding it reproducibly until its operator deliberately pulls a
+  newer one. A build against the same lock reproduces the identical
+  tool set — that is why "the version" is a fact, not an
+  impression.
+- **Two ways to move forward:** rebuild against a newer lock at your
+  own cadence, or adopt a released lock bump as-is. Either way the
+  move is a review, not a countdown.
+- **Documentation rides the pin:** every guide man-page carries the
+  exact pinned version it was written against, and every recipe here
+  carries a provenance footer. A moving pin without a regeneration is
+  a red-regenerate event enforced by CI (the guide's gate; the
+  book's gate lane mirrors it) — the docs never silently disagree
+  with the system.
+- **Fast-moving tools:** pins are re-checked on class-based cadences
+  (weekly fast-moving, fortnightly steady, nixpkgs monthly) — but a
+  check becomes a PR only when the smoke check passes, and merge is
+  human-approved.
+- **Rollback posture:** generations mean an update that disappoints
+  is restarted, not untangled — boot the previous generation, then
+  revisit the lock delta.
 
 ## See also
 
-- Guide updates chapter:
+- Guide updates chapter (this recipe's source of truth):
   <https://docs.kailash.tools/admin/updates.html>
-- Release model: [guide Part II](https://docs.kailash.tools/governance/release-model.html)
+- Release model + the staged ladder:
+  <https://docs.kailash.tools/governance/release-model.html> ·
+  <https://github.com/kailash-os/kailash-os/blob/master/docs/guide/releases.md>
+- [Refresh wordlists and data packs](data-packs.html) — the
+  data-pack half of the same discipline
 - [Recipe directory](../directory.html)
 
 ---
 
-**Recipe provenance.** PENDING — will carry real command shapes,
-verified against the current released pin, before publication; release
-naming per the guide's releases page.
+**Recipe provenance.** The anti-churn statements (no background
+updates, lock-as-version, reviewed bump PRs, generation rollback
+behaviour) are from the guide's updates chapter and the spec's
+update-cadence table (verified 2026-10-14). Release naming is the
+pinned convention (YYYY.NN index, staged ladder, dotted re-cuts) from
+the releases chapter. The literal `nix profile list` /
+diff-closures command shapes: standard Nix/NixOS practice —
+the per-release update walkthrough on a real boot: PENDING (upkeep
+lane).

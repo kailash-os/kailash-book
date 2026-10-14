@@ -46,6 +46,14 @@ views.**
    sister tool's page; recipes link neighbour recipes too. Guide
    reference pages may list recipes that use their tool — direction
    guide→book is a guide-side concern, coordinated at the guide.
+ 6. **Page structure (single-H1 rule).** The YAML `title:` renders
+   as the page's only H1; the body carries NO top-level heading line
+   — the anatomy (Problem / Solution / Discussion / See also) is
+   H2 (`##`) throughout, with anchors as Quarto auto-generates them.
+   Rationale: a `title:` + a body `#` heading produced two H1s per
+   page and broke the book's numbering/TOC ordering (caught in the
+   same-day content pass, 2026-10-14); the cover page (index.qmd)
+   carries no body H1 either.
 
 **Sections-for-life rule.** A recipe is never re-parented between
 theme sections once published; corrections, extensions and level

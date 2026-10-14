@@ -1,49 +1,118 @@
 ---
-title: "Recipe: attack tool, then verify with its defence counterpart"
+title: "Recipe: attack the platform, then verify"
 toc-title: Recipe
 ---
 
-# Attack tool, then verify with its defence counterpart {#recipe-attack-then-verify}
-
-**Tool:** (pair TBD) · **Section:** Attack–defence pairs ·
-**Level:** medium · **Time:** TBD · **Layer/Category:** ATTACK +/-
-DEFENCE · **Tags:** pair, attack, defence
+**Tool:** mlflow-bypass + mlflow · **Section:** Attack–defence pairs ·
+**Level:** hard · **Time:** ~45 min · **Layer/Category:** ATTACK A-7 +
+OPS O-1 · **Tags:** pair, attack, mlflow, exp, platform
 
 ## Problem
 
-An attack finding from an ATTACK-layer tool must be paired with a
-DEFENCE-layer verification: you exploit a weakness, then prove the
-detection or mitigation that catches it.
+The pairing thesis is Kailash's core idea: deployment + attack in one
+declared environment. You suspect an exposed MLflow tracking server
+(sensitive-info + platform exploitation: the attack row maps OWASP
+LLM02 and LLM10). You want to demonstrate the exploitation against
+the lab-default posture, then prove the same declaration hardened
+closes the hole — with both sides reproducible, and a standing CI
+test asserting the pairing.
 
 ## Solution
 
-<!-- PENDING: the first pair recipe is being worked — target pair,
-command shapes and expected output land when worked against real
-pins. Candidates: pyrit/counterfit attack surface vs a DETECTOR
-counterpart; garak find vs a matching DEFENCE validator. -->
+Kailash ships both ends: the O-1 lab target (`mlflow`, module
+packaging, `services.kailash.mlflow` — lab-accurate vulnerable-ish
+defaults that are DOCUMENTED, not improvised) and the A-7 exploit
+tool (`mlflow-bypass`, exp-classified, manifest-pinned):
 
-Expected output shape:
+```bash
+# 1. Stand up the lab target (the OPS module's declared service)
+#    kailash.layers.ops.categories.o-01-mlops-ml-engineering.enable = true;
+#    services.kailash.mlflow.enable = true;        # + the module's
+#    hardened-posture options (see provenance note)
+sudo nixos-rebuild switch
 
+# 2. Open the exp double-key gate for the attack tool
+#    (host key + shell key — full walk:
+#     ../admin/lab-mode-gating.html)
+#      kailash.labMode = true;      # host key, config + rebuild
+KAILASH_LAB_MODE=1 mlflow-bypass --help
+#    -> the gate passes; the tool's real help prints
+
+# 3. Run the probes as their --help states them, against the
+#    lab-default (unauthenticated) target
+KAILASH_LAB_MODE=1 mlflow-bypass <args from --help> \
+    --target http://127.0.0.1:5000
+#    -> the bypass lands: experiment/artifact listing exposed
+
+# 4. Verify: flip the lab target's POSTURE with a configuration
+#    change, rebuild
+sudo nixos-rebuild switch
+
+# 5. Re-run the SAME probes from the same box (same seed/args)
+KAILASH_LAB_MODE=1 mlflow-bypass <same args> --target http://127.0.0.1:5000
+#    -> refused / no listing: the declaration change closed the surface
 ```
-attack: <finding>          (from the ATTACK tool's report artefact)
-verify: <detection result> (from the DEFENCE tool's counterpart run)
-```
+
+What success looks like:
+
+- run A (lab-default posture): the bypass succeeds and the listing is
+  asserted — the same assertion the repo's integration test makes
+- run B (hardened posture): the same probes fail — a diff of the two
+  runs states the surface closed with the configuration change
+- the exp gate visibly refused every step 3 shape at any wrong key
+  combination along the way
+- the standing proof exists without you: the OS repo's
+  `integration-mlflow-attack.nix` asserts lab-default MLflow +
+  `mlflow-bypass` → listing on every relevant CI run (the pairing
+  thesis, executed)
 
 ## Discussion
 
-Pairing is the book's core idea: attack → matching detection /
-verification, per kailash-website#31. The pair selection follows the
-layer taxonomy (A-x paired with the D-category that observes the same
-surface).
+- **Why this pair is the thesis:** the manifest rows mean it —
+  `mlflow-bypass` says "pairs with the O-1 lab target", and the O-1
+  module ships the platform target as a first-class service. One
+  declared environment produces both the finding and the verification;
+  no hand-assembled lab whose posture drifts between runs.
+- **The attack tool is exp + the LICENCE IS UNKNOWN:** the manifest
+  row records `LicenseRef-Unknown` — possession and use in your lab
+  is your compliance decision; treat the tool's redistribution as
+  unrestricted-by-default until the row's licence is established.
+- **ATLAS mapping is the row's record:** the A-7 tool carries
+  AML.T0049/T0050 (dataset-verified ids, per the packaging lane),
+  the OWASP LLM02/LLM10 mapping sits on both epochs. Cite the row's
+  ids in reports; don't re-derive them by memory.
+- **Hardened postures are configuration, not folklore:** the exact
+  hardened options for the lab target are read from its module and
+  documented per release (see provenance note) — flipping the
+  posture is a declaration edit plus a rebuild, and the previous
+  generation remains one reboot away (see
+  [Ride a release without breaking pinned tooling](../admin/updates.html)).
+- **Beyond MLflow:** A-7's sister rows (`triton-pwn` etc.) pair the
+  same way with their O-2 docker-wrapper targets; the recipe pattern
+  is identical — lab target up, gate open, probes run, posture flip,
+  same-seed re-run, diff as the evidence.
 
 ## See also
 
-- [Scan a self-hosted model for prompt-injection
-  resistance](../scanning/garak-llm01-prompt-injection.html)
-- Category directory on the docs site
+- [Gate lab-mode and exp-classified
+  tools](../admin/lab-mode-gating.html) — step 2's full walk
+- [Serve a local model for
+  scanning](../ops/serve-a-model.html) — the model-surface analog
+  (O-4 target for A-2 scanners)
+- `mlflow-bypass` row in the manifest:
+  <https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml>
 - [Recipe directory](../directory.html)
 
 ---
 
-**Recipe provenance.** PENDING — will carry real command shapes,
-verified against the current released pins, before publication.
+**Recipe provenance.** The pairing structure (O-1 lab target +
+`services.kailash.mlflow`, A-7 `mlflow-bypass` exp row, the
+integration test asserting the pairing) is the landed contract per
+the OS spec's test chapter and the manifest rows (verified
+2026-10-14 at main/master). Deliberately NOT quoted as landed: the
+exploit tool's exact flag surface (read from its own `--help` — the
+pinned derivation's CLI is the record) and the lab target's hardened
+posture option names (read from the module per release). A hands-on
+worked run of both legs against real pins: PENDING — the CI-side
+pairing assertion (`integration-mlflow-attack.nix`) is the standing
+instrument until the upkeep lane lands the host walkthrough.
