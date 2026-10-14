@@ -5,7 +5,7 @@ toc-title: Recipe
 
 | Field | Value |
 |---|---|
-| Tools | `vector-db-ripper` (A-7, exp) ↔ `qdrant` / `chromadb` / `weaviate` (O-3 rows) + hardening rows |
+| Tools | plain curl probe legs over the vector-store HTTP APIs (A-7 pairing instrument) ↔ `qdrant` / `chromadb` / `weaviate` (O-3 rows) + hardening rows — the aspirational attack-tool name rides the os#210 registry |
 | Section | Attack–defence pairs |
 | Level | medium |
 | Time | ~45 min (three boot postures + three probe sweeps + flips) |
@@ -27,7 +27,8 @@ the server runs without auth; Weaviate serves full schema and object
 dumps with vectors (`include=classification,vector`) under anonymous
 access — a posture upstream calls "strongly discouraged except for
 development". The manifest maps the lane to OWASP LLM02 + LLM10 and
-the `vector-db-ripper` row to ATLAS AML.T0049 + T0050 + T0057. The
+the published ATLAS matrix (the pre-#210 `vector-db-ripper` row rode
+the same mapping; phantom-upstream, removed — os#210). The
 kailash twist is per-store: the NixOS `services.qdrant` module
 already binds 127.0.0.1 and disables telemetry BY DEFAULT (the lab
 posture is the OPERATOR override), `services.chromadb` likewise
@@ -151,13 +152,14 @@ WEAVIATE @ :8080  exposed leg (backend on, anonymous)
   is an hour's work to classify: probe `/collections`-class shapes,
   the `/api/v2` collection get, the `/v1/objects` dump — the rip
   patterns rhyme.
-- **Why plain curl and not a bespoke exploit script:** `vector-db-ripper`
-  is an A-7 row, `safety.level: exp`, licence `LicenseRef-Unknown`,
-  upstream repository missing at the pin
-  ([kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23)).
-  The probe legs run the verified shapes above; the real tool takes
-  over via the double-key lab gate when its derivation lands (walk:
-  [Gate lab-mode and exp-classified
+- **Why plain curl and not a bespoke exploit script:** the
+  `vector-db-ripper` manifest row was a PHANTOM — its claimed
+  kailash-os upstream was never created — removed by the os#210 audit
+  (2026-10-14; https://github.com/kailash-os/kailash-os/issues/210 —
+  the name rides the registry). The probe legs run the verified
+  shapes above with the base system only — nothing invented; a real
+  A-7 tool re-enters via the os#210 rebuild contract through the
+  double-key lab gate (walk: [Gate lab-mode and exp-classified
   tools](../admin/lab-mode-gating.html)).
 - **The kailash-defaults nuance is per-store and matters:** the qdrant
   NixOS module hardens by default (host `mkDefault` 127.0.0.1,
@@ -192,7 +194,8 @@ WEAVIATE @ :8080  exposed leg (backend on, anonymous)
   is the store's own audit/log surface (qdrant's audit logging, the
   container logs for chroma/weaviate) plus segment flow logs.
 - **ATLAS mapping, per row:** AML.T0049+T0050 (like the sibling A-7
-  rows) plus **T0057** for vector-db-ripper specifically — the data-
+  rows) plus **T0057** for the vector-store-dump class (the removed
+row's additional mapping; os#210 registry) — the data-
   handling technique behind the rip. OWASP LLM02 (sensitive info
   disclosure) carries the "memory exfiltration" framing; LLM10 the
   unrestricted-consumption framing.
@@ -216,12 +219,14 @@ WEAVIATE @ :8080  exposed leg (backend on, anonymous)
   <https://docs.trychroma.com/> · Weaviate auth:
   <https://docs.weaviate.io/weaviate/configuration/authentication>
 - Upstream missing-repository note:
-  [kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23)
+  [https://github.com/kailash-os/kailash-os/issues/210](https://github.com/kailash-os/kailash-os/issues/210)
 - [Recipe directory](../directory.html)
 
 ---
 
-**Recipe provenance.** Manifest facts (A-7 `vector-db-ripper` row
+**Recipe provenance.** Manifest facts post-os#210 (qdrant/chromadb/
+weaviate O-3 rows + hardening rows; the pre-#210 `vector-db-ripper` A-7
+row was phantom-upstream and removed — os#210)
 exp + `LicenseRef-Unknown`, ATLAS AML.T0049 + T0050 + T0057, OWASP
 LLM02 + LLM10 both epochs; qdrant/chromadb/weaviate O-3 rows;
 services.qdrant module default host mkDefault 127.0.0.1 +
@@ -250,4 +255,4 @@ exposed-leg boots are operator lab acts in isolated segments. d-01
 request-scanner module rows for this lane: PENDING-kailash.
 
 
-ref: [Qdrant/Chroma/Weaviate upstream docs + packages manifest rows](https://qdrant.tech/documentation/security/) - verified 2026-10-14. Missing A-7 repo: [kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23).
+ref: [Qdrant/Chroma/Weaviate upstream docs + packages manifest rows](https://qdrant.tech/documentation/security/) - verified 2026-10-14. The pre-#210 A-7 tool row was phantom-upstream (removed 2026-10-14): [https://github.com/kailash-os/kailash-os/issues/210](https://github.com/kailash-os/kailash-os/issues/210).

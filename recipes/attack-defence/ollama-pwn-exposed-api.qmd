@@ -5,7 +5,7 @@ toc-title: Recipe
 
 | Field | Value |
 |---|---|
-| Tools | `ollama-pwn` (A-7, exp) ↔ `ollama` (O-4 lab target) + guardrail rows |
+| Tools | plain curl sweep over Ollama's HTTP API (A-7 pairing instrument) ↔ `ollama` (O-4 lab target) + guardrail rows — the aspirational attack-tool name rides the os#210 registry |
 | Section | Attack–defence pairs |
 | Level | medium |
 | Time | ~40 min (lab bind + probe sweep + posture flip) |
@@ -24,7 +24,8 @@ integration-test posture (a lab-segment VM must be reachable so probes
 can drive it), and the operator bind flip, where someone set a broad
 bind on a real box to test "something" and left it. The manifest maps
 the exposure to OWASP LLM02 (sensitive information disclosure) and
-LLM10 (unrestricted consumption), and the `ollama-pwn` surface to
+LLM10 (unrestricted consumption), with the A-7 pairing instrument
+running the REAL protocol (the pre-#210 tool row was phantom-upstream, removed — os#210)
 ATLAS AML.T0049 + T0050. You want to demonstrate the exposure against
 the declared lab target, then prove the default posture closes it —
 both legs reproducible, diff as evidence.
@@ -99,16 +100,16 @@ sweep again, posture: host default (127.0.0.1)
 
 ## Discussion
 
-- **Why plain curl and not a bespoke exploit script:** the manifest's
-  `ollama-pwn` row is `safety.level: exp`, licence
-  `LicenseRef-Unknown`, and the upstream repository it pins is
-  currently missing — the lane record on
-  [kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23)
-  is a missing-repository note like every A-7 row at the pin. The
-  sweep still runs the REAL protocol against the REAL target with the
-  verified request shapes above; the real tool takes over when its
-  derivation lands — installing only via the double-key lab gate
-  (full walk: [Gate lab-mode and exp-classified
+- **Why plain curl and not a bespoke exploit script:** the
+  `ollama-pwn` manifest row was a PHANTOM — its claimed kailash-os
+  upstream was never created — and the os#210 audit (2026-10-14)
+  removed it from the manifest
+  (https://github.com/kailash-os/kailash-os/issues/210; the name
+  rides the registry there). The sweep still runs the REAL protocol
+  against the REAL target with the verified request shapes above,
+  using the base system only — nothing invented. A real A-7 tool
+  re-enters via the os#210 rebuild contract, installing only via the
+  double-key lab gate (full walk: [Gate lab-mode and exp-classified
   tools](../admin/lab-mode-gating.html)). Never invent a tool's CLI
   to fill the gap.
 - **The no-auth fact is upstream, not folklore:** ollama documents
@@ -163,7 +164,9 @@ sweep again, posture: host default (127.0.0.1)
 
 ---
 
-**Recipe provenance.** Manifest facts (A-7 `ollama-pwn` row exp +
+**Recipe provenance.** Manifest facts post-os#210 (ollama O-4 row +
+guardrail rows; the pre-#210 `ollama-pwn` A-7 row was phantom-upstream
+and removed — os#210)
 `LicenseRef-Unknown`, ATLAS AML.T0049 + T0050, OWASP LLM02 + LLM10
 both epochs; ollama O-4 row; module default
 `services.ollama.host = 127.0.0.1:11434`, `openFirewall:false`) are
@@ -178,4 +181,4 @@ config/scan shapes are quoted above as design, not as a landed
 surface.
 
 
-ref: [ollama API docs + packages manifest rows](https://github.com/ollama/ollama/blob/main/docs/api.md) - verified 2026-10-14. Missing A-7 repo: [kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23).
+ref: [ollama API docs + packages manifest rows](https://github.com/ollama/ollama/blob/main/docs/api.md) - verified 2026-10-14. The pre-#210 A-7 tool row was phantom-upstream (removed 2026-10-14): [https://github.com/kailash-os/kailash-os/issues/210](https://github.com/kailash-os/kailash-os/issues/210).

@@ -5,7 +5,7 @@ toc-title: Recipe
 
 | Field | Value |
 |---|---|
-| Tools | `mlflow-bypass` (A-7, exp) ↔ `mlflow` (O-1 lab target) |
+| Tools | the `kailash-integration-mlflow-attack` probe pair (A-7 pairing instrument) ↔ `mlflow` (O-1 lab target) — the aspirational attack-tool name rides the [os#210 registry](https://github.com/kailash-os/kailash-os/issues/210) |
 | Section | Attack–defence pairs |
 | Level | hard |
 | Time | ~45 min (lab boot + probe pair + posture flip) |
@@ -28,9 +28,9 @@ independent of your lab session.
 
 ## Solution
 
-Kailash ships both ends as manifest rows — the O-1 target is a
-service module, the A-7 attack surface is exp-gated. The landed
-instrument for the pairing is the **`kailash-integration-mlflow-attack`
+Kailash ships the lab target as a real manifest row (the O-1
+service module); the attack instrument is the
+**`kailash-integration-mlflow-attack`
 probe pair** (`tools/vm-integration-mlflow-attack.sh` in the OS
 repo — verbatim MLflow API shapes, live-probed on mlflow 3.x at the
 packages pin), driven against the `platform` profile (the posture
@@ -117,17 +117,18 @@ kailash-integration-mlflow-attack: BOTH probes ok (track + bypass listing)
 ## Discussion
 
 - **Why the probe pair and not a bespoke exploit script:** the
-  manifest's `mlflow-bypass` row is `safety.level: exp` and the
-  upstream repository it pins is currently **missing** — the
-  2026-10-13 lane record on
-  [kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23)
-  is a missing-repository note. The probe pair still runs the REAL
+  `mlflow-bypass` manifest row was a PHANTOM — its claimed
+  kailash-os upstream repository was never created — and the os#210
+  audit (2026-10-14) REMOVED it from the manifest entirely
+  ([kailash-os#210](https://github.com/kailash-os/kailash-os/issues/210);
+  the name rides the registry there). The probe pair runs the REAL
   protocol against the REAL target — the two verbatim MLflow API
   recipes (unauthenticated tracking search + the `ajax-api` artefact
   listing with the `--seed` write→read round trip) — so the
-  acceptance runs an executable, honest pairing NOW, and the REAL
-  tool takes over when its repository lands. Never invent a tool's
-  CLI to fill that gap.
+  acceptance is an executable, honest pairing NOW, with no
+  invented tool anywhere. If a real A-7 tool ships later, it enters
+  via the os#210 rebuild contract (built upstream first, manifest
+  gate second) and takes over.
 - **The verdict discipline carries the evidence:** every probe prints
   ATTEMPTED/ok/FAIL (never "PASS") and echoes its verbatim output.
   With `--record`, the verbatims land in a machine-validated JSON
@@ -147,17 +148,18 @@ kailash-integration-mlflow-attack: BOTH probes ok (track + bypass listing)
   posture), and the maintainer's ONE interactive boot is recorded in
   the machine-validated record your `--record` run should match. Your
   lab session reproduces the CI assertion hands-on.
-- **The exp gate still owns the A-7 row:** when the real
-  `mlflow-bypass` derivation lands it installs only via the
-  double-key lab gate (full walk:
+- **The exp gate still owns any future A-7 tool:** a rebuilt A-7
+  tool re-enters via the os#210 rebuild contract and installs only
+  via the double-key lab gate (full walk:
   [Gate lab-mode and exp-classified
   tools](../admin/lab-mode-gating.html)). The probe pair needs no
   gate — it drives curl/jq/python3 from the base system.
-- **Beyond MLflow:** A-7's sister rows (`triton-pwn`, `torchserve-pwn`,
-  `ollama-pwn`, `vllm-pwn`, `shadow-ray`, `vector-db-ripper`) pair
-  the same way with their O-0x targets; the transferable pattern is:
-  lab target up → probes run → posture flip → same-seed re-run →
-  diff as the evidence.
+- **Beyond MLflow:** the A-7 platform-exploit pairing is
+  aspirational-only right now (every pre-purge A-7 row was
+  phantom-upstream and removed — names in the
+  [os#210 registry](https://github.com/kailash-os/kailash-os/issues/210)).
+  The transferable pattern stays: lab target up → probes run →
+  posture flip → same-seed re-run → diff as the evidence.
 
 ## See also
 
@@ -170,11 +172,11 @@ kailash-integration-mlflow-attack: BOTH probes ok (track + bypass listing)
   <https://github.com/kailash-os/kailash-os/blob/master/tools/vm-integration-mlflow-attack.sh>
 - The integration test that asserts the pairing:
   <https://github.com/kailash-os/kailash-os/blob/master/tests/integration-mlflow-attack.nix>
-- Upstream missing-repository note:
-  [kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23)
+- The phantom-row provenance + registry:
+  [kailash-os#210](https://github.com/kailash-os/kailash-os/issues/210)
 - [Recipe directory](../directory.html)
 
 ---
 
 ref: [mlflow 3.x pin + OS master test sources](https://github.com/kailash-os/kailash-os/blob/master/tools/vm-integration-mlflow-attack.sh) - verified 2026-10-14.
-upstream mlflow-bypass repo missing: [kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23).
+the pre-purge `mlflow-bypass` row was phantom-upstream (removed 2026-10-14): [kailash-os#210](https://github.com/kailash-os/kailash-os/issues/210).

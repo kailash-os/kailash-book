@@ -138,12 +138,14 @@ Breach testing is then mechanical:
   `vulnerability_scan`/`quality_scan` pair (v2's `giskard.scan` API
   remains available but unmaintained — pin-era note recorded in the
   provenance footer).
-- **How it feeds standards evidence (d-07):** d-07's toolset is data
-  packs + the `kailash-verifier` CLI (`kailash verifier --standard
-  aisvs --level N` — renders per-tool standards evidence FROM the
-  manifest, spec §3.8; the verifier and the
-  aisvs-1.0-toolkit / mlsvs-toolkit / llm-top10-toolkit data packs are
-  planned first-party deliverables). The contract this recipe feeds:
+- **How it feeds standards evidence (d-07):** d-07 has NO landed
+  tooling — the verifier CLI + toolkit packs were phantom-upstream
+  rows removed by the os#210 audit
+  ([os#210](https://github.com/kailash-os/kailash-os/issues/210));
+  standards evidence is assembled today from run records + the
+  published standards
+  ([the evidence recipe](standards-evidence.html)). The contract this
+  recipe feeds:
   the baseline record's `evidence_ref` names the standard + level the
   record supports, so the verifier renders the matrix and the record
   IS the per-tool evidence — no re-narration, no hand-written audit
@@ -189,20 +191,18 @@ Breach testing is then mechanical:
   <https://github.com/Trusted-AI/AIF360> · robustbench
   <https://github.com/RobustBench/robustbench> · giskard
   <https://github.com/Giskard-AI/giskard>
-- d-07 rows the baseline feeds (verifier CLI + toolkit packs):
-  <https://github.com/kailash-os/kailash-verifier> ·
-  <https://github.com/kailash-os/aisvs-1.0-toolkit> ·
-  <https://github.com/kailash-os/mlsvs-toolkit> ·
-  <https://github.com/kailash-os/llm-top10-toolkit>
+- The d-7 tooling provenance (aspirational-only; phantom rows
+  removed):
+  [os#210](https://github.com/kailash-os/kailash-os/issues/210)
 - [Recipe directory](../directory.html)
 
 ---
 
 **Recipe provenance.** Manifest facts (six d-03 rows, safety
 `safe` all; licences MIT/Apache-2.0; packaging native for
-lm-eval-harness, bespoke elsewhere; d-07 rows planned first-party +
-kailash-verifier BSD-3-Clause; the `kailash verifier --standard aisvs
---level N` shape per spec §3.8) are from the packages manifest rows +
+lm-eval-harness, bespoke elsewhere; the d-07 rows were phantom-upstream
+and removed per os#210 — the baseline's standards contracts are the
+published standards themselves) are from the packages manifest rows +
 docs_spec, verified 2026-10-14. CLI/API shapes checked against
 upstream at each pinned repo's default branch: lm-eval
 `--model hf --model_args pretrained=… --tasks … --device --batch_size`

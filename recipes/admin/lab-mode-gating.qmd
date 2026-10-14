@@ -16,8 +16,11 @@ toc-title: Recipe
 ## Problem
 
 Tools whose manifest row reads `safety.level: exp` — experimental
-code-execution surfaces like `mlflow-bypass` — ship in the catalogue
-but must be unreachable by default. You want to demonstrate the gate
+code-execution surfaces like `hexstrike-ai` or the `kailash-mcp`
+server face — ship in the catalogue but must be unreachable by
+default. (The pre-#210 documentation used `mlflow-bypass` as the
+demo name; that row was phantom-upstream and removed —
+[kailash-os#210](https://github.com/kailash-os/kailash-os/issues/210).) You want to demonstrate the gate
 actually works on your host: a bare run refuses, a half-opened gate
 refuses, and only the deliberate double opt-in fires the tool.
 
@@ -34,7 +37,7 @@ cat /etc/kailash/safety/wrapped-exp-tools.json
 
 # 2. Key 1 alone is NOT sufficient — lab host default is labMode=false:
 #    the wrapper refuses (exit 126) even WITH the shell key set
-KAILASH_LAB_MODE=1 mlflow-bypass --help
+KAILASH_LAB_MODE=1 hexstrike-ai --help
 #    expected: refused; message names BOTH keys + cites
 #    docs/responsible-use.md
 
@@ -43,11 +46,11 @@ KAILASH_LAB_MODE=1 mlflow-bypass --help
 sudo nixos-rebuild switch
 
 # 4. Still gated: the shell key is the second, in-the-moment opt-in
-mlflow-bypass --help
+hexstrike-ai --help
 #    expected: refused — the invocation did not set the shell key
 
 # 5. BOTH keys on the same invocation -> the tool runs
-KAILASH_LAB_MODE=1 mlflow-bypass --help
+KAILASH_LAB_MODE=1 hexstrike-ai --help
 #    expected: the tool's real help output
 ```
 
@@ -86,7 +89,7 @@ What success looks like:
   are `requires-target`, not exp — they refuse to self-fire, run
   freely when given an explicit target.
   [Attack the platform, then verify](../attack-defence/attack-then-verify.html)
-  walks an exp-gated tool through this exact gate in a full pair run.
+  walks the A-7 pairing probe sweep in a full pair run.
 
 ## See also
 

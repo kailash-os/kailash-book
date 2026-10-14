@@ -5,7 +5,7 @@ toc-title: Recipe
 
 | Field | Value |
 |---|---|
-| Tools | `torchserve-pwn` (A-7, exp) ↔ `torchserve` (O-2 lab target) + observability rows |
+| Tools | plain curl probe sweep over TorchServe's management/inference API (A-7 pairing instrument) ↔ `torchserve` (O-2 lab target) + observability rows — the aspirational attack-tool name rides the os#210 registry |
 | Section | Attack–defence pairs |
 | Level | hard |
 | Time | ~60 min (surface audit + CVE posture map + flip) |
@@ -30,7 +30,8 @@ CVE-2024-35199 exposing the gRPC management/inference plane on all
 interfaces (fixed 0.11.0). Upstream's own banner says the maintenance
 story out loud: "Limited Maintenance — no planned security patches".
 The manifest maps the surface to OWASP LLM02 + LLM10 and the
-`torchserve-pwn` row to ATLAS AML.T0049 + T0050. You want a
+published ATLAS matrix (the pre-#210 `torchserve-pwn` row rode the
+same mapping; phantom-upstream, removed — os#210). You want a
 reproducible audit that maps the surface, proves WHICH flag closes
 each leg, and never fires a transcript-grade payload.
 
@@ -161,14 +162,15 @@ sweep again, hardened posture (defaults + loopback mgmt)
   design. What the traces would give the operator: standing
   visibility of management-API calls (register/delete) and inference
   volume — the anomaly view the probe sweep hand-verified.
-- **Why plain probes and not a bespoke exploit script:** `torchserve-pwn`
-  is an A-7 row, `safety.level: exp`, licence `LicenseRef-Unknown`,
-  upstream repository missing at the pin
-  ([kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23)).
-  The real tool takes over via the double-key lab gate when its
-  derivation lands (walk: [Gate lab-mode and exp-classified
-  tools](../admin/lab-mode-gating.html)); the probe leg runs with
-  base-system curl.
+- **Why plain probes and not a bespoke exploit script:** the
+  `torchserve-pwn` manifest row was a PHANTOM — its claimed kailash-os
+  upstream was never created — removed by the os#210 audit
+  (2026-10-14; https://github.com/kailash-os/kailash-os/issues/210 —
+  the name rides the registry). The probe leg runs with base-system
+  curl — nothing invented; a real A-7 tool re-enters via the os#210
+  rebuild contract through the double-key lab gate (walk:
+  [Gate lab-mode and exp-classified
+  tools](../admin/lab-mode-gating.html)).
 - **This is the transferable pattern** (lab target up → shape
   audits → posture flip → same probes → diff). Origin walk:
   [Attack the platform, then verify](attack-then-verify.html).
@@ -191,7 +193,9 @@ sweep again, hardened posture (defaults + loopback mgmt)
 
 ---
 
-**Recipe provenance.** Manifest facts (A-7 `torchserve-pwn` row exp
+**Recipe provenance.** Manifest facts post-os#210 (torchserve O-2 row
++ observability rows; the pre-#210 `torchserve-pwn` A-7 row was
+phantom-upstream and removed — os#210)
 + `LicenseRef-Unknown`, ATLAS AML.T0049 + T0050, OWASP LLM02 + LLM10
 both epochs; torchserve O-2 row) are from the packages manifest rows
 + lane comments, verified 2026-10-14. Upstream surface at the pin:

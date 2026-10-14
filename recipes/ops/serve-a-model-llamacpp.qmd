@@ -112,13 +112,13 @@ main: server is listening on 127.0.0.1:9931(?)
   ([supply-chain-scan-models](../admin/supply-chain-scan-models.html))
   becomes a servable artefact — and the servable artefact is what
   your scan records should name.
-- **Roadmap flag — gguf-quantiser:** the manifest's `gguf-quantiser`
-  row is a bespoke, safety `safe` tool whose LICENSE is
-  `LicenseRef-Unknown`, and its manifest row records a *planned
-  wave-5 deliverable* — it is NOT landed tooling at this pin. Do not
-  script `gguf-quantiser` today; the manual
-  `convert_hf_to_gguf.py` + `llama-quantize` shapes above are the
-  working path.
+- **No `gguf-quantiser` exists:** the pre-#210 manifest carried a
+  `gguf-quantiser` row (a "planned wave-5 deliverable" claim) — the
+  os#210 audit proved its claimed kailash-os upstream was NEVER
+  created and the row is REMOVED
+  ([os#210](https://github.com/kailash-os/kailash-os/issues/210)).
+  The manual `convert_hf_to_gguf.py` + `llama-quantize` shapes above
+  ARE the working path (llama.cpp ships quantisation itself).
 
 ## See also
 

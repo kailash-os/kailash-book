@@ -100,13 +100,16 @@ Expected output shape (abridged, shapes not transcripts):
   (`real`|`pending-vm`) and verbatim-required fields; CI trips on a
   hand-typed `ok` with no verbatim behind it. Cite ONLY verdicts the
   record holds.
-- **ATLAS ids come from the manifest rows, not re-derivation:** the
+- **ATLAS ids come from verified sources, not re-derivation:** the
   manifest rows carry the AML.T technique ids and OWASP mappings;
-  cite those (`garak`: AML.T0051+T0054, `mlflow-bypass`:
-  AML.T0049/T0050 in the pair recipe) rather than re-mapping
-  yourself. If a probe's AVID taxonomy entry shows a technique the
-  manifest row did not license, the manifest is the source of truth
-  to reconcile against — but never invent an id to fill a gap.
+  cite those (`garak`: AML.T0051+T0054) rather than re-mapping
+  yourself. The pre-#210 `mlflow-bypass` citation (AML.T0049/T0050 in
+  the pair recipe) rode a phantom row — removed, [os#210](https://github.com/kailash-os/kailash-os/issues/210)
+  — so pair-recipe mappings must stand on the public ATLAS matrix
+  until a real rebuilt row re-carries them. If a probe's AVID taxonomy
+  entry shows a technique the manifest row did not license, the
+  manifest is the source of truth to reconcile against — but never
+  invent an id to fill a gap.
 - **Responsible-use framing:** every artefact in `garak_runs/` is
   the record of a deliberate attack against a target you own. Keep
   the raw JSONL + digest + AVID export + record together in the

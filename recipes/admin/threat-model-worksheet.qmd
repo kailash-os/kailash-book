@@ -5,7 +5,7 @@ toc-title: Recipe
 
 | Field | Value |
 |---|---|
-| Tool | D-5 pack: maestro · stride-ai-worksheet · genai-threat-modelling-templates · atlas-visualiser |
+| Tool | `maestro` (D-5; upstream agentic-threat-modeling/MAESTRO) — the pre-#210 worksheet/visualiser pack rows were phantom-upstream (removed; names ride the [os#210 registry](https://github.com/kailash-os/kailash-os/issues/210)) |
 | Section | Administrator |
 | Level | medium |
 | Time | ~60 min (a real session) |
@@ -20,8 +20,11 @@ the lab — an MCP server, a multi-agent pipeline, a model endpoint — and
 the honest first artefact of doing that safely is a threat model: what
 does this system trust, from whom, where are the boundaries, which ATLAS
 techniques map onto which component. Kali culture has a strong habit
-here ("do the model first"); the D-5 pack exists so the AI-side session
-starts from real worksheets instead of a blank page.
+here ("do the model first"); the D-5 pack was designed
+to give the AI-side session real worksheets instead of a blank page
+(today only `maestro` is real — the worksheet/template/visualiser rows
+were phantom-upstream, removed per os#210; the frameworks themselves
+are published upstreams).
 
 ## Solution
 
@@ -31,12 +34,8 @@ templates for per-component worksheets, the ATLAS visualiser (and case
 studies) to keep the finding vocabulary real:
 
 ```bash
-# 1. Confirm the pack rows (all D-5, all safe — pure content, no firing):
+# 1. Confirm the real D-5 row (pure content, no firing):
 kailash info maestro
-kailash info stride-ai-worksheet
-kailash info genai-threat-modelling-templates
-kailash info atlas-visualiser
-kailash info atlas-case-study-explorer
 
 # 2. Scope the session: pick your lab SURFACE and its boundary map
 #    (draw it, even on paper):
@@ -58,16 +57,21 @@ maestro <session-start>            # the packaged CLI's elicitation entry
 # 4. STRIDE-for-AI, per trust boundary you named in step 2 — one row per
 #    crossing: S/T/R/I/D/E + who is on each side + the control that
 #    currently (claims to) hold it:
-#    the stride-ai-worksheet pack's sheets are the artefact; fill them
-#    with the ACTUAL lab facts (ports, hosts, auth posture) — the
-#    worksheets drive the session; the system stays the source of truth.
+#    the artefact = your own worksheet (paper or a doc): one row per
+#    trust-boundary crossing, filled with the ACTUAL lab facts (ports,
+#    hosts, auth posture). The pre-#210 stride-ai-worksheet pack row
+#    was phantom-origin (removed, os#210); the framework's elicitation
+#    shapes are public and the session runs without the pack.
 
 # 5. Map findings to ATLAS — real technique IDs, real case studies:
-kailash info mlflow-bypass | grep -i atlas   # e.g. AML.T0049/T0050 class
-#    the atlas-visualiser renders tactic/technique coverage over the
-#    target-system map you drew; atlas-case-study-explorer points your
-#    workshop at REAL incidents (e.g. CS0023 ShadowRay class) — use
-#    them as the "does this boundary hold in the real world" prompts.
+kailash info garak | grep -i atlas        # e.g. AML.T0051/T0054 class
+#    (the atlas-visualiser + atlas-case-study-explorer helpers from
+#    the pre-#210 text were aspirational-only rows — phantom-upstream,
+#    removed; their names ride the
+#    [os#210 registry](https://github.com/kailash-os/kailash-os/issues/210)
+#    until built. Map coverage yourself against the public ATLAS matrix;
+#    real incidents — e.g. the CS0023 ShadowRay class — work as the
+#    "does this boundary hold in the real world" prompts.)
 
 # 6. Write the session out: the model IS the deliverable. Store it next
 #    to the system it describes (config comments, the lab's README) —
@@ -160,12 +164,12 @@ What success looks like:
 
 ---
 
-ref: [D-5 manifest rows (genai-threat-modelling-templates,
-atlas-visualiser, stride-ai-worksheet, maestro,
-atlas-case-study-explorer — kailash-packages manifest) + MAESTRO
-upstream playbook/quickstart (7 layers, 10-phase process) + MITRE
-ATLAS case-study index](https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml) - verified 2026-10-14.
-maestro row = the OWASP-MAESTRO-keyed elicitation CLI (first-party
-bespoke) — its own verb list: PENDING at this pin; the upstream
-playbook's shapes are verified here. Worked D-5 session write-up:
-PENDING — lands with the upkeep lane.
+ref: [D-5 manifest row (maestro — post-os#210 the only real D-5 row;
+the worksheet/template/visualiser pack rows were phantom-upstream and
+removed) + MAESTRO upstream playbook/quickstart (7 layers, 10-phase
+process) + MITRE ATLAS case-study index](https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml) - verified 2026-10-14.
+The maestro row's OWN CLI verb list: PENDING at this pin (the
+upstream playbook's shapes are verified here; the pre-#210 'first-party
+elicitation CLI' framing rode the phantom-first-party pattern — the
+real upstream is the MAESTRO playbook itself). Worked D-5 session
+write-up: PENDING — lands with the upkeep lane.

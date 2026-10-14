@@ -5,7 +5,7 @@ toc-title: Recipe
 
 | Field | Value |
 |---|---|
-| Tools | `vllm-pwn` (A-7, exp) ↔ `vllm` (O-2 lab target) + observability rows |
+| Tools | plain curl sweep over vLLM's OpenAI-compatible + metrics surfaces (A-7 pairing instrument) ↔ `vllm` (O-2 lab target) + observability rows — the aspirational attack-tool name rides the os#210 registry |
 | Section | Attack–defence pairs |
 | Level | medium |
 | Time | ~40 min (serve + key-on probe pair + posture flip) |
@@ -27,7 +27,9 @@ telemetry to anyone on the segment, and vLLM's own security page says
 so in one line worth quoting verbatim: "Do not rely exclusively on
 `--api-key` for securing access to vLLM. Additional security measures
 are required for production deployments." The manifest maps the
-surface to OWASP LLM02 + LLM10 and the `vllm-pwn` row to ATLAS
+surface to OWASP LLM02 + LLM10 (the pre-#210 `vllm-pwn` row carried
+the ATLAS mapping; phantom-upstream, removed — os#210; the matrix is
+published)
 AML.T0049 + T0050. You want the key-on probe pair to split those two
 classes — guarded vs unauthenticated on the same port — then flip the
 posture and watch both close.
@@ -106,14 +108,14 @@ sweep again, posture: loopback-only
 
 ## Discussion
 
-- **Why plain curl and not a bespoke exploit script:** `vllm-pwn` is
-  an A-7 row, `safety.level: exp`, licence `LicenseRef-Unknown`, with
-  the upstream repository missing at the pin
-  ([kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23),
-  the missing-repository note the whole lane shares). The probe leg
-  runs the protocol directly; per the pair playbook the real tool
-  takes over when its derivation lands, installing only via the
-  double-key lab gate (walk:
+- **Why plain curl and not a bespoke exploit script:** the
+  `vllm-pwn` manifest row was a PHANTOM — its claimed kailash-os
+  upstream was never created — removed by the os#210 audit
+  (2026-10-14; https://github.com/kailash-os/kailash-os/issues/210 —
+  the name rides the registry). The probe leg runs the protocol
+  directly with the base system only — nothing invented; a real A-7
+  tool re-enters via the os#210 rebuild contract, installing only via
+  the double-key lab gate (walk:
   [Gate lab-mode and exp-classified
   tools](../admin/lab-mode-gating.html)).
 - **The verbatim caveat is the recipe's thesis.** vLLM's security
@@ -170,7 +172,9 @@ sweep again, posture: loopback-only
 
 ---
 
-**Recipe provenance.** Manifest facts (A-7 `vllm-pwn` row exp +
+**Recipe provenance.** Manifest facts post-os#210 (vllm O-2 row +
+observability rows; the pre-#210 `vllm-pwn` A-7 row was
+phantom-upstream and removed — os#210)
 `LicenseRef-Unknown`, ATLAS AML.T0049 + T0050, OWASP LLM02 + LLM10
 both epochs; vllm O-2 row) are from the packages manifest rows + lane
 comments, verified 2026-10-14. Upstream surface checked at the
@@ -180,10 +184,11 @@ security page at the pin: `--api-key` guarding only `/v1`,`/v2`,
 requiring NO key; the "Do not rely exclusively on `--api-key` …"
 warning verbatim; port 8000; uvicorn host default 127.0.0.1 —
 verified 2026-10-14. Langfuse OTel endpoint/headers + docker-compose
-self-host: upstream docs at the pin. llm-firewall's kailash row is
+self-host: upstream docs at the pin. (The pre-#210 `llm-firewall`
+  d-01 row was phantom-upstream, removed — os#210.)
 bespoke-pending: the policy-firewall defence leg is PENDING-kailash
 until its module lands — the posture-flip leg above (loopback bind)
 is the control you can exercised today.
 
 
-ref: [vLLM security page + packages manifest rows](https://docs.vllm.ai/en/stable/usage/security/) - verified 2026-10-14. Missing A-7 repo: [kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23).
+ref: [vLLM security page + packages manifest rows](https://docs.vllm.ai/en/stable/usage/security/) - verified 2026-10-14. The pre-#210 A-7 tool row was phantom-upstream (removed 2026-10-14): [https://github.com/kailash-os/kailash-os/issues/210](https://github.com/kailash-os/kailash-os/issues/210).

@@ -68,7 +68,7 @@ What success looks like:
 - **Safety classes still govern:** enabling a category does not
   flatten safety classes — `requires-target` tools (most of ATTACK)
   refuse to fire without an explicit target, and `exp` rows
-  (e.g. mlflow-bypass in A-7) install only via gate wrappers and stay
+  (e.g. hexstrike-ai in A-7) install only via gate wrappers and stay
   double-keyed — see [Gate lab-mode and exp-classified
   tools](../admin/lab-mode-gating.html).
 - **Data packs are NOT categories:** wordlists and corpus packs

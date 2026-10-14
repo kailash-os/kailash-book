@@ -18,8 +18,11 @@ toc-title: Recipe
 You operate (or inherit) a Kailash host and need the safety inventory
 stated as fact, not folklore: exactly which tools in this closure are
 exp-classified and therefore gated. The manifest at the verified
-revision carries 26 `safety.level: exp` rows (the A-7 exploit rows, the
-lab packs, the exp data packs), but the number that matters is the one
+revision carries 4 `safety.level: exp` rows (hexstrike-ai, kailash-mcp,
+mcp-kali-server, mcpoison — post-os#210; the pre-purge 26 counted
+phantom rows removed via
+[kailash-os#210](https://github.com/kailash-os/kailash-os/issues/210)),
+but the number that matters is the one
 on YOUR host — the closure's gate-state record — and the two must agree.
 You want to see both sets directly, cross-check them with the landed
 CLI, and know which instrument guarantees the agreement.
@@ -65,10 +68,11 @@ KAILASH_LAB_MODE=1 <exp-tool> --help
 Expected output shape (abridged):
 
 ```
-26 wrapped exp ids:
-   mlflow-bypass
-   ...
-   vector-db-ripper
+4 wrapped exp ids:
+   hexstrike-ai
+   kailash-mcp
+   mcp-kali-server
+   mcpoison
 <id>: layer ATTACK · category a-07-ai-system-exploitation · safety exp
 manifest validate: <green verdict line — the loader's self-inventory>
 <exp-tool>: refused (exit 126) — host key off; KAILASH_LAB_MODE=1 alone
