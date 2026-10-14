@@ -1,0 +1,36 @@
+---
+title: "Recipe: fixture body h1"
+---
+
+| Field | Value |
+|---|---|
+| Tool | `fixture` |
+| Section | Ops |
+| Level | easy |
+| Time | ~1 min |
+| Layer/Category | OPS / o-05 |
+| Tags | `fixture` |
+
+# A stray body H1
+
+## Problem
+
+None.
+
+## Solution
+
+```bash
+kailash info fixture
+```
+
+## Discussion
+
+n/a.
+
+## See also
+
+- nothing
+
+---
+
+ref: [fixture pin](https://example.invalid/pin) - verified 2026-10-14.

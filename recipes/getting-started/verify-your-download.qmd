@@ -151,6 +151,7 @@ parts, the reassembly and identity-check order,
 images chapter + `tools/split-release-artefact.sh` (KA-33.4) + the
 release notes of `2026.01-alpha.1` (attestation evidence recorded on
 the cut issue), verified 2026-10-14 at master/the published release.
-Verbatim verify-output transcripts: PENDING — every rendered line
+Verbatim verify-output transcripts: PENDING (follow-up: the upkeep
+lane [kailash-book#12](https://github.com/kailash-os/kailash-book/issues/12)) — every rendered line
 above is a shape with placeholders, per the book's no-invented-evidence
 rule.

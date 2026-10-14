@@ -1,0 +1,35 @@
+---
+title: "Recipe: fixture green"
+---
+
+| Field | Value |
+|---|---|
+| Tool | `fixture` |
+| Section | Ops |
+| Level | easy |
+| Time | ~1 min |
+| Layer/Category | OPS / o-05 |
+| Tags | `fixture` |
+
+## Problem
+
+None.
+
+## Solution
+
+```bash
+kailash info fixture        # shape note
+```
+
+## Discussion
+
+n/a.
+
+## See also
+
+- nothing
+
+---
+
+ref: [fixture pin](https://example.invalid/pin) - verified 2026-10-14.
+Hands-on smoke: PENDING (follow-up: the upkeep lane).

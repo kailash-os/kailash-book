@@ -168,5 +168,6 @@ chainsaw, hayabusa, sigma-cli — kailash-packages manifest) + upstream
 CLI surfaces (chainsaw hunt/--mapping/--csv, hayabusa dfir-timeline
 command family per docs, sigma convert -t <backend>)](https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml) - verified 2026-10-14.
 The first-party playbook pack's runbook shape + the worked rehearsal:
-PENDING — the pack upstream is planned-landing; the detection-trio
+PENDING (follow-up: the upkeep lane [kailash-book#12](https://github.com/kailash-os/kailash-book/issues/12)) —
+the pack upstream is planned-landing; the detection-trio
 shapes are verified here and the rehearsal method stands on them.

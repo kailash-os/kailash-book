@@ -1,0 +1,31 @@
+---
+title: "Recipe: fixture prompt-glyph transcript"
+---
+
+| Field | Value |
+|---|---|
+| Tool | `fixture` |
+| Section | Ops |
+| Level | easy |
+| Time | ~1 min |
+| Layer/Category | OPS / o-05 |
+| Tags | `fixture` |
+
+## Problem
+
+None.
+
+## Solution
+
+```bash
+$ kailash info fixture
+{"status": "ok"}
+```
+
+## Discussion
+
+n/a.
+
+## See also
+
+- nothing
