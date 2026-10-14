@@ -1,0 +1,121 @@
+---
+title: "Recipe: stand up the MLflow lab target as declared"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tool | `services.kailash.mlflow` (NixOS module) |
+| Section | Ops |
+| Level | easy |
+| Time | ~10 min + rebuild |
+| Layer/Category | OPS / O-1 |
+| Tags | `ops`, `mlflow`, `lab-posture`, `nixos-module`, `target-platform` |
+
+## Problem
+
+The pairing thesis needs a platform target on your side of the lab
+boundary: an MLflow tracking server answering real API shapes. The
+Kailash OS module `services.kailash.mlflow` (category O-1 — the
+manifest names the pairing-thesis lab target) declares that posture
+for you; you want it booted exactly as the tests do, and you want to
+understand which parts of that posture are deliberate lab-only
+choices.
+
+## Solution
+
+Boot the lab target with the module's declared settings — the same
+shape the OS repo's `tests/integration-mlflow-attack.nix`
+acceptance pair uses:
+
+```nix
+# configuration.nix (lab VM segment)
+services.kailash.mlflow.enable = true;
+# The lab posture itself is a declared option:
+services.kailash.mlflow.labReachable = true;   # see Discussion
+```
+
+```bash
+sudo nixos-rebuild test
+# then prove the surface, before any probe touches it:
+curl -fsS http://127.0.0.1:5000/health    # -> /health answers, 200
+```
+
+Expected output shape (abridged, shapes not transcripts):
+
+```
+# the lab posture's two deliberate openings:
+<mlflow> listening on 0.0.0.0:5000   (labReachable = true)
+<mlflow> backend sqlite: /var/lib/kailash-mlflow/mlflow.db(?)
+# the health pre-check
+200 OK
+```
+
+## Discussion
+
+- **What "lab-accurate defaults" means here:** the module's lab
+  posture is a *declared* configuration, not an accident — three
+  choices are load-bearing:
+  1. `labReachable = true` is the declaration that the server
+     answers on `0.0.0.0:5000` (the lab-reachable bind) rather than
+     loopback-only, so in-guest and hostfwd probes both reach it;
+  2. the backend store ships as
+     `sqlite:///var/lib/kailash-mlflow/mlflow.db` in the module's
+     state dir — a lab-sized, single-node store, not a managed
+     database;
+  3. the module asserts the two posture options are mutually
+     exclusive (`labReachable` with any explicit `host` is refused
+     at eval) — the lab posture cannot silently co-exist with a
+     tightened bind.
+  "Lab-accurate" = the target matches what the OS tests and pair
+  recipes assume: real port 5000, real unauthenticated tracking API,
+  real artefact store — on an isolated lab segment.
+- **Why loopback-by-default is not a security setting upstream:** the
+  `mlflow` server CLI's `--host` default binds `127.0.0.1`, and
+  upstream's own server README warns in terms (verbatim):
+  "**The default bind is 127.0.0.1. If you wish to publicly expose
+  your server, either change the host or use a reverse proxy on your
+  side. It is NOT a security setting.**" In other words: the default
+  bind is a convenience default, not a control — and the module's
+  `labReachable` flip is the documented, reviewable way the lab
+  posture opens. Keep that phrasing in head when you read lab
+  configurations of any tool.
+- **Where the isolated-segment boundary comes from:** the lab VM's
+  qemu user-net / NAT segment is the perimeter — the target is
+  dangerous to share beyond it. Read the book's
+  [responsible-use](https://github.com/kailash-os/kailash-os/blob/master/docs/responsible-use.md)
+  stance; a lab target is an attack surface you created for
+  verification, not a service to casually widen.
+- **The port:** 5000 is the module default (and the upstream
+  `--port` default). If another service owns 5000, change it in the
+  module — and re-check every probe recipe that hardcodes the port.
+
+## See also
+
+- [Flip the MLflow posture to production](mlflow-posture-flip.html)
+  — the loopback-only + reverse-proxy counterpart
+- [Attack the platform, then verify](../attack-defence/attack-then-verify.html)
+  — the probe pair that runs AGAINST this target
+- [Gate lab-mode and exp-classified tools](../admin/lab-mode-gating.html)
+  — the exp-classification context around lab tooling
+- The OS spec's MLflow lab target spec:
+  <https://github.com/kailash-os/kailash-os/blob/master/docs/spec.md>
+- The OS repo's mlflow service module source:
+  <https://github.com/kailash-os/kailash-os/blob/master/modules/services/mlflow-service.nix>
+
+---
+
+**Recipe provenance.** Module option surface (`enable`, `package`,
+`host`, `port 5000`, `labReachable` default false, `backendStoreUri`
+default `sqlite:///var/lib/kailash-mlflow/mlflow.db`, `stateDir`,
+`openFirewall` default false, the `labReachable`+`host` assertion,
+and the no-auth fact) is read from the OS repo's MLflow service
+module (default branch master, as of 2026-10-14); the upstream
+`--host` "NOT a security setting" server warning is from the MLflow
+server docs. Smoke PENDING: options are asserted per the module
+contract and the lab posture is exactly what the OS repo's
+`tests/integration-mlflow-attack.nix` boots — this recipe has not
+been worked on a live boot yet in this wave.
+ref: [OS mlflow service module at master](https://github.com/kailash-os/kailash-os/blob/master/modules/services/mlflow-service.nix) - verified 2026-10-14.
+Live-boot smoke PENDING (wave-2 ops lane: options read at the pin,
+not exercised on a booted lab VM in this wave).

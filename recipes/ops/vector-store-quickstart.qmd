@@ -1,0 +1,146 @@
+---
+title: "Recipe: bootstrap a vector store on loopback"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tool | `services.qdrant` + `services.chromadb` + `postgresql_16` + `weaviate` |
+| Section | Ops |
+| Level | medium |
+| Time | ~30 min (per-store ~10) |
+| Layer/Category | OPS / o-03 |
+| Tags | `ops`, `vector-store`, `qdrant`, `chromadb`, `pgvector`, `weaviate`, `o-03` |
+
+## Problem
+
+Category o-03 is the vector-store shelf. Four distinct shapes ship:
+two native services (`services.qdrant`, `services.chromadb`), one
+SQL-borne store (PostgreSQL 16 + the pgvector extension), and a
+container-backed set (`weaviate`, `milvus`, `elasticsearch` via the
+docker-wrapper backend). You want one recipe that boots each shape
+loopback-safe, names each store's unauthenticated posture honestly,
+and leaves you with a live endpoint per shape to write into.
+
+## Solution
+
+Boot each shape and prove its endpoint; everything binds loopback by
+the Kailash module defaults (qdrant already-hardened nuance in the
+Discussion):
+
+```nix
+# configuration.nix — Shape 1/2: native services (loopback default)
+services.qdrant.enable = true;        # http 6333, grpc 6334 (loopback)
+services.chromadb.enable = true;      # port 8000 (loopback default)
+
+# Shape 3: SQL-borne — postgres_16 + pgvector
+services.postgresql_16.enable = true;  # CREATE EXTENSION below, not here
+```
+
+```bash
+sudo nixos-rebuild test
+
+# Shape 1: qdrant — prove both endpoints answer
+curl -fsS http://127.0.0.1:6333/collections        # -> {"collections":[...]}
+curl -fsS http://127.0.0.1:6333/telemetry          # -> shape answer
+# Shape 2: chromadb — prove the HTTP surface
+curl -fsS http://127.0.0.1:8000/api/v1/version     # -> version string
+```
+
+Shape 3: pgvector — enable the extension per-database, then use it:
+
+```sql
+-- psql: the operator SQL (the extension is NOT auto-created)
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE TABLE notes (id bigserial PRIMARY KEY, embedding vector(384));
+```
+
+Shape 4: the container-backed weaviate row (Shape-3 container
+contract: a compose manifest + a wrapper; the image boots at
+lab-boot):
+
+```bash
+# the wrapper (virtualisation.oci-containers, podman backend,
+# pinned image weaviate 1.39.2, autoStart=false):
+# boot it deliberately at lab time; autoStart is false by design —
+# the container does not ride every reboot
+<o-03 wrapper command>            # per module docs; PENDING exact name
+```
+
+Expected output shape (abridged, shapes not transcripts):
+
+```
+# per-store health lines, one per shape
+qdrant   : 200 on :6333 (/collections)
+chromadb : 200 on :8000 (/api/v1/version)
+pgvector : "CREATE EXTENSION" ack + \dx → vector | 0.x
+weaviate : container up on :8080(?) via the wrapper
+```
+
+## Discussion
+
+- **Kailash hardens the native rows for you — verify, don't
+  assume:** the module sets qdrant's service host to loopback by
+  default, and alters upstream's defaults where the upstream would
+  listen wider: `telemetry_disabled` and CORS-off come pre-set as
+  hardening-vs-upstream choices in the module. This is the
+  "already-hardened-by-kailash" nuance: you inherit a tighter
+  posture than the stock qdrant config; the module source is the
+  record of what was tightened.
+- **chromadb has no auth option at the pin:** the service module
+  ships bind host + port + state dir (`/var/lib/chromadb`) but NO
+  authentication knob — the endpoint on `127.0.0.1:8000` answers
+  whoever can reach the port locally. That is an honest lab
+  posture, not a production one: for any multi-user host, front it
+  with your own proxy/auth layer, as the mlflow-posture recipe does
+  for MLflow.
+- **qdrant's unauth posture, stated honestly:** the module loopback
+  bind is a boundary, not an application-auth feature — qdrant's own
+  API-key/authn config is a qdrant-config matter (set it in the
+  declared settings if a second user lands on the box); kailash's
+  module hardening gives you loopback + telemetry/CORS tightening,
+  and does not pretend to give you multi-tenant auth.
+- **pgvector is operator SQL, not a service:** postgresql_16 is the
+  service; vector search is a per-database extension —
+  `CREATE EXTENSION` is the operator step (and the module docs treat
+  it as such). Back up and migrate as you would any postgres; the
+  embedding columns ride your schema.
+- **Shape-3 container contract:** the wrapper rows (weaviate,
+  milvus, elasticsearch) are declared as a compose manifest + a
+  wrapper on the virtualisation.oci-containers podman backend, with
+  `autoStart = false` and pinned images (weaviate 1.39.2 at the
+  pin). Practically: the image does NOT run until you boot it at
+  lab time, so a fresh host has zero vector-store surfaces until you
+  say so — and the pinned tag, not `latest`, is what you will
+  actually get.
+- **All four shapes write the same lesson:** loopback bind is the
+  default; widen nothing without naming why; the o-03 rows make the
+  safe choice the zero-work choice.
+
+## See also
+
+- The OS repo's vector-db module surface:
+  <https://github.com/kailash-os/kailash-os/blob/master/modules/services/>
+- Weaviate upstream: <https://weaviate.io/developers/weaviate> ·
+  Chroma: <https://docs.trychroma.com/> · qdrant:
+  <https://qdrant.tech/documentation/> · pgvector:
+  <https://github.com/pgvector/pgvector>
+- [Flip the MLflow posture to production](mlflow-posture-flip.html)
+  — the same loopback-then-front-it hardening grammar
+- [Recipe directory](../directory.html)
+
+---
+
+**Recipe provenance.** Module facts (qdrant `settings.service.host`
+default loopback, http 6333 / grpc 6334, pre-set
+`enable_cors=false`/`telemetry_disabled` vs upstream; chromadb host
+default `127.0.0.1`, port 8000, stateDir `/var/lib/chromadb`, and NO
+auth option at the pin; postgresql_16 + pgvector via
+`CREATE EXTENSION` operator SQL; docker-wrapper rows on the
+`virtualisation.oci-containers` podman backend, `autoStart=false`,
+pinned weaviate `1.39.2`, Shape-3 compose+wrapper contract) read
+from the OS repo modules (master, 2026-10-14). The weaviate wrapper
+invocation shape is PENDING — module docs name the contract, the
+exact wrapper command name has not been smoked this wave.
+ref: [OS o-03 service modules at master](https://github.com/kailash-os/kailash-os/blob/master/modules/services/) - verified 2026-10-14.
+Live endpoints smoke PENDING (wave-2 ops lane).

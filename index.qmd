@@ -22,17 +22,26 @@ of the project documents follow.
   pairs / Ops / Administrator. A recipe keeps its section for life; it
   is never re-parented between sections.
 - **Level is metadata, not navigation** — each recipe carries an
-  easy/medium/hard level in its header, displayed on the page and
-  counted in the [recipe directory](recipes/directory.qmd).
+  easy/medium/hard level in its header table, displayed on the page
+  and counted in the [recipe directory](recipes/directory.qmd).
 - **Top-10 collections are generated views** — OWASP ML/LLM/API Top-10
   recipe sets render as generated index pages over recipe tags, they
   never re-organise the book (see the [recipe
   directory](recipes/directory.qmd) for the current coverage).
+- **Recipes are technical and grounded** — every command surface is
+  quoted from the manifest row (the single source of truth), the
+  landed CLI slice, or the pinned upstream source; expected outputs
+  render as shapes, never invented transcripts; the mlflow pair
+  recipe walks the landed
+  `kailash-integration-mlflow-attack` probe pair (see
+  [Attack the platform, then verify](recipes/attack-defence/attack-then-verify.qmd)).
 
 ## Status
 
-The book is being built in the 2026.01 release window. The recipe
-template, the organisation ADR and one worked exemplar (garak) are in
-place; the remaining sections carry explicit PENDING stubs while their
-recipes are worked. Progress is tracked on the repository's issue
-tracker (cookbook parent: the repo's pinned issue).
+The book is being built in the 2026.01 release window. Wave 1: recipe
+template, organisation ADR, one worked exemplar (garak), and grounded
+versions of the core setup pages. Wave 2 (in build): the deep recipe
+set across all sections, header tables on every page, code-block
+spacing, and the directory generator. Progress is tracked on the
+repository's issue tracker (cookbook parent: the repo's pinned issue;
+wave 2: KA-WS-5.12).

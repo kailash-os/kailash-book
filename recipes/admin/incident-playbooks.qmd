@@ -1,0 +1,172 @@
+---
+title: "Recipe: Rehearse an AI incident with the playbook packs"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tool | ai-incident-playbook-packs · chainsaw · hayabusa · sigma-cli |
+| Section | Administrator |
+| Level | medium |
+| Time | ~60 min (a tabletop + tool pass) |
+| Layer/Category | DEFENCE / d-05 (response) + CLASSIC / c-09 |
+| Tags | `incident-response`, `playbook`, `rehearsal`, `chainsaw`, `hayabusa`, `sigma` |
+
+
+## Problem
+
+An AI incident is coming and your team's IR muscle is classically
+shaped: it knows ransomware, not a poisoned MCP tool in the agent's
+context or a model checkpoint that "went wrong" mid-week. You want a
+REHEARSAL, not a template download: run a scenario end-to-end — trigger,
+detection, triage decision, containment, rollback, evidence — against
+real detection tooling (the C-9 forensics rows) and against the AI-side
+runbooks (the D-5 playbook pack), and record where your real posture
+diverges from the runbook.
+
+## Solution
+
+Run the rehearsal as a timed exercise with the pack's staged structure:
+playbook first, real tooling second, divergence record last:
+
+```bash
+# 1. Confirm the rows (the pack + the C-9 detection trio):
+kailash info ai-incident-playbook-packs
+kailash info chainsaw     # Sigma/YARA hunts through forensic artefacts
+kailash info hayabusa     # fast event-log timelines
+kailash info sigma-cli    # Sigma rule conversion, per-SIEM backends
+
+# 2. Pick the scenario + its detection artefacts BEFORE time starts:
+#    e.g. "a prompt-injection payload moved through the agent's MCP tool
+#    and wrote to the artefact store" — the detection surface is the
+#    LOG corpus the lab already produces (the O-1/O-2 service logs, the
+#    agent's request log, the tracking server's audit trail).
+
+# 3. The playbook leg (tabletop, the pack's runbooks on screen):
+#    follow the pack's staged runbook shape: detect -> triage ->
+#    containment -> rollback -> evidence -> review. Time each step.
+#    Fill EVERY stage's "who/what/when" rows — an unstaffed stage is a
+#    finding about the team, not about the tool.
+
+# 4. Detection leg with the C-9 trio (real commands, real corpus):
+#    a. Turn the AI incident's IOCs into a Sigma rule (write YAML, then
+#       convert per-backend — the sigma-cli flow):
+sigma convert -t splunk --without-pipeline <rule>.yml
+sigma convert -t loki   <rule>.yml
+#    b. Hunt the converted + stock rules over the lab's log corpus:
+chainsaw hunt <evtx-or-log-dir>/ -s <rules-dir>/ \
+    --mapping mappings/sigma-event-logs-all.yml
+#    c. Timeline the same corpus (the "what happened, in order" leg):
+hayabusa dfir-timeline -d <evtx-or-log-dir>/ -o <timeline>.csv
+#       (hayabusa's consolidated timeline command family; upstream docs
+#        at your pin give the profile/flag surface)
+
+# 5. Containment + rollback leg — the declarative system is the tool:
+sudo nixos-rebuild switch    # the posture you want post-containment
+#    e.g. flip a service's lab-reachable posture closed; or rollback the
+#    whole host (generations are one boot away — the update recipes'
+#    rollback posture). A playbook that assumes imperative patching is
+#    the finding: on Kailash containment IS a config change.
+
+# 6. Evidence leg: name the tag, capture outputs, keep the chain:
+kailash manifest validate    # the system state you are attesting
+#    + the hunt outputs (.csv/.json), the timeline, the rule set, and —
+#    for the AI-side trigger — the run record the ATTACK recipes produce
+#    (--record JSON with verbatim outputs; a hand-typed "it happened"
+#    fails the book's evidence rule exactly as it fails the verifier).
+
+# 7. Div record (the rehearsal's actual deliverable): what the runbook
+#    said vs what your lab could actually do. File the gaps on the
+#    tracker with the release tag — the pack PRs welcome them.
+```
+
+Expected output shape (abridged):
+
+```
+scenario: <AI incident class>       players: <roles>    timebox: 60m
+stages: detect(<T>x) triage(<T>x) contain(<T>x) rollback(<T>x) evidence(<T>x)
+chainsaw hunt: <n> hits over <m> docs   (sigma rules: <k> stock + <j> custom)
+hayabusa dfir-timeline: <rows> events -> <timeline>.csv
+divergences: <n>  (stage -> what the runbook assumed -> what the lab did)
+```
+
+What success looks like:
+
+- every runbook stage names its people and its actual commands (the
+  playbook's stages exist to be FILLED with your system's facts)
+- the detection leg found the scenario's marker in a real log corpus —
+  with the converted Sigma rule you wrote, not only stock rules
+- the timelined events order the incident story coherently (trigger →
+  actions → blast radius) — or the logging story itself is a divergence
+  finding
+- containment was achieved declaratively and the evidence chain names
+  the release tag, tool pins and verbatim outputs
+- the divergence record exists and went to the tracker
+
+## Discussion
+
+- **Why the two packs are one recipe:** the incident-playbook pack
+  (d-05-primary, c-09 secondary — the manifest itself records the
+  linkage) carries the AI-specific runbook CONTENT; the C-9 rows carry
+  the detection instrument the runbooks assume exists
+  (chainsaw/hayabusa hunt SIGMA-shaped detections; sigma-cli writes the
+  rules into that ecosystem). A rehearsal that runs only the papers
+  fails exactly where real IR fails — at the tooling handoff.
+- **The manifest's cross-ref is the design statement:** the playbook
+  pack's row carries `secondary_categories: [c-09-forensics-ir-reporting]`
+  — the AI incident runbooks are CLASSIFIED as living next to the
+  classic forensic/IR kit, not in a separate silo. The recipe makes
+  that linkage physical: same rehearsal, same corpus, same rule format.
+- **Sigma rules are the interoperability layer:** write the AI
+  incident's detections in Sigma, convert per-backend (Splunk / Loki /
+  whatever your SIEM is) — your AI detections stay portable rather than
+  SIEM-locked, and the chainsaw/hayabusa ecosystem consumes the same
+  rules the stock repos use.
+- **AI incidents break classic IR at three specific stages** — triage
+  (is this model behaviour a compromise or a prompt?), containment
+  (pull the model? the agent tool? the API key?), rollback (which
+  checkpoint is CLEAN — this is exactly the signed-model discipline of
+  the D-4 recipes). The pack's runbooks exist for those three stages;
+  the classic tooling covers detection/evidence. Rehearse the joins.
+- **Rollback-as-config-change is your unfair advantage:** on Kailash,
+  containment is `nixos-rebuild` (declared posture, reproducible),
+  and system generations give point-in-time recovery. Your runbooks
+  should SAY that, because generic IR scripts assume imperative
+  hotfixes that would violate the declarative discipline. The
+  generation-rollback story lives with
+  [Ride a release without breaking pinned tooling](updates.html).
+- **The no-invented-evidence rule is an IR rule:** an exercise report
+  that claims "detection fired" with no output behind it is worse than
+  no report — it launders a gap. Keep the verbatim hunt/timeline
+  outputs, or record ATTEMPTED and file the gap.
+- **Licence note on detection content:** Sigma rule corpora carry
+  their own licences (the Detection Rule License for SigmaHQ's packs)
+  separate from tool licences — as with every Kailash data row, check
+  what you redistribute before redistributing detections you did not
+  write.
+
+## See also
+
+- [Run an AI threat-model session with the D-5
+  pack](threat-model-worksheet.html) — the same pack section, model
+  first; this recipe is its after-action sibling
+- [Ride a release without breaking pinned tooling](updates.html) —
+  the generation-rollback posture the containment leg assumes
+- [Attack the platform, then verify](../attack-defence/attack-then-verify.html)
+  — the --record evidence discipline for the AI-side trigger
+- Chainsaw upstream: <https://github.com/WithSecureLabs/chainsaw> ·
+  Hayabusa commands: <https://yamato-security.github.io/hayabusa/commands/> ·
+  Sigma CLI: <https://sigmahq.io/docs/guide/getting-started.html>
+- The d-05 + c-09 manifest rows (source of truth):
+  <https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml>
+- [Recipe directory](../directory.html)
+
+---
+
+ref: [d-05/c-09 manifest rows (ai-incident-playbook-packs,
+chainsaw, hayabusa, sigma-cli — kailash-packages manifest) + upstream
+CLI surfaces (chainsaw hunt/--mapping/--csv, hayabusa dfir-timeline
+command family per docs, sigma convert -t <backend>)](https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml) - verified 2026-10-14.
+The first-party playbook pack's runbook shape + the worked rehearsal:
+PENDING — the pack upstream is planned-landing; the detection-trio
+shapes are verified here and the rehearsal method stands on them.

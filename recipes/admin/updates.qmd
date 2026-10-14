@@ -3,10 +3,15 @@ title: "Recipe: ride a release without breaking pinned tooling"
 toc-title: Recipe
 ---
 
-**Tool:** kailash (flake update / nixos-rebuild) · **Section:**
-Administrator · **Level:** medium · **Time:** ~30 min ·
-**Layer/Category:** admin (whole-system) · **Tags:** admin, updates,
-release, reproducibility
+| Field | Value |
+|---|---|
+| Tool | kailash (flake update / nixos-rebuild) |
+| Section | Administrator |
+| Level | medium |
+| Time | ~30 min |
+| Layer/Category | admin (whole-system) |
+| Tags | `admin`, `updates`, `release`, `reproducibility` |
+
 
 ## Problem
 
@@ -93,12 +98,4 @@ What success looks like:
 
 ---
 
-**Recipe provenance.** The anti-churn statements (no background
-updates, lock-as-version, reviewed bump PRs, generation rollback
-behaviour) are from the guide's updates chapter and the spec's
-update-cadence table (verified 2026-10-14). Release naming is the
-pinned convention (YYYY.NN index, staged ladder, dotted re-cuts) from
-the releases chapter. The literal `nix profile list` /
-diff-closures command shapes: standard Nix/NixOS practice —
-the per-release update walkthrough on a real boot: PENDING (upkeep
-lane).
+ref: [guide updates chapter + spec releases chapter](https://docs.kailash.tools/admin/updates.html) - verified 2026-10-14.

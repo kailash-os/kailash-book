@@ -1,0 +1,188 @@
+---
+title: "Recipe: red-team an LLM application with promptfoo"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tool | [promptfoo](https://docs.kailash.tools/reference/tools/promptfoo.html) |
+| Section | Scanning |
+| Level | medium |
+| Time | scoped run ~20 min; full scan hours |
+| Layer/Category | ATTACK / a-02-prompt-injection-jailbreaks |
+| Tags | `scan`, `llm01`, `redteam`, `evals`, `promptfoo` |
+
+## Problem
+
+You have an LLM application — a chat endpoint, a model-plus-prompt
+surface, a RAG agent — and you need a repeatable, reportable red-team
+pass for the injection/jailbreak class (the manifest maps this tool to
+OWASP LLM01, both Top-10 epochs), not a one-off impression from
+chatting with it by hand. You also want the run to be cheap enough to
+repeat as a regression check after every app or config change.
+
+promptfoo is the catalogue's eval-and-red-team CLI for exactly this:
+it generates adversarial test cases against a described target, runs
+them as an eval, and renders a vulnerability report. Its manifest row
+is a **bespoke** packaging (a pinned binary in the Kailash closure) and
+**requires-target** (like every scanner here: it refuses to self-fire).
+
+## Solution
+
+On Kailash the tool is the pinned binary — never upstream's npx
+quick-start:
+
+```bash
+# 1. Confirm the manifest row, then the pinned binary on PATH
+kailash info promptfoo
+#    -> layer a-02, MIT, bespoke, safety requires-target; the row is the
+#       packaging record (pkgs/promptfoo, update:weekly)
+promptfoo --version
+#    -> the packaged build's own gate ran this call at build time;
+#       the pinned version prints as the build version string
+
+# 2. Scaffold a red-team project (interactive prompts; writes
+#    promptfooconfig.yaml). Headless/CI shells: add --no-gui
+promptfoo redteam init <directory> --no-gui
+#    init asks: target name -> what to red team (HTTP endpoint /
+#    model+prompt / RAG / agent) -> application purpose
+```
+
+The HTTP-endpoint branch writes a provider that posts to your app
+(template shape from the init flow at the pin):
+
+```yaml
+targets:
+  - id: https
+    label: "<target-name>"
+    config:
+      url: "http://127.0.0.1:<port>/<path>"
+      method: POST
+      headers:
+        Content-Type: application/json
+      body:
+        myPrompt: "{{prompt}}"
+redteam:
+  purpose: "<one paragraph: who the user is, what they may access>"
+  numTests: "<n-per-plugin>"
+  plugins: [default]
+  strategies: [basic, jailbreak:meta, jailbreak:composite]
+```
+
+Scope the run to the injection/jailbreak cluster, then run it:
+
+```bash
+# 3. Generate the attacks (scoped list), then evaluate them against the
+#    target — or let `redteam run` do both steps in sequence:
+promptfoo redteam run -c promptfooconfig.yaml -j <concurrency> \
+    --no-cache
+#    generation defaults live in the CLI itself: --plugins uses
+#    'default' for the default set; named ids include
+#    indirect-prompt-injection, ascii-smuggling, system-prompt-override,
+#    prompt-extraction, pliny, hijacking, cca, excessive-agency ...
+#    --strategies default = basic, jailbreak:meta, jailbreak:composite
+
+# 4. Read the result
+promptfoo redteam report
+```
+
+Expected output shape (abridged):
+
+```
+Generating test cases...
+Running scan...
+Total scan time: <duration> (generation: <g>, evaluation: <e>)
+Red team scan complete!
+To view the results, run promptfoo redteam report
+```
+
+The eval underneath renders as a table whose cells carry verdicts:
+
+```
+<vars> | [<provider>] <label>
+<var>  [PASS] <model-output>
+<var>  [FAIL] <grading-reason>---<model-output>
+<var>  [ERROR] <error-text>
+```
+
+Results persist to promptfoo's eval store; `-o <file>` on `promptfoo
+eval` writes one of csv/html/json/jsonl/txt/xml/yaml/yml/junit.xml.
+
+## Discussion
+
+- **Why the pinned binary and not `npx promptfoo@latest`:** upstream's
+  quick-start floats the latest tag; Kailash's contract is that the
+  lock is the product — the manifest row (bespoke, `update:weekly`)
+  pins the exact build, and `kailash doctor` reports its provenance.
+  Upstream's `pip install promptfoo` / `brew` paths are equally
+  off-contract on this OS: the packaged `promptfoo` is the surface.
+- **Why scope the plugins:** the default plugin set is broad (base
+  plugins plus harm/PII/bias collections at this pin). A scoped
+  `--plugins indirect-prompt-injection,ascii-smuggling,...` run answers
+  the question you actually have and keeps the API cost of generative
+  plugins bounded; drop the flag for the full baseline before you sign
+  off an assessment.
+- **Generation is itself a model call:** adversarial probes are
+  generated with an attack-generation model (`--provider` defaults to
+  promptfoo's red-team model at the pin). Some setups route generation
+  through promptfoo's remote service (`--remote`) — that is a
+  data-egress decision, make it deliberately. Locally-served targets
+  (the loopback endpoint from
+  [Serve a local model for scanning](../ops/serve-a-model.html)) pair
+  with the `https` provider above or an `ollama:chat:<model>` provider
+  id (verified in the pinned provider source).
+- **The manifest row is the OWASP record:** the row maps this tool to
+  **LLM01** — prompt injection — in both Top-10 epochs. Upstream's
+  plugin catalogue covers several adjacent classes (`excessive-agency`,
+  `prompt-extraction`) and exposes an `owasp:llm` compliance view of
+  its own; the manifest row's map is what Kailash recorded for the
+  tool. Tag-driven Top-10 collection pages over recipes build from
+  these row mappings.
+- **requires-target, not exp:** most ATTACK rows are the lighter gate —
+  the tool runs freely once you give it a declared target. The
+  exp-class double-key gate is a different class entirely
+  ([Gate lab-mode and exp-classified tools](../admin/lab-mode-gating.html)).
+  Point scanners only at endpoints you are authorised to test.
+- **Regression workflow:** the eval store keeps every run —
+  `promptfoo redteam run --force` regenerates after a change; diff the
+  report across runs the same way the seeded-scan diffing works for
+  garak below.
+
+## See also
+
+- promptfoo reference page (`promptfoo(1)`):
+  <https://docs.kailash.tools/reference/tools/promptfoo.html>
+- [Scan a self-hosted model for prompt-injection
+  resistance](garak-full-baseline.html) — the sibling scanner
+  recipe (seeded probe scans)
+- [Automate an attack pipeline with
+  PyRIT](pyrit-automation-pipeline.html) — the scripted-pipeline lane
+- [Serve a local model for scanning](../ops/serve-a-model.html) —
+  stands up the target endpoint
+- [Attack the platform, then verify](../attack-defence/attack-then-verify.html)
+  — turn findings into detection evidence
+- promptfoo upstream red-team docs:
+  <https://www.promptfoo.dev/docs/red-team/>
+- Packaging record: [kailash-os#83](https://github.com/kailash-os/kailash-os/issues/83) —
+  freshness decision + derivation + smoke
+- [Recipe directory](../directory.html)
+
+---
+
+**Recipe provenance.** CLI facts verified against the pinned upstream
+source `promptfoo/promptfoo` at rev `ce5f743f` (pin 2026-10-10):
+`src/main.ts`, `src/commands/redteam/init.ts`,
+`src/redteam/commands/{run,generate}.ts`,
+`src/redteam/constants/{plugins,strategies}.ts`,
+`src/util/outputFormats.ts`, `src/providers/ollama.ts`) — fetched raw
+and checked flag-by-flag, verified 2026-10-14. Manifest facts
+(ATTACK/a-02; MIT; bespoke `pkgs/promptfoo`; requires-target; AML.T0051;
+owasp_llm {2026: LLM01, v2: LLM01}) read from the packages manifest at
+main. Config template quoted from `redteamInit`'s written template +
+HTTP-endpoint provider shape at the pin. Tool version at the pin:
+`0.124.1-unstable-2026-10-10` (upstream npm 0.124.1, 2026-10-08;
+nixpkgs' native row is ~12 months stale — the packaging issue records
+the freshness verdict). Smoke status: the build-time
+`promptfoo --version` gate ran in the hosted build; a hands-on scoped
+red-team loop: PENDING (follow-up on
+[kailash-os#83](https://github.com/kailash-os/kailash-os/issues/83)).

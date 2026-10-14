@@ -1,0 +1,217 @@
+---
+title: "Recipe: audit a TorchServe handler-deserialization exposure"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tools | `torchserve-pwn` (A-7, exp) ↔ `torchserve` (O-2 lab target) + observability rows |
+| Section | Attack–defence pairs |
+| Level | hard |
+| Time | ~60 min (surface audit + CVE posture map + flip) |
+| Layer/Category | ATTACK / A-7 + OPS / O-2 ↔ DEFENCE / d-02 (pending rows) |
+| Tags | `pair`, `platform`, `torchserve`, `rce-class`, `cve`, `exp`, `owasp-llm02`, `owasp-llm10` |
+
+## Problem
+
+TorchServe is the model server where the unauthenticated-surface class
+became an executable class. Management actions — register a model,
+delete a model, change its default version — ride a second port
+(:8081, management) whose default bind is loopback, but whose
+register-and-download shape is the dangerous one: with `allowed_urls`
+config set broadly, the `POST /models` request takes a `url`
+parameter pointing at a `.mar` archive that the server will fetch,
+and the archive carries the handler — a Python module executed inside
+the server. That RCE class is not hypothetical: CVE-2023-43654
+(CVSS 10.0) is exactly the remote-archive → registration → RCE chain
+(fixed 0.8.2), CVE-2023-48299 the upload ZipSlip (fixed 0.9.0), and
+CVE-2024-35198 the `..`-bypass of `allowed_urls` (fixed 0.11.0), with
+CVE-2024-35199 exposing the gRPC management/inference plane on all
+interfaces (fixed 0.11.0). Upstream's own banner says the maintenance
+story out loud: "Limited Maintenance — no planned security patches".
+The manifest maps the surface to OWASP LLM02 + LLM10 and the
+`torchserve-pwn` row to ATLAS AML.T0049 + T0050. You want a
+reproducible audit that maps the surface, proves WHICH flag closes
+each leg, and never fires a transcript-grade payload.
+
+## Solution
+
+This is an audit recipe, not a transcript recipe: the probe leg shows
+the management surface's request shape and which flag closes it — no
+payload firing, no invented transcript:
+
+```bash
+# 1. BOOT THE LAB TARGET (isolated lab segment):
+#      kailash info torchserve
+#    -> defaults 127.0.0.1:8080 (inference) / 127.0.0.1:8081
+#       (management) / 127.0.0.1:8082 (metrics), gRPC 7070/7071.
+#    Exposed leg = management port reachable from the segment AND the
+#    two deliberate lab acts: TS_DISABLE_TOKEN_AUTHORIZATION set (or
+#    --disable-token-auth passed — token auth is ON by default) and
+#    --enable-model-api passed (model register/delete are DISABLED by
+#    default). Both acts belong in the lab only — see [Gate lab-mode
+#    and exp-classified tools](../admin/lab-mode-gating.html) for how
+#    exp A-7 rows reach a lab.
+
+# 2. FIRST GATE CHECK — token auth, the default-on gate:
+curl -s -o /dev/null -w '%{http_code}\n' http://<target>:8081/models
+#    -> 401 (token-gated management API, the module default)
+#    the token rides the request as X-Api-Key; fetch it the way
+#    torchserve writes it at boot (key file path per your launch).
+
+# 3. THE SHAPE (management register — the RCE class, NOT executed):
+#    With token auth disabled AND --enable-model-api passed (register/
+#    delete are disabled by default — the flag is what opens them),
+#    the register shape is:
+curl -fsS -X POST 'http://<target>:8081/models?url=<mar-url>&handler=<handler>&batchSize=1'
+#    url=     the .mar archive the SERVER will fetch (with allowed_urls
+#             set broadly — the CVE-2023-43654 / -35198 class)
+#    handler= the handler entry-point INSIDE that archive; it is a
+#             Python module executed by the server = the deserialization
+#             class
+#    -> the probe demonstrates the SHAPE; firing it (a real crafted
+#       .mar at a real allowed_urls) is outside the audit's need and
+#       outside the responsible-use line. The shape itself + which
+#       flags close it IS the finding.
+
+# 4. THE CLOSING MAP (each leg → its flag):
+#      leg "management reachable at all"
+#        -> keep management bound to loopback (the default bind) —
+#           the segment must not see :8081; the gRPC plane's own CVE
+#           (all-interfaces exposure) wants the same answer: loopback
+#           or firewall.
+#      leg "token auth"  -> DEFAULT ON. Keep it on: the audit's
+#           closed-state proof is that TS_DISABLE_TOKEN_AUTHORIZATION
+#           stays UNSET and --disable-token-auth is never passed.
+#      leg "model register/delete API"
+#           -> register/delete are DISABLED BY DEFAULT; keep the
+#              default: --enable-model-api is never passed in
+#              production (flag-off closes the register/delete verbs
+#              at the server), which closes leg #3 outright.
+
+# 5. THE FLIP + SAME PROBES:
+#      restart the target at the hardened posture: token auth ON
+#      (the default), --enable-model-api NOT passed (the default),
+#      management bound to loopback (the default bind):
+sudo nixos-rebuild test      # or relaunch the container with defaults
+curl -s -o /dev/null -w '%{http_code}\n' http://<target>:8081/models
+#    -> keyless probe FAILs with 401 under default token auth
+#       (vs ok in the exposed leg). Diff = evidence.
+```
+
+Expected output shape (abridged, shapes not transcripts):
+
+```
+sweep @ <target>  posture: exposed leg (token auth disabled,
+                            --enable-model-api passed, mgmt reachable)
+  :8081/models (keyless) -> 401 with token auth ON (default posture),
+                            keyless-OK only when token auth disabled
+  :8081 register shape   -> shape demonstrated; flags that close it:
+                            token auth (default ON) + --enable-model-api
+                            off + management loopback bind + allowed_urls
+                            tightened (no broad wildcard, no .mar fetch
+                            from arbitrary urls — the CVE class)
+  inference plane        -> :8080 /predictions/{model} (keyless-OK only
+                            under the same disabled-token posture)
+sweep again, hardened posture (defaults + loopback mgmt)
+  keyless management probe -> FAIL 401/403 — surface closed
+```
+
+## Discussion
+
+- **Why the shape without a transcript:** the RCE chain (remote `.mar`
+  fetch → handler execution) is a real exploit technique with real
+  CVEs behind it; a cookbook transcript of a fired payload is a
+  public exploit walkthrough, while the audit form — shape, flag map,
+  posture flip — is the defensible lab discipline. The A-7 discipline
+  across this book (see [Attack the platform, then
+  verify](attack-then-verify.html)) exists exactly for surfaces of
+  this class: no invented transcript, verdict discipline, diff as
+  evidence.
+- **The CVE map with fix versions (the audit's backbone):**
+  - **CVE-2023-43654 (CVSS 10.0, fixed 0.8.2):** the
+    `allowed_urls` → remote `.mar` download → registration RCE chain
+    — the reason this recipe is Level hard.
+  - **CVE-2023-48299 (fixed 0.9.0):** ZipSlip traversal on archive
+    upload — path escape via crafted archive entries.
+  - **CVE-2024-35198 (fixed 0.11.0):** `..`-bypass of `allowed_urls`
+    restrictions — the allowlist that closes 43654 leaks via
+    traversal.
+  - **CVE-2024-35199 (fixed 0.11.0):** gRPC plane on all interfaces —
+    the "one bind mistake" analog for the 7070/7071 listeners.
+  All four resolve to the same closing map as the flags above: bind
+  discipline, auth ON, model-API off, allowed_urls tightened, and a
+  version at/after the fixes — check `torchserve --version` and your
+  pin against the list.
+- **Why the version check is part of the flip:** TorchServe is in
+  "Limited Maintenance — no planned security patches" (upstream
+  banner), which means waiting for the NEXT fix is not a plan; the
+  closing map must carry the load. A pin at/after 0.11.0 closes the
+  four CVEs above; the operational flags + binds close the CLASS. The
+  manifest carries torchserve as an O-2 row (lab target), so the
+  audit leg is the recipe's honest shape: demonstrate exposure in a
+  controlled lab, close it by configuration, and diff the sweeps.
+- **The observability defence leg is a pending row, stated honestly:**
+  Langfuse is the trace destination the manifest owns for LLM
+  telemetry: OTel endpoint `/api/public/otel`,
+  `OTEL_EXPORTER_OTLP_HEADERS` carrying `Basic <pk-lf-…>:<sk-lf-…>`,
+  plus the `x-langfuse-ingestion-version: 4` header, self-host via
+  docker-compose. The kailash-langfuse module row is pending/unwired
+  at the pin (PENDING) — the upstream export shape is quoted as the
+  design. What the traces would give the operator: standing
+  visibility of management-API calls (register/delete) and inference
+  volume — the anomaly view the probe sweep hand-verified.
+- **Why plain probes and not a bespoke exploit script:** `torchserve-pwn`
+  is an A-7 row, `safety.level: exp`, licence `LicenseRef-Unknown`,
+  upstream repository missing at the pin
+  ([kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23)).
+  The real tool takes over via the double-key lab gate when its
+  derivation lands (walk: [Gate lab-mode and exp-classified
+  tools](../admin/lab-mode-gating.html)); the probe leg runs with
+  base-system curl.
+- **This is the transferable pattern** (lab target up → shape
+  audits → posture flip → same probes → diff). Origin walk:
+  [Attack the platform, then verify](attack-then-verify.html).
+
+## See also
+
+- [Attack the platform, then verify](attack-then-verify.html) — the
+  mlflow pair; the verdict + record discipline this recipe follows
+- [Serve a local model for scanning](../ops/serve-a-model.html) —
+  the model-surface analog; the O-2 serving lane
+- [Gate lab-mode and exp-classified
+  tools](../admin/lab-mode-gating.html) — the exp gate the real tool
+  rides when its derivation lands
+- Upstream server docs: <https://github.com/pytorch/serve>
+- TorchServe security docs:
+  <https://github.com/pytorch/serve/blob/master/docs/configuration.md>
+- Upstream missing-repository note:
+  [kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23)
+- [Recipe directory](../directory.html)
+
+---
+
+**Recipe provenance.** Manifest facts (A-7 `torchserve-pwn` row exp
++ `LicenseRef-Unknown`, ATLAS AML.T0049 + T0050, OWASP LLM02 + LLM10
+both epochs; torchserve O-2 row) are from the packages manifest rows
++ lane comments, verified 2026-10-14. Upstream surface at the pin:
+defaults 127.0.0.1:8080 / 127.0.0.1:8081 / 127.0.0.1:8082 + gRPC
+7070/7071; `POST /predictions/{model}` + `GET /ping` (inference);
+`POST /models` with `url` + `handler` params + `GET /models`
+(management, keyless-OK only with token auth disabled AND
+`--enable-model-api` passed); token authorization ON by default
+(`TS_DISABLE_TOKEN_AUTHORIZATION` / `--disable-token-auth` are the
+OFF switches); model register/delete DISABLED by default
+(`--enable-model-api` / `TS_ENABLE_MODEL_API=true` are what open
+them). NVD-verified CVEs cited with fixes: CVE-2023-43654 (CVSS 10.0,
+fixed 0.8.2), CVE-2023-48299 (fixed
+0.9.0), CVE-2024-35198 (fixed 0.11.0), CVE-2024-35199 (fixed
+0.11.0); no other CVE labels are asserted or resolved in this
+recipe. Upstream "Limited Maintenance — no planned security patches"
+banner quoted verbatim — verified 2026-10-14. Langfuse module wiring
+PENDING at the pin (upstream export shape quoted as design). The
+probe leg demonstrates request SHAPES, never a fired payload or an
+invented transcript.
+
+
+ref: [pytorch/serve docs + NVD CVE records + packages manifest rows](https://github.com/pytorch/serve) - verified 2026-10-14. Missing A-7 repo: [kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23).

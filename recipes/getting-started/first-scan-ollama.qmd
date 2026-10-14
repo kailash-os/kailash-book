@@ -1,0 +1,146 @@
+---
+title: "Recipe: serve a tiny local model and run your first LLM01 scan end-to-end"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tools | [ollama](https://docs.kailash.tools/reference/ollama.html) + [garak](https://docs.kailash.tools/reference/garak.html) |
+| Section | Getting started |
+| Level | easy |
+| Time | ~30 min (the model download dominates) |
+| Layer/Category | OPS / o-04 + ATTACK / a-02 |
+| Tags | `getting-started`, `first-scan`, `ollama`, `garak`, `llm01` |
+
+## Problem
+
+You have a Kailash system (or any Linux box carrying its tooling) and
+you want the one loop that proves the whole stack works: serve a real
+model on a port you control, prove the endpoint is alive, point the
+flagship LLM scanner at it, and read an actual report — all in one
+sitting, cheap enough to repeat after every change. This is the
+operator version of the loop the OS spec's own test chapter asserts in
+CI (the O-4 tiny-local-model + A-2 garak integration, `nightly`).
+
+## Solution
+
+Both ends are manifest rows: ollama (OPS, o-04, native, safety
+`safe`) serves the target; garak (ATTACK, a-02, bespoke, safety
+`requires-target`) does the shooting. Work the loop top to bottom:
+
+```bash
+# 1. Confirm both rows from the manifest view (also your first
+#    `kailash info` run — see the CLI inventory recipe)
+kailash info ollama   # -> OPS / o-04 / native / safety safe
+kailash info garak    # -> ATTACK / a-02 / bespoke / requires-target
+
+# 2. Pull the tiny test model (a sub-1B quant keeps every scan loop
+#    short; the pull is roughly 0.7 GB of layers)
+ollama pull smollm2:360m
+
+# 3. Serve it bound to loopback ONLY — the blast-radius boundary
+OLLAMA_HOST=127.0.0.1:11434 ollama serve
+
+# 4. In a second terminal: prove health BEFORE the scanner touches it
+curl http://127.0.0.1:11434/
+curl http://127.0.0.1:11434/api/generate \
+     -d '{"model":"smollm2:360m","prompt":"Reply with OK only.","stream":false}'
+
+# 5. THE scan: OWASP-LLM01 scoped, 5 generations per probe, seeded for
+#    reproducibility
+garak --target_type ollama --target_name smollm2:360m \
+      --spec tag:owasp:llm01 -g 5 -s 42
+
+# 6. Read the run as a report (the JSONL file from step 5's banner)
+garak --report garak_<timestamp>.jsonl
+```
+
+What success looks like:
+
+- `ollama pull` ends with a `"success"` line for the tag, and
+  `ollama list` shows `smollm2:360m` with its non-zero SIZE column
+- the root endpoint answers `Ollama is running`; the generate call
+  returns one JSON object with a `response` field (streaming off)
+- the scan prints its banner and `📜 reporting to garak_<ts>.jsonl`,
+  then one progress line + per-detector scores per probe; the seeded
+  run (`-s 42`) reproduces the same probe/target interaction set when
+  you re-run it after any config change and diff the reports
+
+Expected output shape (abridged — the scan leg, shapes not
+transcripts):
+
+```
+garak LLM safety & security scanning tool v<version> ( https://github.com/NVIDIA/garak ) at <ISO timestamp>
+📜 reporting to garak_<timestamp>.jsonl
+...
+🔍 probing <probe> (<n> generation(s))
+   <detector>  passed  <n>/<m>
+```
+
+## Discussion
+
+- **Why this loop is the yardstick:** it is the smallest chain that
+  exercises every layer contract at once — a native OPS row serving
+  (safety `safe`), a bespoke ATTACK row firing (`requires-target`),
+  and the OWASP mapping (`LLM01` in both manifest epochs) doing the
+  scoping. When you rebuild, re-running steps 4–6 is your smoke check.
+- **Why loopback binding is non-negotiable:** a scan target is an
+  attack surface you deliberately created — garak drives the model
+  with adversarial prompts by design, so a `0.0.0.0` bind would put
+  that surface on your network. Bind `127.0.0.1` and keep the target
+  on the lab box.
+- **Why the endpoint and generator agree by default:** garak's Ollama
+  generator defaults its host to `127.0.0.1:11434` — the same loopback
+  bind step 3 uses, so no extra wiring is needed. If you ever move the
+  port, move both sides in the same change and re-verify health first.
+- **Why `-g 5` and `-s 42`, and no more:** five generations per probe
+  keeps a scoped run quick while the detectors still get samples; the
+  seed makes the scan a regression test (change a system prompt or a
+  guardrail, re-scan same-seed, diff). A first run should answer one
+  question — injection resistance (`tag:owasp:llm01`) — not pay for
+  the full catalogue; scale up when a real engagement needs it.
+- **The CI-side twin:** the spec's test chapter names
+  `integration-garak-local` (O-4 tiny local model + A-2 garak, one
+  probe class, `nightly` flag) as the standing assertion of this
+  pairing — an operator who can run this recipe by hand can diff their
+  own results against the nightly record.
+- **Alternate tiny model:** the o-04 module's notes name
+  `qwen2.5:0.5b` (~0.4 GB, the module's primary operator example) with
+  `smollm2:360m` as the smaller-tag alternative — any sub-1B quant
+  works; pick one and keep it pinned for the loop's baseline.
+
+## See also
+
+- [Serve a local model for scanning](../ops/serve-a-model.html) —
+  the Ops recipe that stands up the endpoint, in serving detail
+- [Scan a self-hosted model for prompt-injection
+  resistance](../scanning/garak-full-baseline.html) — the
+  scanner recipe, in probe/detector detail
+- [Inventory the catalogue with the kailash CLI](kailash-cli-manifest-inventory.html) —
+  what `kailash info` tells you in step 1
+- ollama reference page: <https://docs.kailash.tools/reference/ollama.html>
+- garak reference page: <https://docs.kailash.tools/reference/garak.html>
+- The OS spec's test chapter (the garak local integration, nightly):
+  <https://github.com/kailash-os/kailash-os/blob/master/docs/spec.md>
+- [Kailash OS #81](https://github.com/kailash-os/kailash-os/issues/81) —
+  garak packaging
+
+---
+
+**Recipe provenance.** Manifest rows (ollama: OPS/o-04 native safe,
+MIT; garak: ATTACK/a-02 bespoke, Apache-2.0, AML.T0051+T0054, LLM01
+both epochs, `requires-target`) are read from the packages manifest,
+verified 2026-10-14 at main. The garak CLI surface
+(`--target_type/--target_name/--spec/-g/-s`, `--report`) is verified
+against upstream `garak/cli.py` at source HEAD and the packaged pin
+**0.17.1.pre1-unstable-2026-10-09** (pin source: `pkgs/garak/default.nix`
++ `nvfetcher/_sources/generated.nix`); the Ollama generator's default
+host `127.0.0.1:11434` is its `generators/ollama.py` contract. The
+Ollama surfaces (`pull`, `OLLAMA_HOST`, `/`, `/api/generate`
+`stream:false`) are the upstream CLI/API contract. Pull sizes are
+registry-manifest sums (layer bytes at publish time; they move when
+quants update). Smoke status of the packaged garak binary on the
+darwin lane: recorded PENDING on
+[kailash-os#81](https://github.com/kailash-os/kailash-os/issues/81) —
+the full hands-on loop above has not been worked on a live boot yet;
+the spec's `integration-garak-local` design is its CI-side instrument.

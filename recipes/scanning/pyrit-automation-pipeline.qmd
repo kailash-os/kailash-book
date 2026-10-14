@@ -1,0 +1,159 @@
+---
+title: "Recipe: automate an attack pipeline with PyRIT"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tool | [pyrit](https://docs.kailash.tools/reference/tools/pyrit.html) |
+| Section | Scanning |
+| Level | medium |
+| Time | ~30 min + run time |
+| Layer/Category | ATTACK / a-02-prompt-injection-jailbreaks |
+| Tags | `scan`, `llm01`, `automation`, `pipeline`, `pyrit` |
+
+## Problem
+
+One-off scanners answer "is this model jailbreakable?" but you also
+need the second tool family in the catalogue's A-2 set: a
+**programmable** attack pipeline — compose scenarios, converters,
+scorers and memory, run campaigns at concurrency, and script the loop
+from Python or CI. PyRIT is that harness (Microsoft's Python Risk
+Identification Tool). Its manifest row is a bespoke pip-shape build
+(core runtime only) and `requires-target`: every attack needs a
+declared objective target.
+
+## Solution
+
+The packaged surface at this pin is three console scripts (verified in
+the pinned `pyproject.toml [project.scripts]`) around a client/server
+architecture — there is **no** `python -m pyrit` module entry at this
+pin:
+
+```bash
+# 0. Confirm the manifest row and the shipped entry points
+kailash info pyrit
+#    -> ATTACK/a-02, MIT, bespoke, requires-target; core runtime only
+pyrit_scan --help          # the scanner CLI
+pyrit_shell                # the interactive REPL
+pyrit_backend              # the CoPyRIT web UI (localhost:8000)
+```
+
+Point the client at a local OpenAI-compatible endpoint. Two ways,
+both verified at the pin:
+
+```bash
+# A. Config-file path (~/.pyrit/.pyrit_conf + ~/.pyrit/.env):
+#    export OPENAI_CHAT_ENDPOINT="http://127.0.0.1:8000/v1"  (the env
+#    vars the target class reads: OPENAI_CHAT_ENDPOINT / _MODEL / _KEY)
+pyrit_scan start-server    # (or run with --start-server below)
+
+# B. One-shot scan run against the target registry:
+pyrit_scan run airt.cyber --target openai_chat --techniques single_turn
+#    scoped dataset + concurrency shape (from the CLI's own epilog):
+pyrit_scan run airt.rapid_response --target openai_chat \
+    --techniques role_play_movie_script --dataset-names airt_hate \
+    --max-dataset-size 5 --max-concurrency 4
+```
+
+Or script the loop directly with the framework surface (shape from the
+pinned doc example at the pin):
+
+```python
+from pyrit.executor.attack import PromptSendingAttack
+from pyrit.prompt_target import OpenAIChatTarget
+from pyrit.setup import IN_MEMORY, initialize_pyrit_async
+
+await initialize_pyrit_async(memory_db_type=IN_MEMORY)  # type: ignore
+target = OpenAIChatTarget()  # reads OPENAI_CHAT_{ENDPOINT,MODEL,KEY}
+attack = PromptSendingAttack(objective_target=target)
+result = await attack.execute_async(objective="<objective>")
+```
+
+Expected output shape (abridged):
+
+```
+$ pyrit_scan list-scenarios
+<scenario catalog listing>
+$ pyrit_scan scenario-history <n>
+<run id>  <scenario>  <state>  <outcome summary>
+$ pyrit_scan scenario-results <run-id> --view attacks
+<per-attack rows: technique, dataset, score>
+```
+
+## Discussion
+
+- **Architecture first, commands second:** a PyRIT run has three
+  ingredients at this pin — a *scenario* (what to test: airt, adaptive,
+  benchmark, foundry, garak families are built in), a *target* (the AI
+  system under test), and *configuration* (env/.pyrit_conf wiring the
+  endpoint, scorers, memory). The CLI is a thin REST client over the
+  backend server; `pyrit_scan` verbs are `start-server`, `stop-server`,
+  `list-{scenarios,initializers,targets,converters}`,
+  `add-initializer`, `run`, `scenario-results`, `scenario-history`.
+- **Why the client/server shape matters for Kailash:** the backend is
+  the only heavy-pyrit process; the scanner stays a thin client. The
+  packaged derivation ships exactly the core runtime — the upstream
+  extra groups (huggingface/gcg/playwright/opencv/speech/litellm/...)
+  are documented opt-ins and are NOT build inputs of the pinned build,
+  and the npm-built React frontend is likewise out (the committed
+  roakey assets ride the pinned tree). Heavy browser/GPU stacks stay
+  out of your environment by construction.
+- **Pairs with the serve-a-model endpoint:** `OpenAIChatTarget` reads
+  `OPENAI_CHAT_ENDPOINT` and speaks OpenAI-compatible
+  `/chat/completions` paths — point it at the loopback ollama/vLLM
+  endpoint stood up in
+  [Serve a local model for scanning](../ops/serve-a-model.html).
+  The garak family of built-in scenarios (encoding, figstep,
+  web-injection, system-prompt-extraction, ...) is the bridge to
+  [Scan a self-hosted model for prompt-injection
+  resistance](garak-full-baseline.html).
+- **Memory is the deliverable:** every conversation, score and attack
+  result lands in the configured memory DB (SQLite or in-memory by
+  default) — `scenario-results --view conversations` replays
+  transcripts; that persistence is what turns a run into evidence.
+- **Requires-target, not exp:** like its A-2 siblings, the lighter
+  safety class governs — declare a target you are authorised to test.
+  The heavy exp double-key pattern is documented in
+  [Gate lab-mode and exp-classified tools](../admin/lab-mode-gating.html).
+- **Version posture:** the pin is a fast-moving weekly-class source
+  (manifest `update:weekly`); PyRIT's CLI surface churns upstream, so
+  verify verb shapes with `pyrit_scan --help` after any bump before
+  scripting against them.
+
+## See also
+
+- pyrit reference page (`pyrit(1)`):
+  <https://docs.kailash.tools/reference/tools/pyrit.html>
+- [Red-team an LLM application with
+  promptfoo](promptfoo-llm-redteam.html) — the eval-centric sibling
+- [Scan a self-hosted model for prompt-injection
+  resistance](garak-full-baseline.html) — the scanner sibling
+- [Serve a local model for scanning](../ops/serve-a-model.html) — the
+  loopback target endpoint
+- PyRIT upstream docs: <https://microsoft.github.io/PyRIT/>
+- Packaging record: [kailash-os#82](https://github.com/kailash-os/kailash-os/issues/82) —
+  PyRIT pin + derivation + manifest entry
+- [Recipe directory](../directory.html)
+
+---
+
+**Recipe provenance.** Entry points `pyrit_scan` / `pyrit_shell` /
+`pyrit_backend` verified in the pinned
+`PyRIT/pyproject.toml [project.scripts]` at rev `f916d8ee` (pin
+2026-10-10); scanner verbs + `--target`/`--techniques`/
+`--dataset-names`/`--max-dataset-size`/`--max-concurrency`/
+`--server-url`/`--start-server` flags verified in the pinned
+`pyrit/cli/pyrit_scan.py`; the framework example
+(`PromptSendingAttack` import path, `execute_async(objective=...)`,
+`OpenAIChatTarget` env vars,
+`initialize_pyrit_async(memory_db_type=IN_MEMORY)`) verified in the
+pinned doc source (`doc/index.md`,
+`doc/code/targets/1_openai_chat_target.py`) fetched raw at the pin —
+verified 2026-10-14. Manifest facts (ATTACK/a-02; MIT; bespoke
+`pkgs/pyrit`; requires-target; AML.T0051; owasp_llm {2026: LLM01, v2:
+LLM01}) from the packages manifest at main. Tool version at the pin:
+`1.2.0.dev0-unstable-2026-10-10`. Smoke status of the packaged binary:
+recorded PENDING on
+[kailash-os#82](https://github.com/kailash-os/kailash-os/issues/82) —
+a hands-on scripted-loop run: also PENDING (follow-up link above).

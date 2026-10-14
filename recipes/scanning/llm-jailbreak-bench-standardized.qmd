@@ -1,0 +1,187 @@
+---
+title: "Recipe: use the standardized jailbreak benchmark corpus"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tool | [llm-jailbreak-bench](https://docs.kailash.tools/reference/tools/llm-jailbreak-bench.html) |
+| Section | Scanning |
+| Level | medium |
+| Time | ~10 min install + run time |
+| Layer/Category | ATTACK / a-02-prompt-injection-jailbreaks (data pack) |
+| Tags | `scan`, `llm01`, `benchmark`, `corpus`, `data-pack`, `llm-jailbreak-bench` |
+
+## Problem
+
+Ad-hoc jailbreak runs compare nothing: to say "this model got more
+robust" you need the same 100 behaviours, the same query protocols, the
+same refusal judges and the same artifact format every time. The
+standardized answer is **JailbreakBench (JBB)** — an open robustness
+benchmark with a frozen behaviour dataset, a query/judging harness, and
+a leaderboard artifact format. The Kailash catalogue ships it as the
+`llm-jailbreak-bench` row: a **data pack** — the pinned harness +
+metadata, not a command wrapper.
+
+## Solution
+
+The row is `packaging: data`, `safety: safe` — the pack delivers the
+harness source + metadata at a frozen tag into your system; you drive
+it through its own Python API (verified against the pinned source at
+tag `v1.0.0`). Install and inspect:
+
+```bash
+# 1. See the pack's row (data row; rides the data-pack opt-in path)
+kailash info llm-jailbreak-bench
+
+# 2. Opt in — data packs are deliberate derivations, never a default
+#    profile member; land it like any package output:
+nix build github:kailash-os/kailash-packages#llm-jailbreak-bench -o result
+ls result/share/kailash/data/llm-jailbreak-bench/
+#    -> the pinned repo tree (src/jailbreakbench/..., README, LICENSE)
+
+# 3. The pinned harness exposes its dataset through the API
+#    (the behaviours live on HuggingFace and load at harness runtime):
+#    read_dataset(split="harmful") -> goals / targets / behaviors /
+#    categories / sources for the 100-behaviour JBB-Behaviors set
+```
+
+Work the harness in Python (shapes verified in the pinned README +
+`src/jailbreakbench/` at the pin):
+
+```python
+import jailbreakbench as jbb
+
+# 1. The standardized behaviour set (100 harmful / 100 benign):
+d = jbb.read_dataset(split="harmful")
+print(d.behaviors[0], d.categories[0])
+
+# 2. Load an attack-method/model pair to compare against:
+llm = jbb.LLMLiteLLM(model_name="<model>", api_key="<key>")   # API path
+llm = jbb.LLMvLLM(model_name="<model>")                       # local path
+
+# 3. Query the target (optionally with a defence in play):
+responses = llm.query(prompts=["<prompt>"], behavior="<behavior>",
+                      defense="SmoothLLM")
+
+# 4. Read published artifacts for the same method/model pair:
+artifact = jbb.read_artifact(method="PAIR", model_name="<model>")
+print(artifact.jailbreaks[<index>])   # goal/prompt/response/
+                                      # queries_to_jailbreak/jailbroken
+```
+
+Expected output shape (abridged):
+
+```
+>>> d.behaviors[<i>], d.categories[<i>]
+<Behavior string> <Misuse category>
+
+>>> artifact.jailbreaks[<i>]
+JailbreakInfo(
+    index=<i>,
+    goal='<goal>',
+    behavior='<behavior>',
+    category='<category>',
+    prompt='<jailbreak prompt>',
+    response='<target-model reply>',
+    number_of_queries=<n>, queries_to_jailbreak=<n>,
+    prompt_tokens=<n>, response_tokens=<n>,
+    jailbroken=<True/False>,
+)
+```
+
+## Discussion
+
+- **Why a data-pack row, and what the row IS:** the pack passthrough
+  installs the *pinned upstream repo* — harness, corpus loaders, repo
+  metadata — at tag `v1.0.0` (commit `518a41a8`, sha256-pinned,
+  NO auto-update) into `share/kailash/data/llm-jailbreak-bench`. The
+  behaviour corpus itself is NOT vendored in the pack: the pinned
+  `dataset.py` loads it from HuggingFace (`JBB-Behaviors`) at harness
+  runtime. The description "harness + artifact pack" names exactly
+  this surface — the row is the routing record, the harness is the
+  invocation surface.
+- **The corpus licence caveat — the data-row pattern in full:**
+  repo licence is MIT (verified at the pin) — that covers the harness
+  code. It does **not** by itself establish every downstream content
+  licence: the JBB-Behaviors dataset carries its own terms, and the
+  published jailbreak *artifacts* are model outputs. The manifest's
+  other data rows state this boundary explicitly (the wordlist packs'
+  "per-file corpus content licences beyond the repo licence are NOT
+  established") and
+  [Refresh wordlists and data packs](../admin/data-packs.html) carries
+  the general pattern; treat corpus content the same way — check what
+  you redistribute before you redistribute it.
+- **The 400-call guard:** the benchmark's query protocol logs every
+  LLM interaction, and its API paths need real provider keys
+  (`TOGETHER_API_KEY` / `OPENAI_API_KEY` per the pinned README — keys
+  live in `~/.config/kailash/keys/` posture per the OS secrets policy,
+  never in the store). Judge models (`Llama3RefusalJudge` class exports
+  at the pin) also cost calls — scope what you run.
+- **The same-standard bridge:** the harness's method/model artifact
+  grid is what you diff against — run your attack method over the same
+  100 behaviours and compare `jailbroken` fractions; where Kailash's
+  standards view cares:
+  [llm-top10-toolkit](https://docs.kailash.tools/reference/tools/llm-top10-toolkit.html)
+  (D-7) renders the OWASP LLM Top-10 evidence matrices — jailbreak
+  robustness maps onto **LLM01** in this tool's manifest row (both
+  epochs), and the recipe tags carry it for the Top-10 collection
+  views.
+- **Pipeline pair:** PyRIT's scriptable attack execution is the
+  natural driver if your method needs multi-turn dynamics — run your
+  strategy, submit per-behaviour outcomes to the JBB artifact shape;
+  see [Automate an attack pipeline with
+  PyRIT](pyrit-automation-pipeline.html). The garak scanner
+  ([the garak full-baseline walkthrough](garak-full-baseline.html)) stays the
+  broad-probe alternative.
+- **vLLM extras note:** local model loading needs the harness's vLLM
+  extra (`pip install jailbreakbench[vllm]` upstream); on Kailash use
+  the manifest's ollama/vLLM serving lanes
+  ([Serve a local model for scanning](../ops/serve-a-model.html)) or
+  the API path — the pinned pack is the harness + metadata either way.
+
+## See also
+
+- llm-jailbreak-bench reference page (`llm-jailbreak-bench(1)`):
+  <https://docs.kailash.tools/reference/tools/llm-jailbreak-bench.html>
+- [Automate an attack pipeline with
+  PyRIT](pyrit-automation-pipeline.html) — the scriptable driver
+- [Scan a self-hosted model for prompt-injection
+  resistance](garak-full-baseline.html) — the probe-scanner
+  sibling
+- [Refresh wordlists and data packs](../admin/data-packs.html) — the
+  data-pack opt-in + licence-caveat pattern
+- JailbreakBench site + paper: <https://jailbreakbench.github.io/> ·
+  artifacts repo: <https://github.com/JailbreakBench/artifacts> ·
+  behaviours dataset:
+  <https://huggingface.co/datasets/JailbreakBench/JBB-Behaviors>
+- Packaging record: [kailash-os#104](https://github.com/kailash-os/kailash-os/issues/104) —
+  KA-13.2, the payload/data-pack lane that landed this pack
+- [Recipe directory](../directory.html)
+
+---
+
+**Recipe provenance.** Verified against the pinned upstream source
+`JailbreakBench/jailbreakbench` at tag `v1.0.0` (commit `518a41a8`,
+committer date 2024-06-13): `pyproject.toml`
+(project name/version, deps, the `vllm` extra),
+`src/jailbreakbench/dataset.py` (`read_dataset(split=...)`, the
+HF-backed `JailbreakbenchDataset` attributes),
+`src/jailbreakbench/__init__.py` (exports: `LLM`, `LLMLiteLLM`,
+`LLMvLLM`, `Classifier`, `Llama3JailbreakJudge`, `Llama3RefusalJudge`,
+`evaluate_prompts`, `create_submission`, `read_artifact`,
+`read_dataset`, `StringClassifier`), and `README.md` (the
+`LLMLiteLLM`/`LLMvLLM`/`query(prompts, behavior[, defense])` shapes and
+the `JailbreakInfo` artifact shape) — fetched raw at the pin, verified
+2026-10-14. The HF account at the pin is `dedeswim/JBB-Behaviors`
+(now redirecting to `JailbreakBench/JBB-Behaviors`); the README links
+the canonical dataset home. Manifest facts (ATTACK/a-02; MIT; packaging
+data; safety safe; AML.T0054/T0042; owasp_llm {2026: [LLM01], v2:
+[LLM01]}) read from the packages manifest at main; derivation facts
+(passthrough install to `share/kailash/data/llm-jailbreak-bench`,
+sha256-pinned FOD, no auto-update) read from
+`pkgs/llm-jailbreak-bench/default.nix` at pin `138a457`. Smoke status:
+the pack build is unattended packaging (no smoke gate beyond the
+fetch); a hands-on harness loop against a live provider: PENDING
+(follow-up on
+[kailash-os#104](https://github.com/kailash-os/kailash-os/issues/104)).

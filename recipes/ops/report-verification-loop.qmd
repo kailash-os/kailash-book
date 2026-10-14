@@ -1,0 +1,148 @@
+---
+title: "Recipe: turn scan runs into verifiable assessment evidence"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tool | `garak` (report/record surfaces) |
+| Section | Ops |
+| Level | medium |
+| Time | ~45 min (two runs + conversion) |
+| Layer/Category | ATTACK / A-2 + OPS |
+| Tags | `ops`, `garak`, `avid`, `atlas`, `reporting`, `evidence` |
+
+## Problem
+
+A scan is only as good as the evidence it leaves. garak writes a
+JSONL report per run and converts it to AVID on demand; the
+assessment asks you to show (1) the raw runs — same seed, two
+postures — (2) the AVID conversion, (3) the ATLAS technique ids the
+manifest licenses, and (4) a machine-checked record that the run you
+cite is the run you ran. You want that loop end-to-end.
+
+## Solution
+
+Run → report file → AVID conversion → same-seed diff → record for
+hands-on acceptance:
+
+```bash
+# 1. THE RUN: garak writes the raw JSONL under its report_dir and
+#    prints the filename in its banner:
+garak --target_type ollama --target_name smollm2:360m \
+      --spec tag:owasp:llm01 -g 5 -s 42 --report_dir garak_runs
+#    -> banner: 📜 reporting to garak_<run_id>.report.jsonl
+#    (+ an .html digest next to the .jsonl)
+
+# 2. THE CONVERSION: process a report (or its file) into AVID:
+garak --report garak_runs/garak_<run_id>.report.jsonl
+#    -> writes .avid reports NEXT to the source (same dir)
+ls garak_runs/
+#    garak_<run_id>.report.jsonl  garak_<run_id>.report.html
+#    garak_<run_id>.report.jsonl.avid(?)  # per the AVID exporter
+
+# 3. THE DIFF: baseline vs retest, SAME seed, --report_prefix to
+#    keep the two runs' files name-stable:
+garak --target_type ollama --target_name smollm2:360m \
+      --spec tag:owasp:llm01 -g 5 -s 42 --report_dir garak_runs \
+      --report_prefix baseline
+garak --target_type ollama --target_name smollm2:360m \
+      --spec tag:owasp:llm01 -g 5 -s 42 --report_dir garak_runs \
+      --report_prefix retest
+#    -> diff the two .jsonl run reports (or the AVID exports):
+diff <(jq -S . garak_runs/baseline-*.jsonl) \
+     <(jq -S . garak_runs/retest-*.jsonl)
+
+# 4. THE RECORD: hands-on acceptance uses --record; the run's
+#    verbatim evidence is machine-checked (real|pending-vm), never
+#    a hand-typed 'ok':
+garak --target_type ollama --target_name smollm2:360m \
+      --spec tag:owasp:llm01 -g 5 -s 42 --record <my-record>.json
+```
+
+Expected output shape (abridged, shapes not transcripts):
+
+```
+📜 reporting to garak_runs/garak_<run_id>.report.jsonl
+# AVID conversion: <entry> per probe with entry_type
+#   'start_run setup' / 'eval' rows, from report.get_evaluations()
+# record file schema shape per tests/vm-integration-mlflow-verify.py:
+#   { "<probe-pair-id>": {"status":"real|pending-vm",
+#                         "verbatim":"<exact output>", ...} }
+```
+
+## Discussion
+
+- **Report naming is load-bearing, write it down exactly:** a run's
+  report file is `garak.<run_id>.report.jsonl` under the run's
+  `report_dir` (default `garak_runs`), with an `.html` digest next
+  to it. Convert with `garak --report <file>` — this reads the
+  report and processes it "into a list of AVID reports" (the
+  upstream contract) — writing `.avid` files NEXT to the report,
+  driven by `garak/report.py`'s `.load().get_evaluations().export()`
+  shape.
+- **Entry types tell you what you are reading:** the AVID export
+  carries `start_run setup` rows (the run's config: model, probes,
+  seed) and `eval` rows (per-probe/per-detector results, with
+  `probe_tags` mapped into the AVID taxonomy). A diff of two
+  same-seed runs' AVID exports is therefore a statement about the
+  change between postures — not sampling noise (keep the seed, the
+  probe spec and `-g` identical; change exactly one thing).
+- **The diff IS the evidence for pairs:** the same-seed baseline vs
+  retest diff (step 3) is the evidence pattern the pair recipes use:
+  run the posture you are questioning, flip one
+  configuration, re-run, diff. Without same-seed the diff is
+  confounded; the flag pair `--report_prefix baseline` /
+  `--report_prefix retest` keeps the file identity stable enough
+  that the diff is scriptable.
+- **`--record` real-JSON discipline:** hands-on acceptance runs pair
+  probes with `--record` — the record schema carries `status`
+  (`real`|`pending-vm`) and verbatim-required fields; CI trips on a
+  hand-typed `ok` with no verbatim behind it. Cite ONLY verdicts the
+  record holds.
+- **ATLAS ids come from the manifest rows, not re-derivation:** the
+  manifest rows carry the AML.T technique ids and OWASP mappings;
+  cite those (`garak`: AML.T0051+T0054, `mlflow-bypass`:
+  AML.T0049/T0050 in the pair recipe) rather than re-mapping
+  yourself. If a probe's AVID taxonomy entry shows a technique the
+  manifest row did not license, the manifest is the source of truth
+  to reconcile against — but never invent an id to fill a gap.
+- **Responsible-use framing:** every artefact in `garak_runs/` is
+  the record of a deliberate attack against a target you own. Keep
+  the raw JSONL + digest + AVID export + record together in the
+  assessment, and treat the whole set as the disclosure boundary (see
+  the OS repo's `docs/responsible-use.md`).
+
+## See also
+
+- [Attack the platform, then verify](../attack-defence/attack-then-verify.html)
+  — the probe-pair source of the `--record` discipline
+- [Run the full garak baseline before
+  sign-off](../scanning/garak-full-baseline.html) — the
+  baseline/retest pair this recipe turns into evidence
+- [Serve a tiny local model and run your first LLM01 scan
+  end-to-end](../getting-started/first-scan-ollama.html) — the
+  scoped-scan loop this recipe's run leg reuses
+- garak upstream docs: <https://garak.ai/docs/> (`--report`,
+  `--report_prefix`, `report_dir` CLI surfaces)
+- [Recipe directory](../directory.html)
+
+---
+
+**Recipe provenance.** The CLI surfaces (`--report_dir`,
+`--report`/`--report_prefix`, `--record`) and the report/AVID
+naming (garak.<run_id>.report.jsonl under report_dir garak_runs,
+.gitignore-ish .html digest, .avid files written next to the report
+by report.py's .load().get_evaluations().export(), entry types
+'start_run setup'/'eval', probe_tags→AvidTaxonomy) are verified
+against upstream garak (cli.py + report.py) at source HEAD, and the
+packaged pin 0.17.1.pre1-unstable-2026-10-09 (nvfetcher
+generated.nix). The `--record` real|pending-vm +
+verbatim-required tripwire contract is the OS repo's
+`tests/vm-integration-mlflow-verify.py`. ATLAS ids are read from
+the packages manifest rows (garak AML.T0051+T0054; pair ids
+AML.T0049/T0050). Smoke status of the packaged garak report leg on
+a live boot PENDING:
+[kailash-os#81](https://github.com/kailash-os/kailash-os/issues/81).
+ref: [garak cli.py/report.py at HEAD + packages pin](https://github.com/NVIDIA/garak/blob/main/garak/report.py) - verified 2026-10-14.
+Packaged-binary smoke PENDING: [kailash-os#81](https://github.com/kailash-os/kailash-os/issues/81).

@@ -1,0 +1,222 @@
+---
+title: "Recipe: establish a fairness/robustness baseline for a deployed model"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tool | `fairlearn` + `aif360` + `robustbench` + `lm-eval-harness` + `deepeval` + `giskard` (D-3 rows, `safe`) |
+| Section | Administrator |
+| Level | medium |
+| Time | ~60 min first pass, then per-release |
+| Layer/Category | DEFENCE / d-03-assurance-evals-benchmarks (+ d-07 evidence feed) |
+| Tags | `admin`, `fairness`, `robustness`, `evals`, `baseline`, `standards-evidence` |
+
+## Problem
+
+A model is deployed and somebody upstream asks the assurance
+question: is it fair, is it robust, and can you show the numbers you
+will be compared against later? Without a recorded baseline there is
+no regression to detect, no evidence to hand an auditor, and no way
+to tell drift from noise. The manifest dedicates Layer DEFENCE's
+d-03-assurance-evals-benchmarks to exactly this stack — lm-eval-harness
+(the standard few-shot benchmark runner), deepeval (unit-test-style
+LLM metrics), robustbench (standardized adversarial robustness), giskard
+(eval/scan for LLM agents), fairlearn and aif360 (fairness metrics and
+mitigation) — and d-07 is where the results must land as
+standards evidence.
+
+## Solution
+
+Fix three decisions first — metrics, dataset, threshold policy —
+then run the baselines and record them where the verifier can find
+them:
+
+```bash
+# 1. What the manifest declares for the D-3 surface
+kailash list --category d-03-assurance-evals-benchmarks
+kailash info fairlearn        # -> DEFENCE / d-03, bespoke deriv, safe
+
+# 2. Standard benchmark surface (the comparable, public part):
+lm_eval --model hf \
+    --model_args pretrained=<your-model-or-rev> \
+    --tasks <standard-tasks> \
+    --device cuda:0 \
+    --batch_size 8 \
+    --output_path /srv/evals/<model>/<date>/
+
+# 3. Unit-test-style LLM metrics (pytest-shaped, LLM-as-judge where the
+#    metric needs one):
+deepeval test run /srv/evals/<model>/test_baseline.py
+#    test_baseline.py: assert_test(case, metrics=[BiasMetric(...)]) shape
+
+# 4. Fairness metrics — group-conditioned, over a declared sensitive
+#    feature (python; the MetricFrame shape from fairlearn's docs):
+#    mf = MetricFrame(metrics=<sklearn metric>, y_true=..., y_pred=...,
+#                     sensitive_features=...)
+#    mf.overall / mf.by_group
+#    aif360: dataset + model metrics over BinaryLabelDataset for the
+#    comprehensive metric set (both stacks are importable, not CLIs)
+
+# 5. Adversarial robustness baseline (vision-class models; the model
+#    zoo + attack suite are the benchmark):
+#    from robustbench.utils import load_model
+#    model = load_model(model_name=<name>, dataset=<ds>,
+#                       threat_model=<Linf|L2|corruptions>)
+#    -> load a zoo model / your own candidate, evaluate robust
+#       accuracy under the suite's attacks
+
+# 6. Whole-system scan for the agentic/LLM-app surface (giskard v3
+#    shape; provider key required for the judge):
+#    from giskard.scan import vulnerability_scan
+#    await vulnerability_scan(target=<your-agent>,
+#        description="<system description>", languages=["en"])
+
+# 7. RECORD the baseline: one file per model per window, with the
+#    tool versions (the lock), the dataset rev, the metric list, the
+#    thresholds, and the numbers — machine-readable first
+kailash manifest validate     # the build half of the evidence
+```
+
+Expected output shape (abridged, shapes not transcripts):
+
+```
+baseline record (JSON):
+{
+  "model": "<id>@<rev>", "date": "<window>",
+  "tools": {"lm-eval-harness": "<pin>", "deepeval": "<pin>",
+            "fairlearn": "<pin>", ...},
+  "benchmarks": {"<task>": {"metric": <float>, "n": <int>}},
+  "fairness": {"<metric>": {"overall": <float>,
+                 "by_group": {"<group>": <float>, ...}}},
+  "robustness": {"<dataset/threat_model>": {"robust_acc": <float>}},
+  "thresholds": {"<metric>": {"floor": <float>, "action": "<on-breach>"}},
+  "evidence_ref": "<d-07 mapping for this record>"
+}
+```
+
+The threshold policy — the part that makes a baseline actionable —
+is declared, per metric, in the record itself: a floor value, and the
+action on breach (`block-release`, `open-review`, `investigate`).
+Breach testing is then mechanical:
+
+```bash
+# every subsequent window re-runs the SAME commands under the SAME
+# dataset revs; a diff against the baseline record is the regression
+# report — threshold breaches are visible by inspection, no vibes
+```
+
+## Discussion
+
+- **Metrics choice is a decision, not a default.** Fairlearn's own
+  guidance notes common fairness metrics (demographic parity,
+  equalized odds, the four-fifths rule) each carry assumptions and
+  construct-validity questions — the choice is a domain decision to
+  be documented, not picked by convention. The practical shape:
+  name the sensitive feature(s), pick the constraint family, record
+  WHY in the baseline file. MetricFrame gives per-group
+  decomposition of any sklearn metric; AIF360 adds the
+  dataset-level metrics and the mitigation algorithms when the
+  baseline fails its floor. Fairness runs are import-shaped (both
+  are libraries, not CLIs) — the recipe's commands are the
+  invocation context, the libraries' APIs are the surface.
+- **Robustness baselines belong to a threat model, not a feeling:**
+  robustbench standardises dataset + threat model (Linf / L2 /
+  corruptions) + model zoo; a number without those three names is
+  not comparable to anything, least of all to next quarter's run.
+  For vision-class deployments this is the standard; for LLM-class
+  deployments the robustness question moves to the harness/scan
+  rows (lm-eval adversarial task families, deepeval/red-team style
+  suites, giskard's vulnerability scan).
+- **The LLM half of the assurance picture:** lm-eval-harness gives
+  the public, comparable few-shot benchmark surface (`--tasks`,
+  `--model_args pretrained=…,revision=…` — the revision flag is how
+  you pin WHICH checkpoint you measured); deepeval wraps LLM metrics
+  as pytest tests (`deepeval test run`, `assert_test` with metric
+  instances — bias among the metric families the manifest maps);
+  giskard's v3 surface is the async agent-level
+  `vulnerability_scan`/`quality_scan` pair (v2's `giskard.scan` API
+  remains available but unmaintained — pin-era note recorded in the
+  provenance footer).
+- **How it feeds standards evidence (d-07):** d-07's toolset is data
+  packs + the `kailash-verifier` CLI (`kailash verifier --standard
+  aisvs --level N` — renders per-tool standards evidence FROM the
+  manifest, spec §3.8; the verifier and the
+  aisvs-1.0-toolkit / mlsvs-toolkit / llm-top10-toolkit data packs are
+  planned first-party deliverables). The contract this recipe feeds:
+  the baseline record's `evidence_ref` names the standard + level the
+  record supports, so the verifier renders the matrix and the record
+  IS the per-tool evidence — no re-narration, no hand-written audit
+  story. Until the verifier lands, the record plus the manifest
+  citations is the explicit PENDING state, pointed at the d-07 rows.
+- **All six rows are `safe`:** every D-3 row carries
+  `safety.level: safe` — no live firing; the scan/eval targets are
+  your own model endpoint or the bench suite's own data. What is NOT
+  free is the provider key for judge-style metrics: it lives at
+  `~/.config/kailash/keys/` per the OS secrets posture, never in the
+  store or the repo.
+- **Dataset revs are part of the evidence:** a benchmark number is a
+  fact only relative to the dataset revision it ran on — record the
+  rev (the same lock discipline the tool pins use) or the eventual
+  diff is ambiguous between model drift and data drift.
+- **When the baseline fails:** the threshold policy's `action` is the
+  pre-agreed answer. fairness floors breach → mitigation (fairlearn
+  reductions / aif360 algorithms) is the next recipe in this lane;
+  robustness floors breach → the A-5 attack stack (ART/foolbox-class)
+  is the diagnostic lane. Baseline → mitigation is a loop, not a
+  one-shot.
+
+## See also
+
+- [Scan pulled model artefacts before they enter your
+  lab](supply-chain-scan-models.html) — the intake half of the same
+  assurance posture (this recipe baselines what that one admits)
+- [Serve a local model for scanning](../ops/serve-a-model.html) —
+  the endpoint the eval stack drives
+- [Scan a self-hosted model for prompt-injection
+  resistance](../scanning/garak-full-baseline.html) — the
+  attack-side scan whose results your baseline should anticipate
+- [Validate your injection detector against a real payload
+  corpus](../attack-defence/injection-detector-validation.html) —
+  the detection-side half of the robustness picture
+- The guide's reference coverage (per-tool pages generate from the
+  manifest): <https://docs.kailash.tools/reference/coverage.html>
+- Upstream surfaces: lm-eval-harness
+  <https://github.com/EleutherAI/lm-evaluation-harness> · deepeval
+  <https://github.com/confident-ai/deepeval> · fairlearn
+  <https://github.com/fairlearn/fairlearn> (+ user guide
+  <https://fairlearn.org/main/user_guide/index.html>) · AIF360
+  <https://github.com/Trusted-AI/AIF360> · robustbench
+  <https://github.com/RobustBench/robustbench> · giskard
+  <https://github.com/Giskard-AI/giskard>
+- d-07 rows the baseline feeds (verifier CLI + toolkit packs):
+  <https://github.com/kailash-os/kailash-verifier> ·
+  <https://github.com/kailash-os/aisvs-1.0-toolkit> ·
+  <https://github.com/kailash-os/mlsvs-toolkit> ·
+  <https://github.com/kailash-os/llm-top10-toolkit>
+- [Recipe directory](../directory.html)
+
+---
+
+**Recipe provenance.** Manifest facts (six d-03 rows, safety
+`safe` all; licences MIT/Apache-2.0; packaging native for
+lm-eval-harness, bespoke elsewhere; d-07 rows planned first-party +
+kailash-verifier BSD-3-Clause; the `kailash verifier --standard aisvs
+--level N` shape per spec §3.8) are from the packages manifest rows +
+docs_spec, verified 2026-10-14. CLI/API shapes checked against
+upstream at each pinned repo's default branch: lm-eval
+`--model hf --model_args pretrained=… --tasks … --device --batch_size`
+(README), deepeval `deepeval test run` (README + quickstart),
+fairlearn `MetricFrame(metrics=, y_true=, y_pred=,
+sensitive_features=)` `.overall`/`.by_group` + the
+`ExponentiatedGradient(EqualizedOdds(...))` mitigation shape
+(quickstart/user guide), AIF360 install/metrics surface (README),
+robustbench `load_model(model_name=, dataset=, threat_model=)` +
+`load_cifar10(n_examples=)` (README), giskard v3
+`from giskard.scan import vulnerability_scan` async shape + the
+v2-legacy note (README) — verified 2026-10-14. Worked baseline run
+against a real deployed model: PENDING — the record schema above is
+the standing template; per-model evidence lands with the upkeep
+lane's window runs.
+
+ref: [d-03/d-07 manifest rows + upstream eval-stack shapes at the pins](https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml) - verified 2026-10-14.

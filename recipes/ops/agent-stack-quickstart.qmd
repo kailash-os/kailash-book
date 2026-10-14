@@ -1,0 +1,131 @@
+---
+title: "Recipe: bootstrap the agent stack in uv environments"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tool | `uv` (+ langgraph, crewai, autogen) |
+| Section | Ops |
+| Level | medium |
+| Time | ~30 min |
+| Layer/Category | OPS / o-05 |
+| Tags | `ops`, `agents`, `uv`, `langgraph`, `crewai`, `autogen`, `o-05` |
+
+## Problem
+
+Category o-05 is the agent-framework shelf: langgraph, crewai and
+autogen as catalogue rows, `uv` as the environment tool that keeps
+their (versioned, mutually-versioned) pins clean. You want one,
+repeatable scaffold: pin an interpreter, create per-project
+environments, install a framework surface, and prove the imports
+work before wiring a scanner or a defence onto it.
+
+## Solution
+
+Work the stack row by row; `uv` manages every environment:
+
+```bash
+# 0. Confirm the rows (o-05 langgraph/crewai/autogen + uv)
+kailash info langgraph
+kailash info crewai
+
+# 1. interpreter + env (python 3.13 rides the pinned stack)
+uv self list        # (uv is the manifest row; 0.11.x at the pin)
+uv init agents-lab && cd agents-lab
+uv python install 3.13
+uv venv --python 3.13
+
+# 2. langgraph surface (framework row, safety safe o-05)
+uv add "langgraph>=1.1.10"
+
+# 3. crewai surface — it has its OWN CLI + project flow:
+uv tool install crewai            # the tool runner, uv-managed
+crewai create crew my-crew        # JSON-first scaffold (see Discussion)
+crewai install && crewai run      # the pinned flow
+
+# 4. autogen surface — extension packages + a locked sync
+uv add "autogen-agentchat" "autogen-ext[openai]"
+uv add "crewai==1.14.4" "langchain==1.2.15" "langgraph==1.1.10"
+uv sync --all-extras              # autogen's declared install surface
+
+# 5. import smoke — the CI check, worked by hand:
+uv run python - <<'EOF'
+import langchain, langgraph, crewai
+import autogen_agentchat, autogen_ext
+print("ok: all o-05 imports landed")
+EOF
+```
+
+Expected output shape (abridged, shapes not transcripts):
+
+```
+# step 5 is the pass/fail gate
+ok: all o-05 imports landed   # -> exit 0
+# crewai scaffold shape
+my-crew/
+  config/*.yaml  src/my_crew/  pyproject.toml(?)
+```
+
+## Discussion
+
+- **Why uv and not pip-by-hand:** the o-05 rows version against each
+  other (langchain 1.2.15, langgraph 1.1.10, crewai 1.14.4 and
+  autogen's sub-packaging at the pin), and a locked, per-project
+  environment is the cheapest way to keep those pins reproducible;
+  uv 0.11.x also carries the `uv tool` flow crewai prefers. One
+  python (3.13) across the lab keeps `uv sync` honest.
+- **Import smoke rides CI in this book:** the guide's CI runs the
+  same check as step 5 (import of each landed framework package);
+  doing it by hand closes the gap between "the package downloaded"
+  and "the stack imports". Any smoke failure is a pin problem —
+  read the lock, not the network.
+- **The autogen maintenance-mode note, honestly:** upstream marks
+  some autogen subpackages in maintenance mode (the main project's
+  own communication); the row still ships (agentchat + ext[openai]
+  install cleanly via
+  `uv sync --all-extras`). The honest posture:
+  pin by version, keep surfaces small, and treat upstream's
+  maintenance-mode announcements as a real signal — do not build a
+  new multi-year surface on a maintenance-mode subpackage.
+- **crewai is JSON-first by design:** the `crewai create crew`
+  scaffold keeps crew definitions as config (YAML/JSON), with
+  `crewai install && crewai run` as the flow. The CLI is the
+  manifest's declared surface — not a library-only import.
+- **The exp MCP rows stay gated — this recipe touches them not at
+  all:** several o-07-adjacent MCP tools (`kailash-mcp`,
+  `kailash-container`) are `safety.level: exp`. They install only
+  through the double-key lab gate and its wrapped paths (see
+  [Gate lab-mode and exp-classified tools](../admin/lab-mode-gating.html)),
+  and every one is gate-wrapped via
+  `kailash.safety.extraTools`). An o-05 lab that "works"
+  with an exp row un-wrapped is broken on any hardened host — keep
+  the gate in the loop and name the row's gate status in your
+  lab notes.
+- **langgraph's install surface:** the row is the pip/uv package
+  (`uv add langgraph`), no CLI — its recipes are graph-as-code.
+
+## See also
+
+- [Gate lab-mode and exp-classified tools](../admin/lab-mode-gating.html)
+  — the exp gate the MCP rows ride
+- mcp-inspector (the safe o-07 row) docs:
+  <https://modelcontextprotocol.io/docs/tools/inspector>
+- langgraph upstream: <https://langchain-ai.github.io/langgraph/>
+  · crewai: <https://docs.crewai.com/> · autogen:
+  <https://microsoft.github.io/autogen/> · uv:
+  <https://docs.astral.sh/uv/>
+- [Recipe directory](../directory.html)
+
+---
+
+**Recipe provenance.** Version pins (langchain 1.2.15, langgraph
+1.1.10, crewai 1.14.4, autogen agentchat+ext[openai] with
+`uv sync --all-extras` per the row + upstream's own maintenance-mode
+note on some subpackages, uv 0.11.17, python 3.13) are the o-05
+rows at the packages pin, verified 2026-10-14; the import-smoke CI
+check is the guide's ops CI contract. The exp-gate facts are the
+base safety contract (double-key gate +
+`kailash.safety.extraTools` wrapping).
+ref: [kailash packages manifest (o-05 rows + uv pin)](https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml) - verified 2026-10-14.
+Hands-on uv scaffold smoke PENDING (wave-2 ops lane).

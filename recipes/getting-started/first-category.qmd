@@ -3,10 +3,15 @@ title: "Recipe: enable your first category"
 toc-title: Recipe
 ---
 
-**Tool:** kailash (category modules, declarative config) ·
-**Section:** Getting started · **Level:** easy · **Time:** ~10 min +
-a rebuild · **Layer/Category:** CLASSIC (+ any layer) · **Tags:**
-getting-started, taxonomy, category, nixos
+| Field | Value |
+|---|---|
+| Tool | kailash (category modules) |
+| Section | Getting started |
+| Level | easy |
+| Time | ~10 min + a rebuild |
+| Layer/Category | CLASSIC (+ any layer) |
+| Tags | `getting-started`, `taxonomy`, `category`, `nixos` |
+
 
 ## Problem
 
@@ -88,12 +93,4 @@ What success looks like:
 
 ---
 
-**Recipe provenance.** The option-path shape
-(`kailash.layers.<layer>.categories.<cat>.enable`) is the landed
-category-module contract, verified from the OS spec's module
-listing (2026-10-14 at master); `nixos-rebuild switch` is standard
-NixOS practice for applying a declarative system configuration.
-The `kailash enable` helper is roadmap-stage — flagged inline, not
-quoted as landed. Smoke evidence of this recipe on a live boot:
-PENDING — tracked by the book's upkeep lane; the underlying
-category-VM tests boot-and-smoke per category in the OS repo's CI.
+ref: [category-module contract (spec module listing)](https://github.com/kailash-os/kailash-os/blob/master/docs/spec.md) - verified 2026-10-14.

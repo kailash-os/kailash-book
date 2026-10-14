@@ -5,9 +5,14 @@ params:
   slug: "{{SLUG}}"
 ---
 
-**Tool:** `{{TOOL}}` · **Section:** {{SECTION}} · **Level:** {{LEVEL}} ·
-**Time:** {{TIME}} · **Layer/Category:** {{LAYER_CATEGORY}} ·
-**Tags:** {{TAGS}}
+| Field | Value |
+|---|---|
+| Tool | `{{TOOL}}` |
+| Section | {{SECTION}} |
+| Level | {{LEVEL}} |
+| Time | {{TIME}} |
+| Layer/Category | {{LAYER_CATEGORY}} |
+| Tags | {{TAGS}} |
 
 ## Problem
 
@@ -17,7 +22,7 @@ params:
 
 {{SOLUTION_WITH_REAL_COMMAND_SHAPES}}
 
-Expected output shape:
+Expected output shape (abridged, shapes not transcripts):
 
 ```
 {{EXPECTED_OUTPUT_SHAPE_WITH_PLACEHOLDERS}}
@@ -36,13 +41,14 @@ Expected output shape:
 
 ---
 
-**Recipe provenance (template behaviour).** All commands in this
-recipe are real invocation shapes against the named tool version;
-expected output is shown as a shape with placeholders, never an
-invented transcript. Anything not yet worked against a real pin
-renders as an explicit `PENDING` marker — the same rule that governs
-the guide's man pages. This recipe was verified against **`{{TOOL_VERSION}}`**
-(pin source: `{{PIN_SOURCE}}`), verified {{VERIFIED_AT}}; smoke status:
-{{SMOKE_STATUS}}. If the pin of any named tool moves without this
-recipe being re-worked, the recipe is stale — update it in the same
-change (or mark it stale explicitly).
+**Recipe provenance (template behaviour).** Commands are real
+invocation shapes; expected output is a shape with placeholders, never
+an invented transcript; anything not worked against a real pin
+renders as an explicit `PENDING` marker. The provenance footnote uses
+the guide's compact form:
+
+ref: [{{TOOL_VERSION}}]({{PIN_SOURCE_URL}}) - verified {{VERIFIED_AT}}
+
+(plus, only when honest, a one-line smoke/missing-surface note with
+its link). If the pin of any named tool moves without this recipe
+being re-worked, the recipe is stale — update it in the same change.

@@ -50,10 +50,30 @@ views.**
    as the page's only H1; the body carries NO top-level heading line
    — the anatomy (Problem / Solution / Discussion / See also) is
    H2 (`##`) throughout, with anchors as Quarto auto-generates them.
-   Rationale: a `title:` + a body `#` heading produced two H1s per
+   rationale: a `title:` + a body `#` heading produced two H1s per
    page and broke the book's numbering/TOC ordering (caught in the
    same-day content pass, 2026-10-14); the cover page (index.qmd)
    carries no body H1 either.
+ 7. **Header table (not a strip).** The page's first block under the
+   title is a two-column table (Tool | Section | Level | Time |
+   Layer/Category | Tags), values hyperlinked where a surface exists
+   (reference pages, category pages) — replaces the earlier pipe-strip
+   line (wave-2 decision, 2026-10-14); template
+   `templates/recipe.qmd.in` is the shape.
+ 8. **Provenance footnote = the guide's compact form (wave-2
+   decision, 2026-10-14).** After the `---` rule: one line —
+   `ref: [<pin>](pin-source URL) - verified <date>` — the pin text
+   hyperlinked to its pin source (nvfetcher `_sources/generated.nix`
+   or the flake lock), exactly like the generated reference pages on
+   docs.kailash.tools; a one-line extra (smoke/missing-surface note +
+   link) only when honest. Long provenance paragraphs were dropped as
+   wordy (user 2026-10-14: "make it small and a hyperlink saying
+   'ref: PR or something with lock'").
+
+ 9. **Code-block spacing.** `docs/custom.css` (wired in `_quarto.yml`
+    format.html.css) gives `pre` blocks 1.6em vertical margins +
+    1.1em padding + 1.6 line-height — wave-2 readability decision
+    (2026-10-14).
 
 **Sections-for-life rule.** A recipe is never re-parented between
 theme sections once published; corrections, extensions and level

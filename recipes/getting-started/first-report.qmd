@@ -1,0 +1,186 @@
+---
+title: "Recipe: scaffold your first assessment report"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tools | [quarto](https://docs.kailash.tools/reference/quarto.html) (+ `kailash report new`, roadmap) |
+| Section | Getting started |
+| Level | medium |
+| Time | ~30 min (+ whatever the scan legs took) |
+| Layer/Category | OPS / o-06 |
+| Tags | `getting-started`, `reporting`, `quarto`, `evidence`, `authorisation` |
+
+## Problem
+
+Your scan and pair runs produce JSONL reports and probe transcripts —
+machine evidence, not a deliverable. Whoever reads your work (a
+client, an IR team, tomorrow's you) needs the assessment written up
+so the evidence survives the hand-off: run conditions that make it
+reproducible, verbatim outputs instead of paraphrases, and the
+mapping ids a reviewer can check against the catalogue. You want the
+scaffold that carries all of that — from the distribution's own
+reporting plan, not an ad-hoc folder of loose files.
+
+## Solution
+
+`kailash report new` is **roadmap-stage** — the CLI ships it in the
+spec's command surface but it lands per the roadmap (spec §6.2's
+remaining KA-14 children; the report templates themselves are a
+landed-report lane item, and at the current tree
+`report-templates/` in the OS repo is a stub). The grounded
+alternative TODAY: scaffold the same structure directly with quarto —
+the tool Kailash ships at o-06 for exactly this job (it is also what
+the roadmap command wraps, per the spec's report-template design) —
+and pin the manifest hash the report was written against, which is
+the same pin discipline the roadmap command's `repro/` dir encodes:
+
+```bash
+# 1. The direct scaffold (the landed path today):
+mkdir -p my-assessment/findings my-assessment/evidence
+cd my-assessment
+
+#    _quarto.yml + index.qmd as below; findings are hand-written
+#    pages under findings/<id>.qmd (the scaffold has no tool steps)
+
+# 2. Pin the manifest the report speaks against (the repro contract):
+kailash manifest check                       # -> {"categories": <n>, "tools": <n>}
+cp "$(dirname "$(readlink -f "$(command -v kailash)")")/../manifest/tools.yaml" \
+   evidence/tools-pinned.yaml 2>/dev/null \
+  || kailash info garak > evidence/garak-row-pinned.json
+sha256sum evidence/*.yaml evidence/*.json > evidence/REPRO.sha256
+
+# 3. Render to every delivery format (HTML for reading, PDF for hand-off):
+quarto render index.qmd --to html
+quarto render index.qmd --to pdf
+```
+
+The minimal `_quarto.yml` + `index.qmd` skeleton (the fields the
+roadmap templates pre-structure):
+
+```yaml
+project:
+  type: default
+  output-dir: _render
+format:
+  html: {theme: cosmo, toc: true}
+  pdf:  {documentclass: article}
+```
+
+```markdown
+---
+title: "LLM red-team assessment — <target system>"
+author: "<operator>"
+date: <YYYY-MM-DD>
+---
+
+## Scope + authorisation
+<what was tested, on whose written authorisation — cite the
+responsible-use statement's operator-responsibility clause>
+
+## Method (reproducible conditions)
+- tool + pin: garak <pin version> (kailash manifest hash <hash>)
+- OWASP scope: LLM01 (both epochs per the manifest row)
+- generations per probe: <g> · seed: <s>  ← the exact -g / -s values
+
+## Findings
+### <F-01> <one-line title>
+- Class: OWASP LLM01 · ATLAS: AML.T0051
+- Evidence: `findings/F-01.qmd` — the probe's VERBATIM exchange
+  (prompt + response as captured), never a paraphrase
+- Repro: the exact command line, the tool's own report file attached
+  (e.g. garak_<ts>.jsonl, the probe-pair JSONL from the pair recipe)
+```
+
+What success looks like:
+
+- `quarto render` exits 0 and `_render/` holds the HTML (and PDF)
+- the repro dir carries the pinned manifest row(s) + the checksum of
+  what you pinned — anyone can re-run your scan against the same pin
+  and compare reports seed-for-seed
+- every finding has an id, a class with its ATLAS/OWASP ids, and a
+  verbatim evidence block — no finding stands on paraphrase
+
+Expected output shape (abridged):
+
+```
+pandoc
+  to: html
+  output-file: index.html
+<render-time messages — shapes, not transcripts>
+Output created: _render/index.html
+```
+
+## Discussion
+
+- **Why the roadmap command still matters:** `kailash report new
+  <type> <name>` will scaffold from the three declared engagement
+  types — `llm-redteam`, `adversarial-ml`, `supply-chain-audit` — each
+  with its own `_quarto.yml`, a pre-structured `index.qmd`, `findings/`
+  stubs, and a `repro/` pin of the manifest hash (spec §5.4). When it
+  lands it replaces steps 1–2 with one command against a kept-in-sync
+  template; verify the landed template's shape at that point rather
+  than trusting this recipe's hand scaffold, and check the
+  [CLI inventory recipe](kailash-cli-manifest-inventory.html) for
+  what is landed when.
+- **What the report MUST carry (and why):** the verbatim outputs are
+  the evidence discipline — the book's no-invented-evidence rule and
+  the pair recipe's ATTEMPTED/ok/FAIL + record-verbatim contract are
+  the same principle applied to reports; the ATLAS ids
+  (`AML.T####` from the manifest row) are how a finding stays
+  checkable against the catalogue; the seed + generation values are
+  what make the diff after a config change meaningful — without them,
+  the "did it move" question is unanswerable.
+- **The responsible-use clause inside the report:** the OS's
+  responsible-use statement makes the operator's authorisation a named
+  responsibility — an assessment report that does not state who
+  authorised the work against what target leaves the legal frame off
+  the record. The statement itself ships in the distribution (MOTD,
+  `kailash doctor` output, Layer-ATTACK pages) — cite it, and link
+  the written authorisation in the scope section.
+- **Seed the report from the machine, not the memory:** the values in
+  the Method section should be read from the run's own artefacts —
+  the tool's banner line (version), the JSONL report (probe set,
+  generations), `kailash info <tool>` (the mapping ids, the licence) —
+  never retyped from recollection. This is the report-side mirror of
+  the probe-pair recipe's record discipline.
+- **Format choice:** the a-02 scan recipes produce JSONL; if your
+  deliverable must chain into a ticket or a review workflow, attach
+  BOTH the JSONL and the rendered HTML — the first is the evidence,
+  the second is the reading surface.
+- **texlive is opt-in:** the PDF leg needs a LaTeX toolchain; on a
+  default image that rides the opt-in `kailash-data.*` lane (see
+  [data packs](../admin/data-packs.html)) or renders via the HTML leg
+  alone.
+
+## See also
+
+- [Serve a tiny local model and run your first scan](first-scan-ollama.html) —
+  the run this report documents
+- [Attack the platform, then verify](../attack-defence/attack-then-verify.html) —
+  the probe-pair evidence contract your findings cite
+- [Refresh wordlists and data packs](../admin/data-packs.html) — the
+  opt-in lane the PDF leg's texlive rides
+- [Inventory the catalogue with the kailash CLI](kailash-cli-manifest-inventory.html) —
+  where the ATLAS/OWASP ids come from
+- quarto reference page: <https://docs.kailash.tools/reference/quarto.html>
+- quarto upstream docs: <https://quarto.org/docs/get-started/>
+- The report-template design (spec §5.4) + CLI surface (`report new`):
+  <https://github.com/kailash-os/kailash-os/blob/master/docs/spec.md>
+- Responsible use (the authorisation clause):
+  <https://github.com/kailash-os/kailash-os/blob/master/docs/responsible-use.md>
+
+---
+
+**Recipe provenance.** The roadmap status of `kailash report new`
+(spec §6.2's remaining slice; §5.4's three template types + `repro/`
+pin design) is from the OS spec, verified 2026-10-14 at master — and
+the OS repo's `report-templates/` is a `.gitkeep` stub at that rev
+(checked via the repository listing), which is exactly why this
+recipe hands over the manual quarto scaffold. quarto's CLI surface
+(`quarto render --to`) is the upstream contract at the locked pin;
+manifest facts (quarto native/safe/o-06, MIT) from the packages
+manifest. The rendered-output shape above is a shape with
+placeholders, not a transcript. A worked scaffold-and-render against
+a real pin: PENDING — upkeep lane.

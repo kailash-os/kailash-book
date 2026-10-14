@@ -1,0 +1,173 @@
+---
+title: "Recipe: Sign and verify model artefacts"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tool | modelsign (sigstore/model-signing) · sigstore-tools |
+| Section | Administrator |
+| Level | medium |
+| Time | ~25 min (+ OIDC first run) |
+| Layer/Category | DEFENCE / d-04-provenance-signing-trust |
+| Tags | `admin`, `signing`, `models`, `sigstore`, `rekor`, `fulcio` |
+
+
+## Problem
+
+Your lab serves fine-tuned or downloaded model artefacts — an HF
+checkpoint, a local GGUF, a trained adapter directory — and "we think
+this came from us last Tuesday" is not a trust statement. Models move
+as directories of files; a file-hash in a README is unauthenticated. You
+want an identity-bound, tamper-evident signature over the model
+directory that a verifier can check WITHOUT a key-distribution
+ceremony: exactly the Sigstore model-signing flow. The D-4 manifest
+rows carry it (`modelsign`, wrapping sigstore/model-signing, plus the
+`sigstore-tools` transparency-log helper pack).
+
+## Solution
+
+Sign with Sigstore keyless (the OIDC identity is the trust anchor), or
+with a plain key pair when the box is offline; verify the same
+identity back:
+
+```bash
+# 1. Confirm the rows + the CLI surface at your pin
+kailash info modelsign        # d-04 row: wraps sigstore/model-signing
+kailash info sigstore-tools   # Rekor/fulcio transparency-log helpers
+
+# 2. Sign a model directory, keyless (Sigstore default; opens an OIDC
+#    flow — browser or device-code — and records the event to Rekor)
+modelsign sign ./path/to/model-dir --signature <model>.sig
+#    (the wrapping CLI's shape; sigstore/model-signing's canonical CLI is
+#     `model_signing` — the flags it carries below are its verified surface)
+
+# 3. Verify before you USE a downloaded model — identity must be a
+#    value you EXPECT (from the trainer's published verification
+#    instructions, never "whatever signed it"):
+model_signing verify ./path/to/model-dir \
+  --signature <model>.sig \
+  --identity "<signer-identity>" --identity_provider "<oidc-provider>"
+#    -> signature valid + recomputed per-file digests match the bundle's
+#       signed subject list
+
+# 4. Negative case (the proof it is doing something): ANY file in the
+#    directory changed since signing?
+echo x >> ./path/to/model-dir/some-file
+model_signing verify ./path/to/model-dir --signature <model>.sig \
+  --identity "<signer-identity>" --identity_provider "<oidc-provider>"
+#    -> verification FAILS (digest mismatch). Restore the file.
+
+# 5. Offline/lab-closed alternative — plain key pair signing:
+openssl ecparam -name prime256v1 -genkey -noout -out key.priv
+openssl ec -in key.priv -pubout > key.pub
+model_signing sign key ./model-dir --private_key key.priv --signature model.sig
+model_signing verify key ./model-dir --signature model.sig --public_key key.pub
+
+# 6. Transparency-log side-quest: WHO signed WHAT, WHEN (the sigstore-tools
+#    pack's territory; cosign's container view for comparison):
+cosign verify <registry>/<image>:<tag> \
+  --certificate-identity "<identity>" --certificate-oidc-issuer "<issuer>"
+#    -> container images verify against the registry; model dirs verify
+#       against the local bundle — know which world your artefact is in
+```
+
+Expected output shape (abridged):
+
+```
+$ model_signing verify ./bert-base-uncased --signature model.sig \
+     --identity "user@example.com" --identity_provider "https://github.com/login/oauth"
+Verification succeeded.   # signature checks; per-file digests match
+$ (file modified)
+Verification failed: <file> digest mismatch
+```
+
+What success looks like:
+
+- signing produced a signature bundle/JSON file (the Sigstore bundle
+  carries the DSSE envelope, the certificate, and the Rekor inclusion
+  proof — not a bare detached hash)
+- verification names the identity you PREDICTED (not merely "any valid
+  chain") and fails on a single-file tamper
+- the keyless path's first run opened an OIDC flow; the key path worked
+  with no network beyond the local box
+- model-card metadata that matters to your governance story is inside
+  the signed statement (predicate carries the metadata payload per the
+  upstream format), so "who says What about this model" is itself covered
+
+## Discussion
+
+- **Why Sigstore and not "just sign with GPG":** model directories are
+  big (multi-GB) and multi-file; hashing is per-file-shard work
+  upstream. The model-signing approach produces a per-file digest set
+  bound into a DSSE-signed in-toto statement — so you get file-level
+  granularity, identity binding via the OIDC provider (Google /
+  GitHub / Microsoft / CI workload identities supported upstream), and
+  a Transparency-log record of the signing event (verifiers get proof
+  of inclusion in Rekor from the bundle itself). Signers should monitor
+  the log for unexpected signing events under their identity — that is
+  exactly the discovery the transparency log buys.
+- **Where the kailash row stands:** the manifest row `modelsign` pins
+  sigstore/model-signing (Apache-2.0, safety: safe — this is pure
+  signature work, no firing, no target). The signature produced by the
+  pinned upstream CLI is the format contract; the pair recipe here is
+  the canonical check that the packaged wrapper agrees with the
+  upstream surface at your lock's pin.
+- **Cosign and model_signing are two ends of the same design:** cosign
+  covers containers and blobs (signature attached to registry or
+  bundle next to file); model_signing covers model directories with
+  per-file semantics. A model loaded INTO a container is in both
+  worlds — sign the container AND the model directory; the two
+  signatures together cover the artefact and its contents.
+- **Private Sigstore instances:** labs that run their own Fulcio/Rekor
+  (the air-gapped/enterprise shape) pass `--trust_config` on both sign
+  and verify; the identity/provider flags still bind the human claim,
+  the trust config binds the infrastructure claim. Keep both in the
+  SAME story when you cite a verification downstream.
+- **CI-shaped signing:** an automated pipeline signs with its workload
+  identity (GitHub Actions' token identity
+  `https://<org>/<repo>/.github/workflows/<wf>.yml@refs/heads/main`
+  per the upstream's supported provider list); a verifier can then
+  demand exactly that identity — provenance without a human in the
+  loop but with a nameable one.
+- **SLSA for models:** sigstore's model-transparency README names the
+  SLSA-for-ML extension as the statement's predicate lineage — the
+  provenance story of [Prove what an installed artefact
+  is](sbom-artifact-verify.html) and this recipe's signature statement
+  are the same in-toto machinery aimed at two different artefact
+  classes. Use both; cite each for what it covers.
+
+## See also
+
+- [Prove what an installed artefact is: SBOM +
+  provenance](sbom-artifact-verify.html) — the artefact-side of the
+  same chain
+- [Boot a verified release image](../getting-started/first-image.html)
+- The D-4 manifest rows (modelsign, sigstore-tools, cosign — kailash
+  packages manifest, single source of truth):
+  <https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml>
+- sigstore/model-signing upstream (CLI + format spec):
+  <https://github.com/sigstore/model-signing> ·
+  <https://pypi.org/project/model-signing/>
+- Sigstore transparency log + Fulcio explainer:
+  <https://docs.sigstore.dev/about/bundle/>
+- [Recipe directory](../directory.html)
+
+---
+
+ref: [D-4 manifest rows (modelsign → sigstore/model-signing;
+sigstore-tools first-party pack; cosign) + the upstream model_signing
+CLI surface at current docs (sign/verify, sigstore|key|certificate,
+--signature, --identity/--identity_provider, --trust_config) —
+manifest + upstream README/Pypi at 1.1.1](https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml) - verified 2026-10-14.
+CLI shapes verified against upstream docs at the pin; the kailash
+packaged `modelsign` wrapper's own flags: PENDING vs the upstream
+`model_signing` — read the derivation's help at your pin and hold the
+recipe to THAT surface; flag drift is a re-work (the recipe-provenance
+rule), not a workaround.
+
+---
+
+**Recipe provenance.** Command shapes above are grounded in the manifest row and the pinned upstream CLI at the packaging pin; expected output renders as shapes, never transcripts.
+ref: [manifest of record](https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml) - verified 2026-10-14.
+Hands-on verification: PENDING - tracked by the standing upkeep lane ([kailash-book#12](https://github.com/kailash-os/kailash-book/issues/12)).

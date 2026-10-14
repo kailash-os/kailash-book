@@ -1,0 +1,137 @@
+---
+title: "Recipe: Opt in to the C-7 signal/SDR pack"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tool | kailash (C-7 `kailash-data.*` SDR pack) |
+| Section | Administrator |
+| Level | easy |
+| Time | ~10 min + rebuild |
+| Layer/Category | CLASSIC / c-07-signal-sdr (opt-in) |
+| Tags | `admin`, `data-packs`, `sdr`, `opt-in`, `gnuradio` |
+
+
+## Problem
+
+Your AI/ML signal work needs the SDR substrate — GNU Radio's DSP
+pipeline feeding model-training corpora, signal capture for
+audio/voice-model research — but no default image carries it: the C-7
+rows are excluded from every ISO by construction because a multi-gig
+DSP stack has no business inside a ≤4 GB budget. You want the pack on
+ONE host, deliberately, and you want to verify exactly what landed.
+
+## Solution
+
+Confirm the rows, opt in via the pack derivation, rebuild, verify:
+
+```bash
+# 1. See the C-7 rows the manifest declares (all status: data)
+kailash info gnuradio      # software-defined radio DSP framework (software-only)
+kailash info gqrx          # SDR receiver built on GNU Radio
+kailash info hackrf-tools  # CLI utilities for HackRF hardware SDR platforms
+kailash list --category c-07-signal-sdr
+#    -> the opt-in six: gnuradio, gqrx, hackrf-tools, sox, librosa, pysox
+
+# 2. Opt in via the pack derivation in your host configuration — a
+#    deliberate config act, NOT a category enablement:
+#    environment.systemPackages = [ kailash-data.sdr-tools ];
+#    (packs ride kailash-data.* opt-in gating at the OS side; they never
+#     ride a default profile)
+
+# 3. Rebuild and switch
+sudo nixos-rebuild switch
+
+# 4. Verify what landed, software side first (no hardware needed)
+gnuradio-config-info --version
+grcc --version 2>/dev/null || echo "grcc present: $(command -v grcc)"
+hackrf_info 2>/dev/null || echo "no HackRF attached — CLI present, device probe: PENDING"
+gqrx 2>&1 | head -2 || true   # GUI starts (or reports missing display in a headless shell)
+```
+
+Expected output shape (abridged):
+
+```
+pack:    c-07-signal-sdr    (kailash-data.sdr-tools, opt-in DATA pack)
+version: <nvfetcher rev>    (the lock/sources revision)
+status:  data pack installed, default-OFF pack opted in
+gnuradio-config-info --version
+3.x.x
+hackrf_info
+Found HackRF...            # when hardware is attached
+No HackRF boards found.    # when none is — the CLI is present either way
+```
+
+What success looks like:
+
+- the pack derivations are in the new system closure and the rebuild's
+  diff-closures shows ONLY the pack's content (a category of attack or
+  ops tooling snuck in is wrong — check what you actually declared)
+- `gnuradio-config-info --version` answers (software-only, works
+  without any radio hardware)
+- `hackrf_info` runs; on a box WITH a HackRF it probes the device, on a
+  box without it reports none found — the DSP-side research needs no RF
+  hardware at all
+- a rebuild WITHOUT the opt-in line removes the pack entirely — the
+  opt-out is the same declarative act in reverse
+
+## Discussion
+
+- **Why SDR is a carve-out at all:** Kailash deliberately is NOT
+  Kali-for-networks — wifi/RF/Bluetooth attack tooling does not ship.
+  SDR is the one exception, and the reason is stated in the spec: SDR
+  is the substrate for AI/ML signal research — radio-based ML datasets,
+  signal-capture corpora for audio/voice-model work, GNURadio's DSP
+  ecosystem feeding ML pipelines. The A-6 multi-modal attack surface
+  (e.g. audio-voice-clone-injector) needs software DSP, not RF hardware
+  stacks. Software-only: gnuradio/gqrx/hackrf-tools, plus the audio
+  DSP support rows (sox, librosa, pysox).
+- **Data-row delivery is the same discipline, different shape:** these
+  are `status: data` manifest rows — every fact (licence, source,
+  update class) single-sourced like any tool — but the delivery is an
+  opt-in derivation because of the size budget, and the opt-in never
+  rides a default profile or a category toggle. `kailash-data.*` is the
+  same mechanism as the wordlist packs; C-7 is simply the data-pack
+  census category kept narrow by design (the spec's §3.6 D7 decision
+  records exactly this: a data-pack toggle, NOT a tool-category of
+  record — the category count stays 31).
+- **Size budget honesty:** the ISO targets carry CI-enforced budgets
+  (≤1.5/4/8/10 GB by target) and the budget check legs assert the
+  heavies stay opt-in — texlive, gnuradio, the SDR/wordlist corpora.
+  Opt in only where the work is: a headless DSP-training host can take
+  the pack with no desktop in its closure.
+- **Licensing note per row:** GNU Radio GPLv3, Gqrx GPLv3+, HackRF
+  tools GPLv2+ — all GPL-family and established; the caveat that
+  matters here is the one every data row carries: whatever corpora you
+  CAPTURE with this pack are your content, your licence decision. The
+  manifest row does not establish capture-content licences.
+- **Neighbour discipline:** the same opt-in pattern covers every
+  `kailash-data.*` pack — wordlists, texlive, the SDR six. The recipes'
+  PENDING discipline applies here too: the pack PATH layout on a live
+  system is the derivation's own record; the worked verification lands
+  with the upkeep lane's host checks.
+
+## See also
+
+- [Refresh wordlists and data packs](data-packs.html) — the
+  wordlist-pack sibling recipe (identical mechanics, different pack)
+- [Enable your first category](../getting-started/first-category.html)
+  — for actual tool categories (C-7 is NOT one)
+- Taxonomy §2.2 C-7 (the carve-out's rationale) + §3.6 decision D7 +
+  §7.1 image budgets:
+  <https://github.com/kailash-os/kailash-os/blob/master/docs/spec.md>
+- Images chapter (budget-by-construction statement):
+  <https://github.com/kailash-os/kailash-os/blob/master/docs/guide/images.md>
+- GNU Radio upstream: <https://github.com/gnuradio/gnuradio> · HackRF
+  tools: <https://hackrf.readthedocs.io/>
+- [Recipe directory](../directory.html)
+
+---
+
+ref: [manifest rows gnuradio/gqrx/hackrf-tools (+sox/librosa/pysox),
+c-07-signal-sdr — kailash-packages manifest](https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml) - verified 2026-10-14.
+C-7 delivery-path statement from the spec (§2.2/§2.7/§3.6-D7, §7.1
+budgets) + the guide's images chapter. Pack PATH layout on a live host +
+the hardware-probe run: PENDING — the opt-in derivation shapes are the
+verified contract; the worked host check lands with the upkeep lane.

@@ -1,0 +1,162 @@
+---
+title: "Recipe: Prove what an installed artefact is: SBOM + provenance"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tool | syft · grype · cyclonedx-cli · cdxgen · gh attestation |
+| Section | Administrator |
+| Level | medium |
+| Time | ~25 min |
+| Layer/Category | DEFENCE / d-04-provenance-signing-trust |
+| Tags | `admin`, `sbom`, `provenance`, `slsa`, `spdx`, `attestation` |
+
+
+## Problem
+
+A release artefact sits on your disk — a Kailash ISO or qcow2, or any
+piece of software you are about to run in the lab. "It downloaded" is
+not a claim you can stand behind. Before it boots, you want three
+provably-checked statements: WHAT is inside it (an SBOM), WHERE/HOW it
+was built (signed provenance), and that the bytes you have are the
+bytes the project shipped (the whole-file identity check). Kailash
+ships the D-4 tooling to make every statement yourself too.
+
+## Solution
+
+Two chains: verify a Kailash release artefact against its published
+records, and generate SBOM/provenance evidence for artefacts of your
+own. Both start the same way — identity first:
+
+```bash
+# ---------- CHAIN A: a downloaded kailash release artefact ----------
+# 1. Whole-file identity (THE authority — the release's SHA256SUMS sheet)
+sha256sum -c SHA256SUMS
+
+# 2. Signed build provenance (SLSA v1.0 predicate; + the SPDX SBOM
+#    attestation the pipeline recorded per artefact)
+gh attestation verify kailash-<tag>-kailash-iso-<target>.iso \
+    -R kailash-os/kailash-os
+#    -> PASS requires: valid Sigstore signature chain, the repo's OIDC
+#       identity, predicate https://slsa.dev/provenance/v1
+
+# 3. The signed release tag
+git tag -v <tag>
+
+# 4. Inspect what the provenance itself contains (offline read)
+gh attestation download kailash-<tag>-kailash-iso-<target>.iso -R kailash-os/kailash-os
+jq . sha256:<digest>.jsonl | head    # the in-toto statement + predicate
+
+# ---------- CHAIN B: make the same evidence for your own artefact ----
+# 5. Generate an SBOM of the artefact/dir, in a standard format
+syft <image-or-dir> -o cyclonedx-json=<art>.cdx.json
+syft <image-or-dir> -o spdx-json=<art>.spdx.json
+
+# 6. Validate + convert the SBOM with the CycloneDX CLI (validation is
+#    the step that makes the document citable, not just creatable)
+cyclonedx-cli validate --input-file <art>.cdx.json --input-format json
+
+# 7. Vulnerability-check the SAME artefact off the SBOM you just made
+grype sbom:<art>.cdx.json
+
+# 8. AI-flavoured surfaces: an AI-BOM for model/prompt/MCP content
+cdxgen -o aibom.json --profile <profile> .    # or the aibom flow per --help
+
+# 9. Record what moved between two builds of the same artefact
+cyclonedx-cli diff <old>.cdx.json <new>.cdx.json
+```
+
+Expected output shape (abridged):
+
+```
+$ sha256sum -c SHA256SUMS
+kailash-2026.01-alpha.1-kailash-iso-full.iso: OK
+$ gh attestation verify kailash-2026.01-alpha.1-kailash-iso-full.iso \
+     -R kailash-os/kailash-os
+Verified against repository kailash-os/kailash-os
+... predicateType: https://slsa.dev/provenance/v1 ...
+$ grype sbom:art.cdx.json
+<vulnerability table — or the "no vulnerabilities" shape>
+```
+
+What success looks like:
+
+- every chain-A step passes: OK digest, attestation verified over the
+  repo identity, tag signature good
+- the SBOM you generated parses under `cyclonedx-cli validate` clean
+- grype's verdict is against YOUR generated SBOM (provenance from
+  evidence, not from trust)
+- your own `syft`/`cdxgen` documents record tool versions in their
+  metadata — name them when you cite the SBOM
+
+## Discussion
+
+- **The three statements are deliberately separate records.** The
+  SHA256SUMS sheet is artefact-identity (was this the shipped file?);
+  the attestation is build-provenance (from what repo revision, in
+  what workflow, with a Sigstore-signed SLSA v1.0 predicate — Kailash's
+  KA-48 slice attaches one per published artefact alongside the SPDX
+  SBOM); the SBOM is content (what packages/components are inside).
+  Any one alone leaves a gap: a digest without provenance is an
+  unsigned claim; provenance without an SBOM says nothing about what is
+  IN the thing.
+- **Standards, nameable precisely:** provenance predicates are in-toto
+  attestations of type `https://slsa.dev/provenance/v1` (SLSA v1.0's
+  build-provenance statement; verified per GitHub's `gh attestation
+  verify` contract, and exportable as JSONL for offline/OIG review).
+  SBOMs come in two dialects here — CycloneDX (JSON; what `cyclonedx-cli`
+  validates/diffs/merges and what an AI-BOM rides) and SPDX (JSON;
+  NIST-style minimum-elements compliance usually names SPDX/NTIA) —
+  and `syft` and `cdxgen` both emit either. Kailash's own release SBOM
+  attestation is the SPDX one; downstream evidence gathering should
+  generate BOTH and cite each where it fits.
+- **Why grype over the SBOM and not over the image:** scanning the
+  generated SBOM keeps the evidence chain in one place — the document
+  you are about to file is the document that was scanned. (grype
+  happily takes images too; the sbom: route makes the record
+  reproducible.)
+- **Nix caveat that shapes the SBOM's meaning:** a NixOS closure's
+  packages are store paths, not a runtime filesystem tree — SBOM
+  statements about a kailash image are statements about a declared
+  closure, which is why the flake lock itself is the authoritative
+  "what tools" record, and the SBOM is the portable, standard
+  rendering of it for consumers outside Nix. Both views describe the
+  same build; keep them in one story.
+- **Where this rides in the project's own gates:** the release-cut
+  checklist records `gh attestation verify ... PASS` per shipped
+  artefact on every cut — the maintainer practice and the recipe are
+  the same command. The attestations are made BY the release pipeline
+  (actions/attest, SLSA v1.0 + SPDX per artefact); this recipe makes
+  you the able counterparty of those records.
+- **Not a scanner substitute:** grype's verdicts are point-in-time
+  vulnerability facts about the SBOM's components. Provenance proves
+  the build; the SBOM proves the content; grype proves no KNOWN CVE in
+  that content today. Keep all three claims distinct when reporting.
+
+## See also
+
+- [Boot a verified release image](../getting-started/first-image.html) —
+  chain A's neighbour (chunked assets + tag verification)
+- [Sign and verify model artefacts](model-signing.html) — the
+  model-side of the same trust chain
+- The D-4 rows (all of these tools are manifest-listed, d-04, safe)
+  in the single source of truth:
+  <https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml>
+- SLSA v1.0 provenance predicate:
+  <https://slsa.dev/provenance/v1> · `gh attestation verify` reference:
+  <https://cli.github.com/manual/gh_attestation_verify>
+- Anchore Syft docs: <https://oss.anchore.com/docs/guides/sbom/getting-started/>
+  · Grype: <https://oss.anchore.com/docs/guides/vulnerability/getting-started/>
+- [Recipe directory](../directory.html)
+
+---
+
+ref: [D-4 manifest rows (syft, grype, cyclonedx-cli, cdxgen, cosign,
+trivy — kailash-packages manifest) + KA-48 attestation slice (guide
+images chapter, SLSA v1.0 + SPDX SBOM per artefact) + gh/syft/grype/
+cyclonedx-cli/cdxgen upstream CLI docs](https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml) - verified 2026-10-14.
+SBOM/attestation shapes verified against upstream docs at source HEAD;
+worked run against a released ISO: PENDING — lands with the upkeep
+lane's host checks (the release-side record already carries a real
+`gh attestation verify` PASS per the release-cut checklist).

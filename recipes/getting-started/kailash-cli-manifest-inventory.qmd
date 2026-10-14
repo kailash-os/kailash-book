@@ -1,0 +1,165 @@
+---
+title: "Recipe: inventory the catalogue with the kailash CLI"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tool | [kailash](https://docs.kailash.tools/reference/kailash.html) (CLI) |
+| Section | Getting started |
+| Level | easy |
+| Time | ~15 min to walk every verb |
+| Layer/Category | CORE (the CLI, manifest-driven) |
+| Tags | `getting-started`, `cli`, `manifest`, `inventory` |
+
+## Problem
+
+A 337-row, four-layer catalogue is the thing you navigate all day —
+you want to know it through its own front-end: list layers and
+categories with one command, find tools by substring, read one tool's
+full record (safety class, ATLAS tactics, OWASP mapping, licence),
+name the system's profiles, and run the manifest gate yourself before
+trusting any of it. The CLI is a manifest reader, not a package
+manager — this recipe is the tour of exactly what it can tell you
+today.
+
+## Solution
+
+Five landed verbs (`list`, `search`, `info`, `profile list`,
+`manifest validate` + `manifest check`), each reading the manifest —
+never your system state:
+
+```bash
+# 1. list — every row, or filtered; TAB-separated columns
+kailash list                          # the whole census, one row per category/tool
+kailash list --layer ATTACK           # one layer's slice
+kailash list --category a-02-prompt-injection-jailbreaks
+kailash list --status data            # the data-pack rows (no executables)
+kailash list --status bespoke         # the kailash-packages derivations
+
+# 2. search — case-insensitive substring over id, name, description,
+#    tags AND secondary_categories (a cross-listed tool is findable
+#    from both homes)
+kailash search prompt-injection
+kailash search garak
+kailash search c-08-forensics         # e.g. surfaces trufflehog (a-01 → c-08 secondary)
+
+# 3. info — ONE tool's FULL manifest record, as JSON
+kailash info garak
+kailash info garak --json             # the same record (info is JSON-native)
+
+# 4. profile list — the profiles the OS side bakes into the release
+kailash profile list
+
+# 5. the manifest gate, locally (the CI check, runnable by hand)
+kailash manifest validate             # exit 0 = well-formed; the validator's OK line prints
+kailash manifest check                # loader self-inventory: {"categories": <n>, "tools": <n>}
+```
+
+What success looks like, per verb (exit code in parentheses):
+
+- `list` (0) prints rows; an unknown `--layer` or an empty filter
+  result exits **1** with the reason on stderr
+- `search` (0) prints TAB-separated `id→name→description` rows; a
+  no-hit query exits **1** — the empty result is an honest answer,
+  not a crash
+- `info <id>` dumps the tools.yaml entry as one JSON object (`level`,
+  `category`, `packaging.status`, `safety`, `nixos_menu`, `atlas_tactics`,
+  `owasp_llm`, `docs`, `tags`); an absent id exits **1**
+- `profile list` prints one row per profile — `name`, `layers`, `description`
+- `manifest validate` prints the validator's OK/FAIL line verbatim and
+  mirrors the CI gate's exit code; `manifest check` prints the counts
+- usage errors and unreadable manifests exit **2** — distinct from
+  "no results", by design
+
+Expected output shapes (one per verb, abridged):
+
+```
+<tool-id>	<layer>	<category>	<packaging.status>          # list
+<tool-id>	<name>	<description>                          # search
+{"id": "<tool-id>", "layer": "<layer>", ..., "atlas_tactics": [...]}  # info
+<profile-name>	<layers-summary>	<description>          # profile list
+{"categories": <n>, "tools": <n>}                            # manifest check
+```
+
+The store-path guarantee (spec §6.3, the drift killer): the CLI's
+derivation bakes `KAILASH_MANIFEST`/`KAILASH_CATEGORIES` to store
+paths via `wrapProgram` — the CLI's own hash changes whenever the
+manifest content changes, so **`kailash list` can never disagree with
+the installed system**; the same per-file env contract drives
+`KAILASH_PROFILES` for `profile list`.
+
+## Discussion
+
+- **The roadmap verbs, explicitly NOT quoted as landed:**
+  `kailash enable` / `kailash shell` / `kailash doctor` /
+  `kailash image build` / `kailash report new` / `kailash update` /
+  `kailash verifier` are specified in the OS spec's CLI chapter but
+  land per the roadmap (KA-14 children). Until each lands, this book
+  gives the hand-worked alternative instead of a fake surface:
+  enabling is a declarative config option
+  ([first-category](first-category.html), which flags the same thing
+  for `kailash enable`), reports are scaffolded with Quarto directly
+  ([your first report](first-report.html) — flags `report new`).
+- **Why the exit-code contract matters (scriptable honesty):** 0 = ok,
+  1 = no results, 2 = usage/manifest error. A wrapper script can tell
+  "nothing matched" apart from "the manifest could not be read" —
+  the difference between an empty search result and a broken install.
+  `--json` (accepted before or after the subcommand) swaps in the
+  stable machine-readable shape for anything you pipe onward.
+- **`info` is JSON-native, `list`/`search` are line-native:** the
+  full record command dumps JSON always; use `--json` on the other
+  verbs when feeding scripts. The record carries the two mapping sets
+  (`atlas_tactics`, `owasp_llm` both epochs) — that is the data the
+  tactics/standards doc views generate from, and what an assessment
+  report should cite.
+- **`profile list` and the baked file:** profile rows come from a
+  generated profiles.json (baked alongside the manifest into the
+  packaged CLI). In a repo checkout the committed sample stands in;
+  on a release image the OS-side bake fills it. If neither file
+  resolves, the command says so explicitly (naming
+  `KAILASH_PROFILES`) rather than printing a bare no-results — self-
+  diagnosing by design.
+- **`manifest validate` needs the repo tree:** installed wheels carry
+  only `cli/`; the validator ships with the repo tree, so the in-
+  process run locates `tests/validate_manifest.py` beside the package
+  and exits 2 (with a message naming the missing validator) if it
+  cannot. On release systems the baked path wins; from a source
+  checkout it just works.
+- **When the CLI is the wrong tool:** the CLI reads the manifest; it
+  does not tell you what is on PATH right now, or a tool's version —
+  that provenance depth is `kailash doctor`'s roadmap job. For a
+  "which tool is actually installed" question today, ask the package
+  manager and the store (`nix profile list`, store paths), and use
+  `kailash info` for what the manifest declares.
+
+## See also
+
+- [Refresh wordlists and data packs](../admin/data-packs.html) —
+  the `kailash list --status data` rows, worked end to end
+- [Enable your first category](first-category.html) — the
+  declarative step the roadmap `kailash enable` will wrap
+- [Inventory the catalogue → the scanning section](../scanning/garak-full-baseline.html) —
+  the first tool this inventory usually surfaces
+- [Scaffold your first assessment report](first-report.html) —
+  cite the `info` fields in a real deliverable
+- The kailash CLI (packages repo; the loader + gate):
+  <https://github.com/kailash-os/kailash-packages/tree/main/cli>
+- Manifest + categories (the data this reads):
+  <https://github.com/kailash-os/kailash-packages/tree/main/manifest>
+- OS spec Chapter 6 (the CLI contract, §6.2 landed slice + §6.3 bake):
+  <https://github.com/kailash-os/kailash-os/blob/master/docs/spec.md>
+
+---
+
+**Recipe provenance.** Command surfaces, flag grammar, filter
+choices, exit codes and the per-verb output shapes are verified
+against the CLI source at the packages repo (`cli/kailash/cli.py`,
+`cli/kailash/manifest.py`, `cli/README.md` — kailash-packages#52, the
+KA-14.1 landed slice) and the OS spec's CLI chapter §6.2/§6.3,
+verified 2026-10-14 at main/master. The store-path bake fact
+(`wrapProgram`, per-file env) is read from `pkgs/kailash/default.nix`.
+Roadmap verbs are the spec §6.2 remainder — labelled roadmap-stage,
+not quoted. Worked transcript against an installed pin: PENDING (the
+repo-side self-test `checks.kailash-cli-self-test` is the standing
+instrument).

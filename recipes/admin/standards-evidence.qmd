@@ -1,0 +1,166 @@
+---
+title: "Recipe: Map a lab run to OWASP/NIST/ISO evidence with the verifier"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tool | `kailash verifier` (d-07 CLI) + D-7 toolkit packs |
+| Section | Administrator |
+| Level | medium |
+| Time | ~30 min |
+| Layer/Category | DEFENCE / d-07-standards-verification |
+| Tags | `admin`, `verifier`, `aisvs`, `mlsvs`, `owasp-llm-top10`, `evidence` |
+
+
+## Problem
+
+Your lab ran (say) a scoped garak scan or an attack-then-verify pair
+run, and the report's finding says "mitigated" or "observed". To mean
+anything in front of an auditor, a risk owner, or an authorisation
+review, that claim has to land on a NAMED control in a NAMED standard at
+a NAMED verification level — and the mapping from what you actually ran
+to the control statement has to be generated from the same manifest
+that shipped the tool, not hand-appealed in a slide. The D-7 verifier is
+the CLI that renders that mapping.
+
+## Solution
+
+Pick the standard, run the verifier slice, bind the run evidence to the
+control rows it renders:
+
+```bash
+# 0. Confirm your lab surface ran at ALL (the input to any mapping):
+#    e.g. [Attack the platform, then verify](../attack-defence/attack-then-verify.html)
+#    leaves a --record JSON (real, verbatim-backed); a garak run leaves a
+#    .jsonl report. A control statement without run evidence is a wish.
+
+# 1. The LLM-side OWASP maps (both Top-10 epochs live in the manifest):
+kailash verifier --standard llm-top10
+#    -> the LLM Top 10 evidence view driven by the llm-top10-toolkit row
+#       (risk-mapping data for 2026 + v2:2025 epochs)
+
+# 2. The AI-security verification standard, per level:
+kailash verifier --standard aisvs --level 2
+#    -> AISVS 1.0 requirements at verification level 2 — the landed
+#       example shape (spec §2.8's standard-first mode; Phase-6's
+#       acceptance ran exactly this)
+
+# 3. The ML-system sibling standard:
+kailash verifier --standard mlsvs
+#    -> MLSVS checklist view from the mlsvs-toolkit row
+
+# 4. Bind the run: cite the run's artefact against the standard rows in
+#    your report — the verifier's output IS the citation skeleton:
+#      "control <row-id> (AISVS 1.0, level 2): verified by
+#       garak --spec tag:owasp:llm01 (report <file>, tool pin <rev>),
+#       target <endpoint>, recorded <date>"
+#    the manifest-driven rows make this citable; the run record makes it
+#    REPRODUCIBLE; the tool pin in the row's record makes it
+#    RE-RUNNABLE.
+
+# 5. Sanity: the same facts from the manifest's own view
+kailash info garak | grep -i -A4 owasp
+#    -> the row's owasp_llm map (2026 + v2 epochs) — what the verifier
+#       renders for LLM-top10 rows in the first place
+```
+
+Expected output shape (abridged):
+
+```
+$ kailash verifier --standard aisvs --level 2
+standard: aisvs  version: 1.0
+level: 2
+<section>:
+  <requirement-id>  verify that ...   <- the tool rows whose
+      evidence: <tool-id> <tactic/map refs>     manifest maps to it
+...
+```
+
+What success looks like:
+
+- the verifier's standard/level line names the OWASP stack exactly as
+  the spec's standard-first mode promises (ASVS 5.0 / AISVS 1.0 /
+  MLSVS / LLM Top 10, both epochs)
+- every rendered row traces back to a manifest field (`owasp_llm`,
+  `atlas_tactics`, the D-7 toolkit rows' mapping data) — no hand-copied
+  control text anywhere
+- your report's citation names: the standard + level, the tool + pin,
+  the run record, the date — all four, or the claim is unfinished
+- `kailash manifest validate` stays green (the mapping's ground truth
+  is the same manifest the CLI bakes)
+
+## Discussion
+
+- **The D-7 shape, one file per concern:** three toolkit rows
+  (`aisvs-1.0-toolkit`, `mlsvs-toolkit`, `llm-top10-toolkit` — the
+  first-party OWASP mapping packs, status: data) + the verifier CLI
+  (`kailash-verifier`, bespoke, BSD-3-Clause) + the ASVS toolkit shared
+  with C-10. AISVS/MLSVS/LLM-Top-10 mapping DATA comes from those packs;
+  the manifest's per-tool `owasp_llm`/`atlas_tactics` fields are the
+  per-tool views the verifier joins against them. AISVS levels carry
+  the ASVS alignment (level N verifies at matching ASVS level N — the
+  AI chapters and the web chapters are applied TOGETHER per upstream).
+- **Three navigation modes, one manifest** (spec §2.8): menu is
+  layer-first; the ATLAS matrix is tactic-first; the standards view is
+  standard-first — the verifier is that third mode made runnable from
+  the CLI. One record, three views, no separate "compliance copy"
+  anywhere to drift.
+- **What a verified control statement looks like:** a row-id + a
+  mechanism + run-reproduction. "AISVS 1.0 §<chapter/id> level 2 —
+  verified by <tool> <version> against <target/record> on <date>" —
+  with the record itself attached (a garak JSONL, an mlflow-pair
+  --record JSON). The book's no-invented-evidence rule is the same
+  discipline standards-mapped: a claim with no verbatim-run behind it
+  is not evidence.
+- **Level choice is a posture decision, not a decoration:** AISVS
+  levels are ascending depth-of-assurance per requirement (level 1 =
+  the critical/foundational controls, level 3 = defence-in-depth /
+  niche). Pick the level your AUTHORISATION context demands (e.g.
+  IRAP/ISM-mapped work will want the higher levels evidenced, not
+  just level 1) and STATE the level in every downstream citation —
+  the `--level N` flag is part of the claim, not a knob.
+- **LLM Top 10 has two epochs and the manifest carries both:** the
+  owasp_llm field maps both `{2026: ...}` and `{v2: ...}` per row — a
+  report that names only one epoch is incomplete for any audience that
+  spans the v2:2025 → 2026 transition; the verifier's llm-top10 view
+  renders them as the toolkit's dual-epoch data says.
+- **NIST/ISO coverage lives in D-6; the verifier binds D-7 evidence:**
+  ISO/IEC 42001 (AIMS), NIST AI RMF, EU AI Act inventories and
+  questionnaires are the D-6 governance pack's rows (see
+  [Govern a GenAI vendor with the D-6 pack](govern-vendor-review.html)) —
+  the D-7 verifier's job is the TECHNICAL verification leg those
+  frameworks then consume. Don't conflate them: regulation asks for
+  control evidence; the verifier produces the control mapping that the
+  evidence cites.
+- **What the verifier does NOT do:** it maps and renders; it does not
+  RUN the tool for you or mint a pass. The verdict discipline of the
+  book applies inside the mapping too — evidence first, then the
+  statement, never the reverse.
+
+## See also
+
+- [Attack the platform, then verify](../attack-defence/attack-then-verify.html)
+  — the --record discipline the mapping binds to
+- [Scan a self-hosted model for prompt-injection
+  resistance](../scanning/garak-full-baseline.html) — the run
+  that produces LLM01 evidence
+- [Govern a GenAI vendor with the D-6 pack](govern-vendor-review.html)
+  — where AI-RMF/ISO-42001/AI-Act consumption happens
+- Safety classes chapter: <https://docs.kailash.tools/governance/safety-classes.html>
+- D-7 rows + the verifier CLI in the manifest (source of truth):
+  <https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml>
+- OWASP AISVS (levels + ASVS alignment, upstream):
+  <https://github.com/OWASP/AISVS>
+- [Recipe directory](../directory.html)
+
+---
+
+ref: [D-7 manifest rows (aisvs-1.0-toolkit, mlsvs-toolkit,
+llm-top10-toolkit, kailash-verifier) + the landed `kailash verifier
+--standard <std> [--level N]` slice (spec §6.2/§2.8/Phase-6 verify
+statement) + OWASP AISVS upstream structure](https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml) - verified 2026-10-14.
+Verifier invocation shapes verified against spec §6.2's command list
+(`--standard aisvs --level 2` is the landed example); an interactive
+render transcript: PENDING — the CLI slice is the verified contract;
+the worked session lands with the upkeep lane.

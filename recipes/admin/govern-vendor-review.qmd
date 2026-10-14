@@ -1,0 +1,162 @@
+---
+title: "Recipe: Govern a GenAI vendor with the D-6 pack"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tool | D-6 pack: ai-act-compliance-checker · nist-ai-rmf-toolkit · iso-42001-templates · genai-vendor-review-form |
+| Section | Administrator |
+| Level | medium |
+| Time | ~45 min per vendor (first pass) |
+| Layer/Category | DEFENCE / d-06-governance-regulation-mapping |
+| Tags | `governance`, `vendors`, `ai-act`, `nist-ai-rmf`, `iso-42001`, `d-06` |
+
+
+## Problem
+
+Your lab (or your client's) is about to depend on a GenAI vendor — an
+API model provider, a hosted RAG service, an agent-platform SaaS — and
+the decision has to survive questions that "it's fast and everyone uses
+it" cannot: what does the EU AI Act expect of THIS deployment role, what
+does a NIST AI RMF Profile look like for it, what does ISO/IEC 42001
+evidence exist, and what did the vendor ACTUALLY answer in writing?
+The D-6 pack turns that questionnaire chore into pack-structured,
+scorable artefacts.
+
+## Solution
+
+Run the pack's four rows as one review flow: scope → obligations →
+profile/template mapping → written questionnaire → scoring → decision
+record:
+
+```bash
+# 1. Confirm the pack rows (all D-6, all safe; two CLIs + three data packs):
+kailash info ai-act-compliance-checker
+kailash info nist-ai-rmf-toolkit
+kailash info iso-42001-templates
+kailash info genai-vendor-review-form
+
+# 2. Scope the deployment role FIRST (the review's input):
+#    what the vendor provides (model API? hosted app? agent runtime?),
+#    what data you send it, which jurisdiction the USE lands in.
+#    Write the two-line scoping statement before touching tools —
+#    every obligation inventory keys off it.
+
+# 3. Obligation inventory + gap scoring (the AI-Act checker's row):
+ai-act-compliance-checker <scope-sheet>     # per the pack's usage sheet
+#    -> expected shape: per-obligation rows with applicability +
+#       gap score, keyed to YOUR declared deployment role
+
+# 4. Framework mappings — Profile templates (AI RMF) + AIMS control
+#    templates (ISO/IEC 42001):
+#    nist-ai-rmf-toolkit  -> GOVERN/MAP/MEASURE/MANAGE profile template,
+#                            fill against the vendor's stated controls
+#    iso-42001-templates  -> AIMS control templates + evidence checklist
+#                            for the vendor's certification claims
+
+# 5. The questionnaire itself (the vendor-review form's row):
+#    genai-vendor-review-form  -> provider risk questionnaire + scoring
+#    sheet; send it, get WRITTEN answers back, score per the form's
+#    rubric. Answers-in-chat are not answers-in-writing.
+
+# 6. Decision record (repo-committed, same discipline as the rest):
+#    scope statement + obligation inventory + profile/template mapping +
+#    questionnaire + score + decision + review date. One row per vendor.
+```
+
+Expected output shape (abridged):
+
+```
+vendor:  <name>            deployment role: <role>
+AI Act:  <obligations applicable: N>   gaps: <n>   worst: <obligation-id>
+AI RMF:  profile sections G/M/Ea/Me + Ma/Mr filled: <n>/…
+ISO:     AIMS controls evidenced by vendor: <n> claims pending
+questionnaire: answered <n>/…  score: <x/total>
+decision: <approved | conditioned | rejected>   review: <date>
+```
+
+What success looks like:
+
+- every obligation row keyed to a NAMED role (a model API consumer and
+  an agent-platform operator hold different duties under the same Act)
+- the AI RMF Profile is ABOUT THIS vendor, filling its four core
+  functions (Govern/Map/Measure/Manage; GOVERN's the cross-cutting
+  spine per upstream) — not a copied generic profile
+- ISO evidence rows distinguish CERTIFIED claims from SELF-ATTESTED
+  claims (the difference is the whole point of an evidence checklist)
+- the questionnaire's answers are stored with the review (and the
+  score's rubric is the pack's, not improvised per reviewer)
+
+## Discussion
+
+- **Four rows, one flow, all content-classpacks:** a checker CLI
+  (bespoke, first-party), an AI RMF template pack (data), an ISO
+  42001 template pack (data), and the vendor questionnaire (data).
+  None of them decide anything on their own — the pack's design (and
+  the manifest's own D-6 note: "pure content") is: structure the
+  review, keep its artefacts comparable across vendors and across
+  reviews. Scoring you must be able to DEFEND is the pack's job;
+  opinions are yours.
+- **The AU-context note the manifest itself carries:** IRAP/ISM
+  AI-relevant controls inform this governance pack (spec §9.1/§9.2's
+  responsible-use framing names it) — if your deployment carries
+  government-adjacent work, add the ISM control mapping as a fifth
+  column to the same decision record rather than running a parallel
+  review.
+- **Questionnaire discipline is the recipe's core:** send the form,
+  require written answers, score ONLY written answers. Anything a
+  vendor's dashboard says is a claim to VERIFY (their SOC 2 scope,
+  their model-documentation depth, their sub-processor list), not a
+  score input until it is documented. The scoring sheet's per-question
+  weights are the pack's; change them on a schedule with a reason, not
+  per review.
+- **Where the pack's authority ends:** an obligation inventory and a
+  gap score are decision SUPPORT — the regulator-facing determination
+  (especially under the AI Act's risk classes) is a legal review with
+  a named human owner. The pack rows say explicitly that they are
+  inventories/templates; the recipe's honest framing is: this is how
+  the technical-governance leg gets DONE, then signed off.
+- **Connect the review to the technical side:** a vendor review scores
+  governance claims; D-7's verifier maps what YOUR OWN lab ran to
+  OWASP/NIST/ISO control statements (see
+  [Map a lab run to standards evidence](standards-evidence.html)) —
+  the two halves of one assurance story, D-6's paper, D-7's runs.
+  The reviewer's report cites BOTH, which is the point of sharing a
+  taxonomy.
+- **Update classes:** these rows are `update:slow` data packs — the
+  obligations/templates re-check with the pack's cadence, never
+  silently. A regulation change is a pack PR, which is a reviewed,
+  visible event (the manifest is the single source of truth, per row:
+  the same licence caveat applies — check redistribution terms before
+  shipping filled reviews outside your org).
+
+## See also
+
+- [Map a lab run to OWASP/NIST/ISO evidence with the
+  verifier](standards-evidence.html) — the D-7 technical leg of the
+  same assurance story
+- [Run an AI threat-model session with the D-5
+  pack](threat-model-worksheet.html) — risk identification upstream of
+  the vendor review
+- Australia's IRAP/ISM framing (responsible-use chapter):
+  <https://github.com/kailash-os/kailash-os/blob/master/docs/responsible-use.md>
+- NIST AI RMF 1.0 + Playbook:
+  <https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.100-1.pdf> ·
+  <https://airc.nist.gov/airmf-resources/playbook/>
+- ISO/IEC 42001 (AIMS):
+  <https://www.iso.org/standard/42001> · EU AI Act:
+  <https://artificialintelligenceact.eu/>
+- The D-6 manifest rows (source of truth):
+  <https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml>
+- [Recipe directory](../directory.html)
+
+---
+
+ref: [D-6 manifest rows (ai-act-compliance-checker,
+nist-ai-rmf-toolkit, iso-42001-templates, genai-vendor-review-form —
+kailash-packages manifest) + NIST AI RMF 1.0 function/Profile structure
++ ISO/IEC 42001 AIMS scope + responsible-use §9.1 IRAP/ISM framing](https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml) - verified 2026-10-14.
+Pack CLIs' own verb lists (first-party, pending upstream landing):
+PENDING — the review-flow shapes above are the manifest-verified
+structure; the worked vendor review lands with the upkeep lane.

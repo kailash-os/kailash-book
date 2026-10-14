@@ -1,0 +1,125 @@
+---
+title: "Recipe: serve a high-throughput scan target with vLLM"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tool | `vllm` |
+| Section | Ops |
+| Level | medium |
+| Time | ~20 min + model download |
+| Layer/Category | OPS / o-02 |
+| Tags | `ops`, `serving`, `target-endpoint`, `vllm`, `api-key` |
+
+## Problem
+
+`requires-target` scanners fire against a model endpoint, and some
+probe classes benefit from an engine that absorbs parallel load. When
+the scan loop needs throughput headroom — many concurrent attempts
+per probe — serve the target with vLLM, the manifest's
+high-throughput serving row (packaging status native, safety `safe`,
+category o-02). You want the serving shapes, a sane gate on the
+endpoint, and the wiring garak needs to consume it.
+
+## Solution
+
+Serve a small model, bind it deliberately, gate the routes, and give
+the scanner a stable model name:
+
+```bash
+# 1. Confirm the row (native, safety safe, o-02)
+kailash info vllm
+
+# 2. Serve a small model on loopback; the port default is 8000
+vllm serve Qwen/Qwen3-0.6B --host 127.0.0.1 --port 8000
+
+# 3. Gate the API routes before opening the box to co-workers:
+#    --api-key sets a bearer key on the OpenAI routes (see caveat)
+vllm serve Qwen/Qwen3-0.6B --host 127.0.0.1 --port 8000 \
+      --api-key <lab-key>
+
+# 4. In a second terminal: /health is public, API routes are not
+curl http://127.0.0.1:8000/health            # -> 200, no key needed
+curl -H 'Authorization: Bearer <lab-key>' \
+     -H 'Content-Type: application/json' \
+     -d '{"model":"Qwen/Qwen3-0.6B",
+          "messages":[{"role":"user","content":"Reply OK."}]}' \
+     http://127.0.0.1:8000/v1/chat/completions
+
+# 5. Give the scanner a stable alias that survives engine changes
+vllm serve Qwen/Qwen3-0.6B --host 127.0.0.1 --port 8000 \
+      --served-model-name lab-target
+```
+
+Expected output shape (abridged, shapes not transcripts):
+
+```
+# run banner
+INFO: Started server process; serving on 127.0.0.1:8000(?)
+# health
+200 OK
+# chat completion
+{"id":"chatcmpl-<id>","choices":[{"message":{"content":"OK…"}}],…}
+# after --served-model-name
+GET /v1/models -> {"data":[{"id":"lab-target"}]}
+```
+
+## Discussion
+
+- **The serve grammar:** `vllm serve [model_tag] [options]`; with no
+  model tag it falls back to the upstream default model
+  (Qwen/Qwen3-0.6B). The host option is unset by default — spell the
+  loopback bind explicitly rather than leaving the listen surface to
+  defaults. Port 8000 is the upstream default.
+- **The `--api-key` caveat, verbatim from upstream:** "Do not rely on
+  --api-key alone." The key guards only the API routes — `/v1`,
+  `/v2`, `/inference`, `/cohere` — and says nothing about the rest of
+  the HTTP surface (health and metrics stay open). Treat the key as a
+  convenience gate, not a security boundary: the real boundary is the
+  loopback bind on a lab box, plus your network perimeter.
+- **Why the alias (`--served-model-name`):** scanner run records cite
+  a model name; an alias decouples that name from the underlying
+  tag/revision, so re-pointing the engine does not rewrite your
+  run-to-run comparisons.
+- **The garak consumer is prewired for the default port:** garak's
+  OpenAICompatible generator defaults to
+  `http://localhost:8000/v1/` (its `generators/openai.py` contract),
+  so a loopback vLLM on 8000 needs no URI override; move the port and
+  you move the generator's uri in the same change.
+- **Why vLLM earns the `--parallel_attempts` headroom:** vLLM's
+  continuous batching absorbs concurrent requests, so a local target
+  can take garak's parallel-hint knob (e.g. `--parallel_attempts 16`
+  — see the full-baseline recipe) without serialising everything;
+  keep the seed constant so parallelism does not corrupt
+  comparability.
+- **Responsible use:** the target is an attack surface you created;
+  keep it loopback on a lab box and never point scanners at endpoints
+  you do not own (the book's responsible-use stance).
+
+## See also
+
+- [Serve a local model for scanning](serve-a-model.html) — the
+  Ollama sibling (the smallest zero-to-target loop)
+- [Serve a llama.cpp scan target](serve-a-model-llamacpp.html) — the
+  GGUF/quant-flow sibling
+- [Serve a tiny local model and run your first LLM01 scan
+  end-to-end](../getting-started/first-scan-ollama.html) — the
+  scoped-scan consumer
+- [Run the full garak baseline before
+  sign-off](../scanning/garak-full-baseline.html) — the
+  `--parallel_attempts` walk
+- [Recipe directory](../directory.html)
+- vLLM upstream docs: <https://docs.vllm.ai/>
+
+---
+
+**Recipe provenance.** Manifest row: vllm — packaging native, safety
+`safe`, category o-02 (read from the packages manifest, verified
+2026-10-14). CLI facts (`serve` grammar, default model, host/port
+defaults, `--api-key` scope + caveat, `--served-model-name`) are the
+upstream vLLM CLI contract, verified 2026-10-14; the garak consumer
+URI default is from `garak/generators/openai.py` at source HEAD.
+ref: [manifest row + vLLM upstream CLI docs](https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml) - verified 2026-10-14.
+Hands-on lab-boot smoke of the packaged row PENDING (wave-2 ops
+lane).

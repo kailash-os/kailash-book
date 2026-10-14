@@ -1,0 +1,139 @@
+---
+title: "Recipe: Inventory which tools are exp-gated on this host"
+toc-title: Recipe
+---
+
+| Field | Value |
+|---|---|
+| Tool | kailash (gate-state record + landed CLI slice) |
+| Section | Administrator |
+| Level | easy |
+| Time | ~15 min |
+| Layer/Category | admin (cross-layer) |
+| Tags | `admin`, `safety`, `lab-mode`, `inventory` |
+
+
+## Problem
+
+You operate (or inherit) a Kailash host and need the safety inventory
+stated as fact, not folklore: exactly which tools in this closure are
+exp-classified and therefore gated. The manifest at the verified
+revision carries 26 `safety.level: exp` rows (the A-7 exploit rows, the
+lab packs, the exp data packs), but the number that matters is the one
+on YOUR host — the closure's gate-state record — and the two must agree.
+You want to see both sets directly, cross-check them with the landed
+CLI, and know which instrument guarantees the agreement.
+
+## Solution
+
+Read the gate state off the host, then cross-check every id against the
+manifest with the landed CLI slice:
+
+```bash
+# 1. The closure's gate-state record — what the gate actually wrapped HERE
+cat /etc/kailash/safety/wrapped-exp-tools.json
+#    record shape per the gate contract: per wrapped id {id, program,
+#    gate package} (the file's own keys are the gate generator's record)
+
+# 2. Count + list the wrapped ids (read the file's own shape, don't eyeball)
+python3 - <<'PY'
+import json
+st = json.load(open("/etc/kailash/safety/wrapped-exp-tools.json"))
+recs = st if isinstance(st, list) else list(st.values())
+print(len(recs), "wrapped exp ids:")
+for r in sorted(recs, key=lambda r: r.get("id", "")):
+    print("  ", r.get("id"))
+PY
+
+# 3. Manifest cross-check — every wrapped id must be an exp manifest row
+for id in $($0 --wrapped 2>/dev/null || echo "<wrapped-ids>"); do
+  kailash info "$id"
+  #    expected per id: the full manifest record, safety line == exp
+done
+#    a MISSING row or a non-exp safety level is a parity bug — file it on
+#    the OS tracker with the release tag; never hand-edit the gate state
+
+# 4. Run the row invariants locally (the CI gate, runnable by hand)
+kailash manifest validate
+
+# 5. Optional live-check, lab-off posture: the gate is still armed
+KAILASH_LAB_MODE=1 <exp-tool> --help
+#    expected: refused (exit 126); the refusal names BOTH keys and cites
+#    docs/responsible-use.md — even with the shell key set
+```
+
+Expected output shape (abridged):
+
+```
+26 wrapped exp ids:
+   mlflow-bypass
+   ...
+   vector-db-ripper
+<id>: layer ATTACK · category a-07-ai-system-exploitation · safety exp
+manifest validate: <green verdict line — the loader's self-inventory>
+<exp-tool>: refused (exit 126) — host key off; KAILASH_LAB_MODE=1 alone
+            is not sufficient; see docs/responsible-use.md
+```
+
+What success looks like:
+
+- the state file parses; its wrapped-id count and your closure's exp-row
+  count agree (26 exp rows at the manifest verified for this recipe —
+  recount on your own revision; the number moves with manifest PRs)
+- every wrapped id's `kailash info` reads `safety: exp`
+- `kailash manifest validate` is green
+- on a lab-off host, the shell key alone is still refused — the host key
+  half of the double-key gate is doing real work
+
+## Discussion
+
+- **Three records, three instruments.** The manifest row is the routing
+  record (gate data flows from the manifest, never a hand-copy); the
+  closure's `wrapped-exp-tools.json` is what the gate committed on this
+  host; the parity validator (`tools/safety-exp-wrap.py`) is the
+  instrument that proves set-equality — an independent PyYAML parse of
+  the manifest, a coverage requirement (wrapper set covers every exp
+  row), and a per-wrap behavioural probe — with the negative case (a
+  deliberately broken fixture refused) proven in CI by construction.
+- **What the CLI can and cannot filter.** The landed slice is
+  `list`/`search`/`info`/`profile list`/`manifest validate`; there is no
+  `--safety exp` filter, so the cross-check is the per-id `info` loop
+  (wrapper set ⊆ exp rows), and the parity validator's CI run owns the
+  reverse direction (exp rows ⊆ wrapper set). Together they state
+  equality; neither direction alone does. A safety-filtered
+  `kailash list` is a reasonable CLI ask — track it on the OS repo's CLI
+  lane, don't script around the contract.
+- **Census caveat.** 26 is the verified-at revision's count, not a
+  constant: every manifest PR that adds or de-exp's a row moves it. The
+  recipe's job is the method (state file + per-id manifest cross-check +
+  validator), not a memorised number.
+- **Inventory is read-only.** Enumerating exp ids grants nothing: the
+  bare exp derivation never reaches PATH, only gate wrappers do, and a
+  run needs both keys. The gate walk itself:
+  [Gate lab-mode and exp-classified tools](lab-mode-gating.html).
+
+## See also
+
+- [Gate lab-mode and exp-classified tools](lab-mode-gating.html) —
+  the double-key walk this inventory audits
+- Safety classes chapter:
+  <https://docs.kailash.tools/governance/safety-classes.html>
+- The gate contract in the spec (§9.2 safety defaults, §4.3
+  one-package-set-per-tool contexts):
+  <https://github.com/kailash-os/kailash-os/blob/master/docs/spec.md>
+- The manifest rows (single source of truth):
+  <https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml>
+- [Recipe directory](../directory.html)
+
+---
+
+**Recipe provenance.** The gate contract (host option `kailash.labMode`
+default false, shell key `KAILASH_LAB_MODE=1`, exit-126 wrappers, the
+`wrapped-exp-tools.json` state record with {id, program, gate-package}
+fields, and the `tools/safety-exp-wrap.py` parity validator with its
+CI-proven negative case) is spec §9.2/§4.3. The exp-row census (26 rows
+of 337 at the manifest verified here) was parsed from
+`kailash-packages` `manifest/tools.yaml` — both verified 2026-10-14. The
+on-host transcript of the state file + CLI cross-check loop: PENDING —
+the shapes above are the landed contract; the worked host check lands
+with the upkeep lane's host checks.
