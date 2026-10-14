@@ -103,7 +103,7 @@ Expected output shape (abridged, shapes not transcripts):
 - **ATLAS ids come from verified sources, not re-derivation:** the
   manifest rows carry the AML.T technique ids and OWASP mappings;
   cite those (`garak`: AML.T0051+T0054) rather than re-mapping
-  yourself. The pre-#210 `mlflow-bypass` citation (AML.T0049/T0050 in
+  yourself. The pre-#210 paired-attack citation (AML.T0049/T0050 in
   the pair recipe) rode a phantom row — removed, [os#210](https://github.com/kailash-os/kailash-os/issues/210)
   — so pair-recipe mappings must stand on the public ATLAS matrix
   until a real rebuilt row re-carries them. If a probe's AVID taxonomy

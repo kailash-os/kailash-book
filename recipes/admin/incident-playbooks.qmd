@@ -5,7 +5,7 @@ toc-title: Recipe
 
 | Field | Value |
 |---|---|
-| Tool | chainsaw · hayabusa · sigma-cli (the `ai-incident-playbook-packs` row was phantom-origin — removed; name rides the [os#210 registry](https://github.com/kailash-os/kailash-os/issues/210)) |
+| Tool | chainsaw · hayabusa · sigma-cli (the pre-#210 playbook-pack row was phantom-origin — removed; name rides the [os#210 registry](https://github.com/kailash-os/kailash-os/issues/210)) |
 | Section | Administrator |
 | Level | medium |
 | Time | ~60 min (a tabletop + tool pass) |
@@ -163,7 +163,7 @@ What success looks like:
 
 ---
 
-ref: [d-05/c-09 manifest rows (phantom ai-incident-playbook-packs removed per os#210;
+ref: [d-05/c-09 manifest rows (the phantom playbook-pack row removed per os#210;
 chainsaw, hayabusa, sigma-cli — kailash-packages manifest) + upstream
 CLI surfaces (chainsaw hunt/--mapping/--csv, hayabusa dfir-timeline
 command family per docs, sigma convert -t <backend>)](https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml) - verified 2026-10-14.

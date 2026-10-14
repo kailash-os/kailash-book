@@ -117,7 +117,7 @@ kailash-integration-mlflow-attack: BOTH probes ok (track + bypass listing)
 ## Discussion
 
 - **Why the probe pair and not a bespoke exploit script:** the
-  `mlflow-bypass` manifest row was a PHANTOM — its claimed
+  the paired attack manifest row was a PHANTOM — its claimed
   kailash-os upstream repository was never created — and the os#210
   audit (2026-10-14) REMOVED it from the manifest entirely
   ([kailash-os#210](https://github.com/kailash-os/kailash-os/issues/210);
@@ -179,4 +179,4 @@ kailash-integration-mlflow-attack: BOTH probes ok (track + bypass listing)
 ---
 
 ref: [mlflow 3.x pin + OS master test sources](https://github.com/kailash-os/kailash-os/blob/master/tools/vm-integration-mlflow-attack.sh) - verified 2026-10-14.
-the pre-purge `mlflow-bypass` row was phantom-upstream (removed 2026-10-14): [kailash-os#210](https://github.com/kailash-os/kailash-os/issues/210).
+the pre-purge paired attack row was phantom-upstream (removed 2026-10-14): [kailash-os#210](https://github.com/kailash-os/kailash-os/issues/210).

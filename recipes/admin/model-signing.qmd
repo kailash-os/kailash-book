@@ -5,7 +5,7 @@ toc-title: Recipe
 
 | Field | Value |
 |---|---|
-| Tool | `model_signing` (sigstore/model-transparency; the manifest `modelsign` row) + `cosign` — the pre-#210 `sigstore-tools` helper-pack row was phantom-upstream (removed; registry: [os#210](https://github.com/kailash-os/kailash-os/issues/210)) |
+| Tool | `model_signing` (sigstore/model-transparency; the manifest `modelsign` row) + `cosign` — the pre-#210 helper-pack row was phantom-upstream (removed; registry: [os#210](https://github.com/kailash-os/kailash-os/issues/210)) |
 | Section | Administrator |
 | Level | medium |
 | Time | ~25 min (+ OIDC first run) |
@@ -144,7 +144,7 @@ What success looks like:
 - [Boot a verified release image](../getting-started/first-image.html)
 - The D-4 manifest rows (modelsign, cosign — kailash
   packages manifest, single source of truth; the pre-#210
-  `sigstore-tools` pack row was phantom-upstream, removed per
+  the helper pack row was phantom-upstream, removed per
   os#210):
   <https://github.com/kailash-os/kailash-packages/blob/main/manifest/tools.yaml>
 - sigstore/model-transparency upstream (CLI + format spec; the

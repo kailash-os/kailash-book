@@ -101,7 +101,7 @@ sweep again, posture: host default (127.0.0.1)
 ## Discussion
 
 - **Why plain curl and not a bespoke exploit script:** the
-  `ollama-pwn` manifest row was a PHANTOM — its claimed kailash-os
+  the paired attack manifest row was a PHANTOM — its claimed kailash-os
   upstream was never created — and the os#210 audit (2026-10-14)
   removed it from the manifest
   (https://github.com/kailash-os/kailash-os/issues/210; the name
@@ -165,7 +165,7 @@ sweep again, posture: host default (127.0.0.1)
 ---
 
 **Recipe provenance.** Manifest facts post-os#210 (ollama O-4 row +
-guardrail rows; the pre-#210 `ollama-pwn` A-7 row was phantom-upstream
+guardrail rows; the pre-#210 paired A-7 attack row was phantom-upstream
 and removed — os#210)
 `LicenseRef-Unknown`, ATLAS AML.T0049 + T0050, OWASP LLM02 + LLM10
 both epochs; ollama O-4 row; module default

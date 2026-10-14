@@ -25,7 +25,7 @@ inspect what is served (health + model index), drive inference, and —
 the LLM10 half — change what is served. The quickstart posture makes
 it worse for lab realism: upstream's own quickstart binds
 `0.0.0.0:8000`. The manifest maps the surface to OWASP LLM02 + LLM10; the pre-purge
-`triton-pwn` row mapped to ATLAS AML.T0049 + T0050 (the row was a
+The paired attack row mapped to ATLAS AML.T0049 + T0050 (the row was a
 phantom — removed, os#210; the protocol facts here stand on upstream
 TRITON docs, not the removed row). You want to
 demonstrate the exposure against the lab-booted server (the Shape-3
@@ -134,7 +134,7 @@ sweep again, hardened posture (loopback-publish + flags)
 ## Discussion
 
 - **Why plain curl and not a bespoke exploit script:** the
-  `triton-pwn` manifest row was a PHANTOM — its claimed kailash-os
+  the paired attack manifest row was a PHANTOM — its claimed kailash-os
   upstream was never created — and the os#210 audit (2026-10-14)
   removed it entirely
   ([kailash-os#210](https://github.com/kailash-os/kailash-os/issues/210);
@@ -206,7 +206,7 @@ row — docker-wrapper backend, podman, autoStart=false, Shape 3 (from
 the post-purge packages manifest, verified 2026-10-14); the mapping
 targets (OWASP LLM02 + LLM10 both epochs; ATLAS AML.T0049 + T0050)
 stand on the published standards + upstream protocol docs — the
-pre-purge `triton-pwn` row carried them but was phantom-upstream
+the pre-purge paired attack row carried them but was phantom-upstream
 (claimed kailash-os repo never created) and is REMOVED per the
 os#210 audit (2026-10-14). [os#210](https://github.com/kailash-os/kailash-os/issues/210) Upstream surface
 checked at the server docs at the pin: KServe v2 shapes (`GET

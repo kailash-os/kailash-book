@@ -68,9 +68,9 @@ What success looks like:
 
 ## Discussion
 
-- **The verifier CLI is aspirational-only:** the `kailash-verifier`
-  row + the three toolkit packs (`aisvs-1.0-toolkit`,
-  `mlsvs-toolkit`, `llm-top10-toolkit`) + the ASVS toolkit ride the
+- **The verifier CLI is aspirational-only:** the verifier-CLI row +
+  the three standards toolkit packs +
+  the ASVS toolkit ride the
   [os#210 registry](https://github.com/kailash-os/kailash-os/issues/210)
   — none was ever built. When a verifier ships via the rebuild
   contract, this recipe re-opens with real `kailash verifier`

@@ -59,13 +59,13 @@ maestro <session-start>            # the packaged CLI's elicitation entry
 #    currently (claims to) hold it:
 #    the artefact = your own worksheet (paper or a doc): one row per
 #    trust-boundary crossing, filled with the ACTUAL lab facts (ports,
-#    hosts, auth posture). The pre-#210 stride-ai-worksheet pack row
+#    hosts, auth posture). The pre-#210 STRIDE-worksheet pack row
 #    was phantom-origin (removed, os#210); the framework's elicitation
 #    shapes are public and the session runs without the pack.
 
 # 5. Map findings to ATLAS — real technique IDs, real case studies:
 kailash info garak | grep -i atlas        # e.g. AML.T0051/T0054 class
-#    (the atlas-visualiser + atlas-case-study-explorer helpers from
+#    (the visualiser + case-study-explorer helpers from
 #    the pre-#210 text were aspirational-only rows — phantom-upstream,
 #    removed; their names ride the
 #    [os#210 registry](https://github.com/kailash-os/kailash-os/issues/210)
