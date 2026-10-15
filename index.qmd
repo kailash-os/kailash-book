@@ -49,3 +49,9 @@ set across all sections, header tables on every page, code-block
 spacing, and the directory generator. Progress is tracked on the
 repository's issue tracker (cookbook parent: the repo's pinned issue;
 wave 2: KA-WS-5.12).
+
+## Contact
+
+**Shain Singh** — [shain.singh@owasp.org](mailto:shain.singh@owasp.org)
+· OpenPGP fingerprint `9CB1781DC2BB28D37A0155DCAAF8226F3F4C1712` (public key
+block on the [project Security page](https://kailash.site/security.html)).
