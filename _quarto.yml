@@ -4,7 +4,7 @@ project:
 
 book:
   title: "Kailash OS Cookbook"
-  author: "Kailash OS Project"
+  author: "Shain Singh"
   description: >-
     Task-oriented recipes for Kailash OS — attack, defence, ops and
     administrator walkthroughs in the cookbook format: a problem, a
