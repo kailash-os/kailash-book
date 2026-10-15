@@ -20,6 +20,10 @@ book:
   page-footer:
     left: "Kailash OS Cookbook — BSD-3-Clause licensed."
     right:
+      - text: kailash.site
+        href: https://kailash.site
+      - text: Guide
+        href: https://docs.kailash.tools
       - icon: github
         href: https://github.com/kailash-os
   chapters:

@@ -11,7 +11,7 @@ Kailash OS cookbook — task-oriented recipes published at
   Attack–defence pairs / Ops / Administrator); Level is per-recipe
   metadata; Top-10 collections (OWASP ML/LLM/API) render later as
   generated index views over recipe tags.
-- Companion to [kailash-guide](https://github.com/kailash-os/kailash-guide)
+- Companion to [kailash-docs](https://github.com/kailash-os/kailash-docs)
   (docs.kailash.tools) — each recipe names and links the reference
   pages of the tools it uses.
 
