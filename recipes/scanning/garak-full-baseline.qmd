@@ -14,18 +14,18 @@ toc-title: Recipe
 
 ## Problem
 
-The scoped scan answers one question cheaply (LLM01 here,
-data-leakage there) — but nothing signs off on a model with a stack of
-single-question runs. An assessment needs the **full-catalogue
-baseline**: every probe family, one seed for reproducibility, the raw
-JSONL retained, and AVID reports as the hand-off artefact — repeated
-after every model, system-prompt or guardrail change so the diff is
-the change's security statement.
+The scoped scan answers one question cheaply (LLM01 here, data-leakage
+there). A stack of single-question runs does not sign off a model. An
+assessment needs the **full-catalogue baseline**. The baseline covers
+every probe family. It uses one seed for reproducibility. It keeps the
+raw JSONL. AVID reports are the hand-off artefact. Re-run the baseline
+after every model, system-prompt or guardrail change. The diff is the
+change's security statement.
 
 ## Solution
 
-Budget a window (the full catalogue is hours per model), then run the
-baseline end to end:
+Budget a window (the full catalogue takes hours per model). Then run
+the baseline end to end:
 
 ```bash
 # 1. Confirm the pinned tool (Kailash ATTACK/A-2)
@@ -45,10 +45,10 @@ What success looks like:
 
 - the banner + `📜 reporting to baseline-<model-tag>_<timestamp>.jsonl`
   names THIS run's deliverable file
-- per-probe progress lines end in per-detector pass/fail fractions;
-  the closing summary lists the weakest probes by detector score
-- the run's JSONL (attempts + statuses) and the hit log are both in
-  the working directory — the retained evidence
+- per-probe progress lines end in per-detector pass/fail fractions
+- the closing summary lists the weakest probes by detector score
+- the run's JSONL (attempts + statuses) and the hit log stay in the
+  working directory. They are the retained evidence
 
 Convert and diff — the assessment hand-off and the regression loop:
 
@@ -81,37 +81,39 @@ garak LLM safety & security scanning tool v<version> ( https://github.com/NVIDIA
 
 ## Discussion
 
-- **Baseline vs scoped runs:** scope runs answer questions
-  (`--spec tag:…`, per-family specs); the baseline is the umbrella
-  evidence — one run, whole catalogue, before an assessment is
-  signed off. In practice: full baseline first, scoped re-runs after
-  every change (the same-seed diff does the day-to-day work).
-- **Seeds are the experiment control:** `-s 1337` fixed across runs
-  keeps the probe/target interaction set comparable; the report diff
-  is then a statement about the change, not sampling noise. Change
-  only one thing between runs.
-- **Generations are the confidence dial:** `-g 20` for a baseline
-  (detector fractions stabilise), higher on gated models. Bootstrap
-  confidence stats are available (`--confidence_interval_method
-  bootstrap` with the `--bootstrap_*` knobs) when a claim needs an
-  interval, not a fraction.
+- **Baseline vs scoped runs:** scoped runs answer questions
+  (`--spec tag:…`, per-family specs). The baseline is the
+  assessment-level evidence: one run, whole catalogue, before an
+  assessment is signed off. In practice: full baseline first, scoped
+  re-runs after every change. The same-seed diff does the day-to-day
+  work.
+- **Seeds are the experiment control:** `-s 1337` stays fixed across
+  runs. It keeps the probe/target interaction set comparable. The
+  report diff then states the change, not sampling noise. Change only
+  one thing between runs.
+- **Generations set the confidence:** `-g 20` suits a baseline;
+  detector fractions stabilise. Use a higher value on gated models.
+  Bootstrap confidence stats are available
+  (`--confidence_interval_method bootstrap` with the `--bootstrap_*`
+  knobs). Use them when a claim needs an interval, not a fraction.
 - **`--parallel_attempts` is for API-tolerant targets:** hosted or
-  local serving stacks that accept parallel load run much faster
-  (garak hints at the knob when the generator is parallel-capable);
-  keep the seed constant so parallelism does not corrupt
+  local serving stacks that accept parallel load run much faster.
+  Garak hints at the knob when the generator is parallel-capable.
+  Keep the seed constant, so parallelism does not corrupt
   comparability.
 - **The target endpoint is the blast-radius boundary:** run the
   server loopback on a lab box ([Serve a local model for
-  scanning](../ops/serve-a-model.html)); never point the baseline at
-  anything you do not own — the full catalogue is far more invasive
-  than a scoped run.
+  scanning](../ops/serve-a-model.html)). Never point the baseline at a
+  system outside the operator's control. The full catalogue is far
+  more invasive than a scoped run.
 - **Evidence retention:** keep the JSONL + hit log + the AVID
-  conversion in the assessment record; cite the ATLAS technique ids
-  from the manifest row (AML.T0051/T0054, dataset-verified) rather
-  than re-deriving them. The
+  conversion in the assessment record. Cite the ATLAS technique ids
+  from the manifest row (AML.T0051/T0054, dataset-verified). Do not
+  re-derive them. The
   [report-verification loop](../ops/report-verification-loop.html)
-  recipe covers the full reporting discipline (`--record`-based
-  verbatim capture for anything that lands in a ticket).
+  recipe covers the full reporting discipline. It uses
+  `--record`-based verbatim capture for anything that lands in a
+  ticket.
 
 ## See also
 
@@ -119,12 +121,12 @@ garak LLM safety & security scanning tool v<version> ( https://github.com/NVIDIA
   <https://docs.kailash.tools/reference/tools/garak.html>
 - [Serve a tiny local model and run your first LLM01 scan
   end-to-end](../getting-started/first-scan-ollama.html) — the scoped,
-  minutes-cost loop this baseline complements
+  low-cost loop this baseline pairs with
 - [Turn scan reports into verifiable assessment
   evidence](../ops/report-verification-loop.html) — the reporting
   discipline
 - [promptfoo / pyrit / counterfit recipes](../directory.html) — the
-  sister-family walkthroughs
+  other scanning-family walkthroughs
 - [Kailash OS #81](https://github.com/kailash-os/kailash-os/issues/81)
   — garak packaging
 
