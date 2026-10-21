@@ -14,27 +14,28 @@ toc-title: Recipe
 
 ## Problem
 
-Your scan and pair runs produce JSONL reports and probe transcripts —
-machine evidence, not a deliverable. Whoever reads your work (a
-client, an IR team, tomorrow's you) needs the assessment written up
-so the evidence survives the hand-off: run conditions that make it
-reproducible, verbatim outputs instead of paraphrases, and the
-mapping ids a reviewer can check against the catalogue. You want the
-scaffold that carries all of that — from the distribution's own
-reporting plan, not an ad-hoc folder of loose files.
+Scan and pair runs produce JSONL reports and probe transcripts.
+Machine evidence is not a deliverable. The reader (a client, an IR
+team, a later auditor) needs the assessment written up. The write-up
+keeps the evidence intact through the hand-off. It states the run
+conditions that make the run reproducible. It carries verbatim outputs
+instead of paraphrases. It carries the mapping ids a reviewer checks
+against the catalogue. The scaffold below carries all of that — from
+the distribution's own reporting plan, not an ad-hoc folder of loose
+files.
 
 ## Solution
 
-`kailash report new` is **roadmap-stage** — the CLI ships it in the
-spec's command surface but it lands per the roadmap (spec §6.2's
-remaining KA-14 children; the report templates themselves are a
-landed-report lane item, and at the current tree
-`report-templates/` in the OS repo is a stub). The grounded
-alternative TODAY: scaffold the same structure directly with quarto —
-the tool Kailash ships at o-06 for exactly this job (it is also what
-the roadmap command wraps, per the spec's report-template design) —
-and pin the manifest hash the report was written against, which is
-the same pin discipline the roadmap command's `repro/` dir encodes:
+`kailash report new` is **roadmap-stage**. The CLI ships it in the
+spec's command surface, yet it lands per the roadmap (spec §6.2's
+remaining KA-14 children). The report templates themselves are a
+landed-report lane item. At the current tree `report-templates/` in
+the OS repo is a stub. The grounded alternative TODAY: scaffold the
+same structure directly with quarto. Kailash ships quarto at o-06 for
+exactly this job. Quarto is also what the roadmap command wraps, per
+the spec's report-template design. Pin the manifest hash the report
+speaks against. The roadmap command's `repro/` dir encodes the same
+pin discipline:
 
 ```bash
 # 1. The direct scaffold (the landed path today):
@@ -95,12 +96,12 @@ responsible-use statement's operator-responsibility clause>
 
 What success looks like:
 
-- `quarto render` exits 0 and `_render/` holds the HTML (and PDF)
+- `quarto render` exits 0. `_render/` holds the HTML (and PDF)
 - the repro dir carries the pinned manifest row(s) + the checksum of
-  what you pinned — anyone can re-run your scan against the same pin
-  and compare reports seed-for-seed
+  the pin. Anyone can re-run the scan against the same pin and compare
+  reports seed-for-seed
 - every finding has an id, a class with its ATLAS/OWASP ids, and a
-  verbatim evidence block — no finding stands on paraphrase
+  verbatim evidence block — no finding relies on a paraphrase
 
 Expected output shape (abridged):
 
@@ -115,51 +116,51 @@ Output created: _render/index.html
 ## Discussion
 
 - **Why the roadmap command still matters:** `kailash report new
-  <type> <name>` will scaffold from the three declared engagement
-  types — `llm-redteam`, `adversarial-ml`, `supply-chain-audit` — each
-  with its own `_quarto.yml`, a pre-structured `index.qmd`, `findings/`
-  stubs, and a `repro/` pin of the manifest hash (spec §5.4). When it
-  lands it replaces steps 1–2 with one command against a kept-in-sync
-  template; verify the landed template's shape at that point rather
-  than trusting this recipe's hand scaffold, and check the
+  <type> <name>` scaffolds from the three declared engagement
+  types — `llm-redteam`, `adversarial-ml`, `supply-chain-audit`. Each
+  type carries its own `_quarto.yml`, a pre-structured `index.qmd`,
+  `findings/` stubs, and a `repro/` manifest-hash pin (spec §5.4).
+  When it lands, it replaces steps 1–2 with one command against a
+  kept-in-sync template. Verify the landed template's shape at that
+  point, not this recipe's hand scaffold. Check the
   [CLI inventory recipe](kailash-cli-manifest-inventory.html) for
   what is landed when.
-- **What the report MUST carry (and why):** the verbatim outputs are
-  the evidence discipline — the book's no-invented-evidence rule and
-  the pair recipe's ATTEMPTED/ok/FAIL + record-verbatim contract are
-  the same principle applied to reports; the ATLAS ids
-  (`AML.T####` from the manifest row) are how a finding stays
-  checkable against the catalogue; the seed + generation values are
-  what make the diff after a config change meaningful — without them,
-  the "did it move" question is unanswerable.
+- **What the report MUST carry (and why):** the verbatim outputs
+  carry the evidence discipline. The book's no-invented-evidence rule
+  applies to reports too. The pair recipe's ATTEMPTED/ok/FAIL +
+  record-verbatim contract states the same principle. The ATLAS ids
+  (`AML.T####` from the manifest row) keep a finding checkable
+  against the catalogue. The seed + generation values make the
+  post-config-change diff meaningful. Without them, the
+  "did it move" question is unanswerable.
 - **The responsible-use clause inside the report:** the OS's
-  responsible-use statement makes the operator's authorisation a named
-  responsibility — an assessment report that does not state who
+  responsible-use statement makes the operator's authorisation a
+  named responsibility. An assessment report that omits who
   authorised the work against what target leaves the legal frame off
   the record. The statement itself ships in the distribution (MOTD,
-  `kailash doctor` output, Layer-ATTACK pages) — cite it, and link
+  `kailash doctor` output, Layer-ATTACK pages). Cite it, and link
   the written authorisation in the scope section.
-- **Seed the report from the machine, not the memory:** the values in
-  the Method section should be read from the run's own artefacts —
+- **Seed the report from the machine, not the memory:** the Method
+  section's values come from the run's own artefacts. The sources:
   the tool's banner line (version), the JSONL report (probe set,
-  generations), `kailash info <tool>` (the mapping ids, the licence) —
-  never retyped from recollection. This is the report-side mirror of
-  the probe-pair recipe's record discipline.
-- **Format choice:** the a-02 scan recipes produce JSONL; if your
+  generations), `kailash info <tool>` (the mapping ids, the licence).
+  Never retype values from recollection. This mirrors the probe-pair
+  recipe's record discipline on the report side.
+- **Format choice:** the a-02 scan recipes produce JSONL. If the
   deliverable must chain into a ticket or a review workflow, attach
   BOTH the JSONL and the rendered HTML — the first is the evidence,
   the second is the reading surface.
-- **texlive is opt-in:** the PDF leg needs a LaTeX toolchain; on a
-  default image that rides the opt-in `kailash-data.*` lane (see
-  [data packs](../admin/data-packs.html)) or renders via the HTML leg
-  alone.
+- **texlive is opt-in:** the PDF leg needs a LaTeX toolchain. On a
+  default image, texlive rides the opt-in `kailash-data.*` lane (see
+  [data packs](../admin/data-packs.html)). The alternative: the HTML
+  leg renders alone.
 
 ## See also
 
 - [Serve a tiny local model and run your first scan](first-scan-ollama.html) —
   the run this report documents
 - [Attack the platform, then verify](../attack-defence/attack-then-verify.html) —
-  the probe-pair evidence contract your findings cite
+  the probe-pair evidence contract the findings cite
 - [Refresh wordlists and data packs](../admin/data-packs.html) — the
   opt-in lane the PDF leg's texlive rides
 - [Inventory the catalogue with the kailash CLI](kailash-cli-manifest-inventory.html) —

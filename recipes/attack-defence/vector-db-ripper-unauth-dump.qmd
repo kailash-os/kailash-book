@@ -14,30 +14,32 @@ toc-title: Recipe
 
 ## Problem
 
-A vector store is where an LLM deployment keeps its memory — the
-embeddings that back retrieval, and everything ingested beside them.
-All three manifest stores can stand up with that memory readable by
-anyone who reaches the port: Qdrant lists collections and scrolls
-points (records plus vectors) with no credential layer out of the
-box — upstream's security page in one line: "By default, all
-self-deployed Qdrant instances are not secure"; Chroma's collection
+A vector store is where an LLM deployment keeps its memory. The
+memory: the embeddings that back retrieval, and everything ingested
+beside them. All three manifest stores can stand up with that memory
+readable to anyone who reaches the port. Qdrant lists collections and
+scrolls points (records plus vectors) with no credential layer out of
+the box. Upstream's security page states, in one line: "By default,
+all
+self-deployed Qdrant instances are not secure". Chroma's collection
 `get` shape dumps records over the current official
-`/api/v2/tenants/{tenant}/databases/{db}/collections` surface when
-the server runs without auth; Weaviate serves full schema and object
-dumps with vectors (`include=classification,vector`) under anonymous
-access — a posture upstream calls "strongly discouraged except for
-development". The manifest maps the lane to OWASP LLM02 + LLM10 and
-the published ATLAS matrix (the pre-#210 paired attack row rode
-the same mapping; phantom-upstream, removed — os#210). The
-kailash twist is per-store: the NixOS `services.qdrant` module
-already binds 127.0.0.1 and disables telemetry BY DEFAULT (the lab
-posture is the OPERATOR override), `services.chromadb` likewise
-defaults to host 127.0.0.1 with no auth option at the pin, and
-Weaviate is a docker-wrapper Shape-3 row (`podman`, `autoStart=false`,
-`semitechnologies/weaviate:1.39.2`) — so the exposed lab posture for
-that store is simply turning the backend ON. You want one recipe that
-demonstrates all three dumps against lab-booted targets, then proves
-each store's own hardening closes it.
+`/api/v2/tenants/{tenant}/databases/{db}/collections` surface. The
+dump works when the server runs without auth. Weaviate serves full
+schema and object dumps with vectors (`include=classification,vector`)
+under anonymous access. Upstream calls that posture "strongly
+discouraged except for development". The manifest maps the lane to
+OWASP LLM02 + LLM10 and the published ATLAS matrix. The pre-#210
+paired attack row rode the same mapping (phantom-upstream, removed —
+os#210). The kailash posture differs per store. The NixOS
+`services.qdrant` module already binds 127.0.0.1 and disables
+telemetry BY DEFAULT (the lab posture is the OPERATOR override).
+`services.chromadb` likewise defaults to host 127.0.0.1 with no auth
+option at the pin. Weaviate is a docker-wrapper Shape-3 row
+(`podman`, `autoStart=false`,
+`semitechnologies/weaviate:1.39.2`) — for that store, the exposed lab
+posture is simply turning the backend ON. One recipe demonstrates all
+three dumps against lab-booted targets. It then proves each store's
+own hardening closes it.
 
 ## Solution
 
@@ -145,60 +147,60 @@ WEAVIATE @ :8080  exposed leg (backend on, anonymous)
 ## Discussion
 
 - **One recipe, three stores: the point is the shared shape of the
-  failure.** All three ships answer "records + vectors, unauthenti-
-  cated" over a plain HTTP GET/POST; all three close with one
-  deliberate posture (bind, or auth layer, or backend toggle). Once
-  you have walked all three, an unknown vector store on the segment
-  is an hour's work to classify: probe `/collections`-class shapes,
+  failure.** All three stores answer "records + vectors,
+  unauthenticated" over a plain HTTP GET/POST. All three close with
+  one deliberate posture (bind, or auth layer, or backend toggle).
+  After the walk covers all three, an unknown vector store on the
+  segment classifies fast: probe `/collections`-class shapes,
   the `/api/v2` collection get, the `/v1/objects` dump — the rip
-  patterns rhyme.
-- **Why plain curl and not a bespoke exploit script:** the
-  the paired attack manifest row was a PHANTOM — its claimed
-  kailash-os upstream was never created — removed by the os#210 audit
+  patterns share the shape.
+- **Why plain curl and not a bespoke exploit script:** the paired
+  attack manifest row was a PHANTOM. Its claimed
+  kailash-os upstream was never created. The os#210 audit removed it
   (2026-10-14; https://github.com/kailash-os/kailash-os/issues/210 —
   the name rides the registry). The probe legs run the verified
-  shapes above with the base system only — nothing invented; a real
+  shapes above with the base system only — nothing invented. A real
   A-7 tool re-enters via the os#210 rebuild contract through the
   double-key lab gate (walk: [Gate lab-mode and exp-classified
   tools](../admin/lab-mode-gating.html)).
 - **The kailash-defaults nuance is per-store and matters:** the qdrant
   NixOS module hardens by default (host `mkDefault` 127.0.0.1,
-  telemetry_disabled) — the lab posture is the operator override, and
+  telemetry_disabled). The lab posture is the operator override, and
   the recipe's flip leg restores the default. Chroma's module mirrors
-  it (host 127.0.0.1 default, no auth option at the pin — bind is the
+  it (host 127.0.0.1 default, no auth option at the pin). Bind is the
   only lever the module carries today; the token-auth env block is
-  upstream, quoted as the design). Weaviate is the one store where
-  the module itself does not bind anything (docker-wrapper Shape 3,
-  autoStart=false): the lab posture is turning the backend ON, so
-  boot it in a lab segment and publish it loopback-only. The general
+  upstream, quoted as the design. Weaviate is the one store whose
+  module binds nothing (docker-wrapper Shape 3,
+  autoStart=false). The lab posture is turning the backend ON: boot
+  it in a lab segment, and publish it loopback-only. The general
   story — "kailash hardens the store by default" — is FALSE for
-  weaviate's container and imprecise for chroma's auth; the per-store
-  facts are the ones that protect you.
+  weaviate's container, and imprecise for chroma's auth. The
+  per-store facts are the ones that protect the operator.
 - **Hardening is layered per store, not one knob:** qdrant:
   `QDRANT__SERVICE__API_KEY` + `QDRANT__SERVICE__READ_ONLY_API_KEY`
   (read-scoped credentials for the retrieval path) + audit logging
-  on. chroma: `CHROMA_SERVER_AUTHN_PROVIDER` token provider (+ `401`
-  shape verified) — note it is server-side optional auth, so the bind
+  on. chroma: the `CHROMA_SERVER_AUTHN_PROVIDER` token provider (+
+  `401` shape verified). It is server-side optional auth, so the bind
   remains part of the posture. weaviate: OIDC anonymous-off
   (`ENABLE_AUTHENTICATION` or the OIDC module envs, per the 1.39.2
   pin's docs) plus the loopback publish. Bind + credential layer is
-  the pattern; a credential layer alone on an any-interface bind
+  the pattern. A credential layer alone on an any-interface bind
   repeats the vLLM mistake (key on the API, port still open).
 - **The guardrail/monitoring defence leg is a pending row, stated
   honestly:** there is no d-01 request-scanner row for vector-store
-  traffic at the pin (the NeMo/llm-guard class — see the ollama pair
-  for those pending shapes); what the manifest does own for this
-  lane's telemetry is the d-02 OTel/monitoring direction (langfuse /
-  phoenix rows, module wiring PENDING — see the vllm and triton
-  pairs for those shapes). The evidence trail for a rip attempt today
-  is the store's own audit/log surface (qdrant's audit logging, the
+  traffic at the pin. That class is the NeMo/llm-guard pair — see
+  the ollama pair for those pending shapes. The manifest owns the
+  d-02 OTel/monitoring direction for this lane's telemetry (langfuse /
+  phoenix rows; module wiring PENDING). See the vllm and triton
+  pairs for those shapes. The rip-attempt evidence trail today is
+  the store's own audit/log surface (qdrant's audit logging, the
   container logs for chroma/weaviate) plus segment flow logs.
-- **ATLAS mapping, per row:** AML.T0049+T0050 (like the sibling A-7
-  rows) plus **T0057** for the vector-store-dump class (the removed
-row's additional mapping; os#210 registry) — the data-
-  handling technique behind the rip. OWASP LLM02 (sensitive info
-  disclosure) carries the "memory exfiltration" framing; LLM10 the
-  unrestricted-consumption framing.
+- **ATLAS mapping, per row:** the rows map to AML.T0049+T0050 (like
+  the sibling A-7 rows) plus **T0057** for the vector-store-dump
+  class (the removed row's additional mapping; os#210 registry).
+  T0057 is the data-handling technique behind the rip. OWASP LLM02
+  (sensitive info disclosure) carries the "memory exfiltration"
+  framing. LLM10 carries the unrestricted-consumption framing.
 - **This is the transferable pattern** (three lab targets → sweeps →
   flips → diffs). Origin walk with the verdict instrument:
   [Attack the platform, then verify](attack-then-verify.html).
