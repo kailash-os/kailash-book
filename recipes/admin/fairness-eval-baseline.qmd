@@ -14,12 +14,14 @@ toc-title: Recipe
 
 ## Problem
 
-A model is deployed and somebody upstream asks the assurance
-question: is it fair, is it robust, and can you show the numbers you
-will be compared against later? Without a recorded baseline there is
-no regression to detect, no evidence to hand an auditor, and no way
-to tell drift from noise. The manifest dedicates Layer DEFENCE's
-d-03-assurance-evals-benchmarks to exactly this stack — lm-eval-harness
+A model is deployed, and somebody upstream asks the assurance
+question. The questions: is it fair, is it robust, and can the
+operator show the numbers the record will be compared against later?
+Without a recorded baseline there is no regression to detect. There
+is no evidence to hand an auditor. There is no way to tell drift from
+noise. The manifest dedicates Layer DEFENCE's
+d-03-assurance-evals-benchmarks to exactly this stack. The stack:
+lm-eval-harness
 (the standard few-shot benchmark runner), deepeval (unit-test-style
 LLM metrics), robustbench (standardized adversarial robustness), giskard
 (eval/scan for LLM agents), fairlearn and aif360 (fairness metrics and
@@ -28,9 +30,8 @@ standards evidence.
 
 ## Solution
 
-Fix three decisions first — metrics, dataset, threshold policy —
-then run the baselines and record them where the verifier can find
-them:
+Fix three decisions first: metrics, dataset, threshold policy. Then
+run the baselines, and record them where the verifier can find them:
 
 ```bash
 # 1. What the manifest declares for the D-3 surface
@@ -95,7 +96,7 @@ baseline record (JSON):
 }
 ```
 
-The threshold policy — the part that makes a baseline actionable —
+The threshold policy is the part that makes a baseline actionable. It
 is declared, per metric, in the record itself: a floor value, and the
 action on breach (`block-release`, `open-review`, `investigate`).
 Breach testing is then mechanical:
@@ -110,7 +111,7 @@ Breach testing is then mechanical:
 
 - **Metrics choice is a decision, not a default.** Fairlearn's own
   guidance notes common fairness metrics (demographic parity,
-  equalized odds, the four-fifths rule) each carry assumptions and
+  equalized odds, the four-fifths rule) carry assumptions and
   construct-validity questions — the choice is a domain decision to
   be documented, not picked by convention. The practical shape:
   name the sensitive feature(s), pick the constraint family, record
@@ -131,7 +132,8 @@ Breach testing is then mechanical:
 - **The LLM half of the assurance picture:** lm-eval-harness gives
   the public, comparable few-shot benchmark surface (`--tasks`,
   `--model_args pretrained=…,revision=…` — the revision flag is how
-  you pin WHICH checkpoint you measured); deepeval wraps LLM metrics
+  the run pins WHICH checkpoint it measured); deepeval wraps LLM
+  metrics
   as pytest tests (`deepeval test run`, `assert_test` with metric
   instances — bias among the metric families the manifest maps);
   giskard's v3 surface is the async agent-level
@@ -141,20 +143,20 @@ Breach testing is then mechanical:
 - **How it feeds standards evidence (d-07):** d-07 has NO landed
   tooling — the verifier CLI + toolkit packs were phantom-upstream
   rows removed by the os#210 audit
-  ([os#210](https://github.com/kailash-os/kailash-os/issues/210));
-  standards evidence is assembled today from run records + the
+  ([os#210](https://github.com/kailash-os/kailash-os/issues/210)).
+  Standards evidence is assembled today from run records + the
   published standards
   ([the evidence recipe](standards-evidence.html)). The contract this
-  recipe feeds:
-  the baseline record's `evidence_ref` names the standard + level the
-  record supports, so the verifier renders the matrix and the record
+  recipe feeds: the baseline record's `evidence_ref` names the
+  standard + level the record
+  supports. The verifier then renders the matrix, and the record
   IS the per-tool evidence — no re-narration, no hand-written audit
   story. Until the verifier lands, the record plus the manifest
   citations is the explicit PENDING state, pointed at the d-07 rows.
 - **All six rows are `safe`:** every D-3 row carries
   `safety.level: safe` — no live firing; the scan/eval targets are
-  your own model endpoint or the bench suite's own data. What is NOT
-  free is the provider key for judge-style metrics: it lives at
+  the lab's own model endpoint or the bench suite's own data. What is
+  NOT free is the provider key for judge-style metrics. It lives at
   `~/.config/kailash/keys/` per the OS secrets posture, never in the
   store or the repo.
 - **Dataset revs are part of the evidence:** a benchmark number is a

@@ -15,13 +15,14 @@ toc-title: Recipe
 
 ## Problem
 
-An AI incident is coming and your team's IR muscle is classically
-shaped: it knows ransomware, not a poisoned MCP tool in the agent's
-context or a model checkpoint that "went wrong" mid-week. You want a
-REHEARSAL, not a template download: run a scenario end-to-end — trigger,
-detection, triage decision, containment, rollback, evidence — against
-real detection tooling (the C-9 forensics rows) and against the AI-side
-runbooks (the D-5 playbook pack), and record where your real posture
+An AI incident is coming, and the team's IR muscle is classically
+shaped. It knows ransomware, not a poisoned MCP tool in the agent's
+context, or a model checkpoint that "went wrong" mid-week. The task:
+a REHEARSAL, not a template download. Run a scenario end-to-end:
+trigger, detection, triage decision, containment, rollback, evidence.
+The run uses real detection tooling (the C-9 forensics rows) and the
+AI-side
+runbooks (the D-5 playbook pack). Record where the team's real posture
 diverges from the runbook.
 
 ## Solution
@@ -93,12 +94,12 @@ divergences: <n>  (stage -> what the runbook assumed -> what the lab did)
 What success looks like:
 
 - every runbook stage names its people and its actual commands (the
-  playbook's stages exist to be FILLED with your system's facts)
+  playbook's stages exist to be FILLED with the lab system's facts)
 - the detection leg found the scenario's marker in a real log corpus —
-  with the converted Sigma rule you wrote, not only stock rules
+  with the converted Sigma rule the lab wrote, not only stock rules
 - the timelined events order the incident story coherently (trigger →
-  actions → blast radius) — or the logging story itself is a divergence
-  finding
+  actions → blast radius)
+- otherwise the logging story itself is a divergence finding
 - containment was achieved declaratively and the evidence chain names
   the release tag, tool pins and verbatim outputs
 - the divergence record exists and went to the tracker
@@ -118,19 +119,19 @@ What success looks like:
   classic forensic/IR kit, not in a separate silo. The recipe makes
   that linkage physical: same rehearsal, same corpus, same rule format.
 - **Sigma rules are the interoperability layer:** write the AI
-  incident's detections in Sigma, convert per-backend (Splunk / Loki /
-  whatever your SIEM is) — your AI detections stay portable rather than
-  SIEM-locked, and the chainsaw/hayabusa ecosystem consumes the same
-  rules the stock repos use.
+  incident's detections in Sigma, and convert per-backend
+  (Splunk / Loki / whatever the SIEM is). The AI detections stay
+  portable rather than SIEM-locked, and the chainsaw/hayabusa
+  ecosystem consumes the same rules the stock repos use.
 - **AI incidents break classic IR at three specific stages** — triage
-  (is this model behaviour a compromise or a prompt?), containment
-  (pull the model? the agent tool? the API key?), rollback (which
-  checkpoint is CLEAN — this is exactly the signed-model discipline of
-  the D-4 recipes). The pack's runbooks exist for those three stages;
+  (is this model behaviour a compromise or a prompt?). Containment
+  (pull the model? the agent tool? the API key?). Rollback (which
+  checkpoint is CLEAN — exactly the D-4 recipes' signed-model
+  discipline). The pack's runbooks exist for those three stages;
   the classic tooling covers detection/evidence. Rehearse the joins.
-- **Rollback-as-config-change is your unfair advantage:** on Kailash,
+- **Rollback-as-config-change is the unfair advantage:** on Kailash,
   containment is `nixos-rebuild` (declared posture, reproducible),
-  and system generations give point-in-time recovery. Your runbooks
+  and system generations give point-in-time recovery. The runbooks
   should SAY that, because generic IR scripts assume imperative
   hotfixes that would violate the declarative discipline. The
   generation-rollback story lives with
@@ -141,9 +142,8 @@ What success looks like:
   outputs, or record ATTEMPTED and file the gap.
 - **Licence note on detection content:** Sigma rule corpora carry
   their own licences (the Detection Rule License for SigmaHQ's packs)
-  separate from tool licences — as with every Kailash data row, check
-  what you redistribute before redistributing detections you did not
-  write.
+  separate from tool licences. As with every Kailash data row, check
+  each redistributed detection before the redistribution.
 
 ## See also
 

@@ -16,19 +16,18 @@ toc-title: Recipe
 ## Problem
 
 Kailash releases move along a staged ladder — `2026.01-alpha.1` →
-`2026.01-rc.1` → bare `2026.01` (GA) → dotted re-cuts — and you must
-decide which rung your host should pin. A lab VM tolerates an alpha; a
-machine whose results you publish (attestations, assessments, the
-verification legs of recipes in this book) should ride rc or GA. The
-bare name carries a meaning ("general availability, full review
-posture"), so adopting the WRONG rung — or misreading a tag as GA when
-it is a staged cut — silently weakens what you can claim about your
-system.
+`2026.01-rc.1` → bare `2026.01` (GA) → dotted re-cuts. The operator
+decides which rung the host should pin. A lab VM tolerates an alpha.
+A published-results machine (attestations, assessments, the book's
+verification legs) should ride rc or GA. The bare name carries a
+meaning ("general availability, full review posture"). So the WRONG
+rung, or a staged cut misread as GA, silently weakens what the
+operator can state about the system.
 
 ## Solution
 
-Read the ladder honestly (`git tag -v` shows the stage), adopt the tag
-that matches your posture, and keep the escape hatch (generation
+Read the ladder honestly (`git tag -v` shows the stage). Adopt the
+tag that matches the posture. Keep the escape hatch (generation
 rollback) one reboot away:
 
 ```bash
@@ -78,12 +77,13 @@ Tagger: Kailash Release <releases@kailash.os>
 
 What success looks like:
 
-- `git tag -v` verifies a good signature on every rung you considered,
-  and the staged cuts carry `-alpha.N` / `-rc.N` suffixes — the bare
-  `2026.NN` you did NOT see until GA
-- the adopted tag's release notes carry the checklist evidence the rung
-  promises (rc: full checklist; alpha: the reduced §7.9 artefact set
-  with stated gaps)
+- `git tag -v` verifies a good signature on every considered rung
+- the staged cuts carry `-alpha.N` / `-rc.N` suffixes — the bare
+  `2026.NN` does NOT appear until GA
+- the adopted tag's release notes carry the checklist evidence the
+  rung promises
+- rc: full checklist; alpha: the reduced §7.9 artefact set with
+  stated gaps
 - `kailash manifest validate` is green on the rebuilt system
 - the previous generation is still in the boot menu
 
@@ -91,38 +91,38 @@ What success looks like:
 
 - **The three stages differ by commitment, not by form.** An
   `-alpha.N` cut iterates freely — the reduced artefact set may ship
-  with explicitly-documented gaps and punctual attestations. `-rc.N` is
-  the GA-readiness gate: the standing release checklist filled in full,
-  the train's backlog disposition recorded (ride with evidence or
-  explicit re-scope), the artefact matrix complete at the tag with
-  SHA256SUMS covering every artefact. GA follows an rc except the bare
-  tag itself; a material change in between makes `rc.N+1` first — a
-  rushed GA is what the ladder exists to prevent.
-- **Names are load-bearing.** Bare `YYYY.NN` is RESERVED for GA; a
-  material re-cut of a shipped GA posts `YYYY.NN.1` only when a shipped
-  artefact actually changes (changelog-notes-only re-cuts keep the
-  tag). NN is the release index within the year's train — not the
-  calendar month (`2026.02` may GA in January 2027); no gaps, no
-  renames: a slipping RC renumbers nothing.
-- **Adoption is the "two ways to move forward" half of the update
-  model:** rebuild against a newer lock at your own cadence, or adopt a
-  released lock bump as-is. This recipe is the second; its
-  lock-review mechanics are the first — see
+  with explicitly-documented gaps and punctual attestations. `-rc.N`
+  is the GA-readiness gate: the standing release checklist filled in
+  full. The train's backlog disposition is recorded (ride with
+  evidence or explicit re-scope). The artefact matrix is complete at
+  the tag, with SHA256SUMS covering every artefact. GA is the bare
+  tag after an rc. A material change in between makes `rc.N+1`
+  first. A rushed GA is what the ladder exists to prevent.
+- **Names are load-bearing.** Bare `YYYY.NN` is RESERVED for GA.
+  A material re-cut of a shipped GA posts `YYYY.NN.1` only when a
+  shipped artefact actually changes. Changelog-notes-only re-cuts
+  keep the tag. NN is the release index within the year's train —
+  not the calendar month (`2026.02` may GA in January 2027). No
+  gaps, no renames: a slipping RC renumbers nothing.
+- **Adoption is one of the two ways to move forward in the update
+  model.** The operator rebuilds against a newer lock at the
+  operator's own cadence, or adopts a released lock bump as-is.
+  This recipe is the second way. Its lock-review mechanics are the
+  first — see
   [Ride a release without breaking pinned tooling](updates.html).
 - **Generation rollback is the safety net, not a version pin:** an
-  adoption that disappoints is restarted, not untangled — boot the
+  adoption that disappoints is restarted, not untangled. Boot the
   previous generation, then re-decide the rung. Backups of anything
-  outside the store (lab data you mounted the normal way) are your own
-  lane; the system itself is a generation.
-- **Say which rung you are on when you report results:** findings,
-  scan reports and attestations name the tag; a published claim with
-  an unspecified ladder rung is not reproducible. (The CLI's
-  per-tool provenance report — manifest-informed `kailash doctor` —
-  is the roadmap verb for this; the landed slice is
-  list/search/info/profile list/manifest validate, and the tag plus
-  the lock delta are the provenance records that exist today.) The
-  tag you adopt is the version every page in this book asks you to
-  verify against.
+  outside the store (lab data mounted the normal way) sit in the
+  operator's own lane. The system itself is a generation.
+- **Name the rung in every result report:** findings, scan reports
+  and attestations name the tag. A published claim with an
+  unspecified ladder rung is not reproducible. The CLI's per-tool
+  provenance report (manifest-informed `kailash doctor`) is the
+  roadmap verb. The landed slice: list/search/info/profile
+  list/manifest validate. The tag plus the lock delta are the
+  provenance records that exist today. The adopted tag is the
+  version every page in this book verifies against.
 
 ## See also
 

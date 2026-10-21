@@ -14,14 +14,16 @@ toc-title: Recipe
 
 ## Problem
 
-A standards-mapped claim — "this deployment verifies at AISVS 1.0
-level 2 / the OWASP LLM Top 10 / MLSVS" — is only as good as the run
-evidence each control row carries, and today Kailash ships NO verifier
+A standards-mapped claim is only as good as the run evidence each
+control row carries. The example claim: "this deployment verifies at
+AISVS 1.0
+level 2 / the OWASP LLM Top 10 / MLSVS". Today Kailash ships NO
+verifier
 tooling: the pre-#210 D-7 surface (`kailash verifier`) mapped to
-toolkit rows whose claimed upstream repositories were never created —
-the os#210 audit removed all of them
+toolkit rows whose claimed upstream repositories were never created. The
+os#210 audit removed all of them
 ([os#210](https://github.com/kailash-os/kailash-os/issues/210); the
-standards THEMSELVES are real and published). You want an evidence
+standards THEMSELVES are real and published). The task: an evidence
 chain for control claims that is honest NOW, using only real tools.
 
 ## Solution
@@ -60,23 +62,25 @@ kailash info garak | grep -i atlas
 What success looks like:
 
 - every rendered control statement traces to a manifest field or a
-  published standard clause — no hand-copied control text anywhere
-- your report's citation names: the standard + level, the tool + pin,
-  the run record, the date — all four, or the claim is unfinished
+  published standard clause
+- no hand-copied control text sits anywhere
+- the report's citation names the standard + level, the tool + pin,
+  the run record, and the date
+- all four, or the claim is unfinished
 - `kailash manifest validate` stays green (the mapping's ground truth
   is the same manifest the CLI bakes)
 
 ## Discussion
 
-- **The verifier CLI is aspirational-only:** the verifier-CLI row +
-  the three standards toolkit packs +
-  the ASVS toolkit ride the
-  [os#210 registry](https://github.com/kailash-os/kailash-os/issues/210)
-  — none was ever built. When a verifier ships via the rebuild
+- **The verifier CLI is aspirational-only:** the verifier-CLI row, the
+  three standards toolkit packs, and the
+  ASVS toolkit ride the
+  [os#210 registry](https://github.com/kailash-os/kailash-os/issues/210).
+  None was ever built. When a verifier ships via the rebuild
   contract, this recipe re-opens with real `kailash verifier`
   invocations per the spec's standard-first mode.
 - **What a verified control statement looks like (now):** a
-  requirement-id + a mechanism + run-reproduction. "AISVS 1.0
+  requirement-id, a mechanism, and run-reproduction. "AISVS 1.0
   §<chapter/id> level 2 — verified by <tool> <version> against
   <target/record> on <date>" — with the record itself attached (a
   garak JSONL, an mlflow-pair --record JSON). The book's
@@ -84,7 +88,7 @@ What success looks like:
   behind it is not evidence.
 - **Level choice is a posture decision, not a decoration:** AISVS
   levels are ascending depth-of-assurance per requirement. Pick the
-  level your AUTHORISATION context demands (e.g. IRAP/ISM-mapped work
+  level the AUTHORISATION context demands (e.g. IRAP/ISM-mapped work
   wants the higher levels evidenced, not just level 1) and STATE it
   in every downstream citation.
 - **LLM Top 10 has two epochs:** the manifest's owasp_llm field maps

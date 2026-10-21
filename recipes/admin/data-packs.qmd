@@ -15,13 +15,13 @@ toc-title: Recipe
 
 ## Problem
 
-Part of the catalogue is data, not commands: wordlists, password
+Part of the catalogue is data, not commands. Wordlists, password
 packs and specialised corpora ride as DATA-pack manifest rows
 (seclists, pw-packs/rockyou.txt, the C-7 signal/SDR pack). They are
-excluded from every default image by construction and never ride a
-default profile — you opt in deliberately, and you can state exactly
-which revision of a corpus you installed and whether its content
-licences are established.
+excluded from every default image by construction. They never ride a
+default profile. The opt-in is deliberate. The installed corpus
+revision is statable exactly. The licence establishment status is
+statable too.
 
 ## Solution
 
@@ -57,19 +57,19 @@ status:  data pack installed, default-OFF pack opted in
 ## Discussion
 
 - **Why data packs are special rows:** manifest rows may carry data
-  rather than command invocations — the treatment is the same
+  rather than command invocations. The treatment is the same
   single-source-of-truth discipline (the pack row IS the routing
-  record), but the delivery is an opt-in derivation, because a
-  multi-gigabyte corpus has no business inside a ≤4 GB image budget.
+  record). But the delivery is an opt-in derivation: a
+  multi-gigabyte corpus does not belong inside a ≤4 GB image budget.
 - **The licence caveat is part of the row:** the repository licence
   (MIT for seclists) does NOT establish per-file corpus content
-  licences — the manifest rows say so explicitly. Check what you
-  redistribute before you redistribute it.
+  licences — the manifest rows say so explicitly. Check each
+  redistributed file before the redistribution.
 - **Refresh is a sources/lock event, not a background updater:**
   upstream pins are re-checked on cadence (update:slow for these
-  packs); a refresh lands as a reviewed PR — a system pinned to last
+  packs). A refresh lands as a reviewed PR — a system pinned to last
   month's lock keeps rebuilding the same corpus until its operator
-  pulls a newer lock, the exact anti-churn posture of
+  pulls a newer lock. That is the exact anti-churn posture of
   [Ride a release without breaking pinned tooling](updates.html).
 - **The provenance rules apply to data exactly as to tools:** the
   guide's man-page version-lock contract and this book's recipe

@@ -15,20 +15,21 @@ toc-title: Recipe
 
 ## Problem
 
-One tool upstream moved — say a scanner shipped a fix you need — and
-your lock, machine, and documentation are all pinned at the current
-verified state. You do NOT want the monthly nixpkgs refresh, and you do
-not want a full release adoption: you want one tool's source rev to
-move, deliberately, with the build proven before anything else moves —
-and with the documentation obligation (the version-lock contract) paid
-in the same change, or the book's own gate turns red.
+One tool upstream moved — say a scanner shipped a fix the lab needs.
+The lock, the machine, and the documentation all sit pinned at the
+current verified state. The lab does NOT want the monthly nixpkgs
+refresh, and does not want a full release adoption. The task: one
+tool's source rev moves deliberately. The build gains proof before
+anything else moves. The documentation obligation (the version-lock
+contract) is paid in the same change. Otherwise the book's own gate
+turns red.
 
 ## Solution
 
-The whole move is one reviewed PR in the packages repo: pin → manifest →
-smoke gate → docs regeneration. Never edit `nvfetcher/_sources/` by
-hand — pins are contract, they change only with the manifest entry they
-belong to:
+The whole move is one reviewed PR in the packages repo: pin →
+manifest → smoke gate → docs regeneration. Never edit
+`nvfetcher/_sources/` by hand. The pins are contract: they change
+only with the manifest entry they belong to:
 
 ```bash
 # 1. In a kailash-packages checkout (branch, never main):
@@ -84,45 +85,48 @@ CI: build-packages[garak] green · smoke ok
 
 What success looks like:
 
-- the `_sources` diff touches exactly one tool; the manifest delta and
-  the regen delta are the same PR
-- the new rev's build + smoke passed BEFORE the PR went up (a cadence
-  check becomes a PR only when the new rev passes its smoke check)
-- every page carrying the tool's pin carries the NEW pin — no merge with
-  a stale recorded version
-- your host rebuilt against the bumped lock shows the new version
+- the `_sources` diff touches exactly one tool
+- the manifest delta and the regen delta share the same PR
+- the new rev's build + smoke passed BEFORE the PR went up
+- a cadence check becomes a PR only when the new rev passes its
+  smoke check
+- every page carrying the tool's pin carries the NEW pin
+- no merge carries a stale recorded version
+- the host rebuilt against the bumped lock shows the new version
 
 ## Discussion
 
-- **Why the whole flow is one PR and not three:** the lockfile is the
-  version, and a single-tool bump is exactly one lock-delta line —
-  which means the review surface (diff-closures on your host after the
-  packages tag) shows only that tool. Anything wider snuck into a
-  "single bump" is the thing this recipe refuses. The monthly nixpkgs
-  refresh (first Monday, Renovate, PR-gated) is a different cadence and
-  different PR.
-- **Renovate vs nvfetcher, by row:** bespoke tools move via nvfetcher
-  (source pin per `config.toml`, `_sources` committed with SRI hashes);
-  nixpkgs-native rows ride the lock (Renovate refreshes nixpkgs at its
-  monthly cadence; "slow/locked" class = no dedicated cadence). Update
-  classes are recorded per tool in the manifest (`update:fast` /
-  `update:steady` / `update:slow`) — a fast-moving scanner checked
-  weekly, a steady tool fortnightly, everything else with nixpkgs.
-- **The smoke gate is the propose/PR boundary:** automation may dry-run
-  on cadence, but the PR only opens when the new rev builds and smokes
-  — so an approved merge is never the first test of a rev.
-- **The regen obligation is not paperwork, it is the contract:** the
+- **Why the whole flow is one PR and not three:** the lockfile is
+  the version, and a single-tool bump is exactly one lock-delta
+  line. The review surface (diff-closures on the host after the
+  packages tag) then shows only that tool. Anything wider snuck into
+  a "single bump" is what this recipe refuses. The monthly nixpkgs
+  refresh (first Monday, Renovate, PR-gated) is a different cadence
+  and a different PR.
+- **Renovate vs nvfetcher, by row:** bespoke tools move via
+  nvfetcher (source pin per `config.toml`, `_sources` committed with
+  SRI hashes); nixpkgs-native rows ride the lock (Renovate refreshes
+  nixpkgs at its monthly cadence; "slow/locked" class = no dedicated
+  cadence). Update classes are recorded per tool in the manifest
+  (`update:fast` / `update:steady` / `update:slow`). The cadences:
+  weekly for a fast-moving scanner, fortnightly for a steady tool,
+  nixpkgs for everything else.
+- **The smoke gate is the propose/PR boundary:** automation may
+  dry-run on cadence, but the PR only opens when the new rev builds
+  and smokes. So an approved merge is never the first test of a rev.
+- **The regen obligation is not paperwork; it is the contract:** the
   guide's man pages carry the exact pinned version they were written
-  against; this book's recipes carry provenance footers naming their
+  against. This book's recipes carry provenance footers naming their
   pin and date. When a pin moves without regeneration, the recorded
-  version and the built version diverge — the gates are CI-enforced to
-  make that divergence unmergeable (the guide's gate; the book's gate
-  lane mirrors it). Update the page in the same change or mark it
-  stale explicitly.
-- **One-package-set-per-tool caveat:** heavy python tooling builds in
-  its own package set (garak's torch pins stay in garak's derivation),
-  so one tool's rev bump never recompiles the others' envs — the slow
-  path is paid once per tool, and the cache amortises it.
+  version and the built version diverge. The gates are CI-enforced
+  to make that divergence unmergeable (the guide's gate; the book's
+  gate lane mirrors it). Update the page in the same change, or mark
+  it stale explicitly.
+- **One-package-set-per-tool caveat:** heavy python tooling builds
+  in its own package set (garak's torch pins stay in garak's
+  derivation). So one tool's rev bump never recompiles the others'
+  envs. The slow path is paid once per tool, and the cache amortises
+  it.
 
 ## See also
 

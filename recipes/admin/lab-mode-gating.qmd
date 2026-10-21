@@ -15,20 +15,22 @@ toc-title: Recipe
 
 ## Problem
 
-Tools whose manifest row reads `safety.level: exp` — experimental
+Tools whose manifest row reads `safety.level: exp` ship in the
+catalogue. The class: experimental
 code-execution surfaces like `hexstrike-ai` or the `kailash-mcp`
-server face — ship in the catalogue but must be unreachable by
-default. (The pre-#210 documentation used the paired attack row as the
+server face. The tools must be unreachable by default. (The pre-#210
+documentation used the paired attack row as the
 demo name; that row was phantom-upstream and removed —
-[kailash-os#210](https://github.com/kailash-os/kailash-os/issues/210).) You want to demonstrate the gate
-actually works on your host: a bare run refuses, a half-opened gate
-refuses, and only the deliberate double opt-in fires the tool.
+[kailash-os#210](https://github.com/kailash-os/kailash-os/issues/210).) The task: demonstrate the gate
+actually works on the host. A bare run refuses. A half-opened gate
+refuses. Only the deliberate double opt-in fires the tool.
 
 ## Solution
 
-The gate is double-keyed by construction: a host key (a NixOS option,
-baked into the gate wrapper at build time) plus a shell key (an env
-var on the individual invocation). Neither key alone ever suffices:
+The gate is double-keyed by construction. Key 1: a host key (a NixOS
+option, baked into the gate wrapper at build time). Key 2: a shell
+key (an env var on the individual invocation). Neither key alone ever
+suffices:
 
 ```bash
 # 1. Who is exp-gated on this host? (the gate's state record)
@@ -59,34 +61,35 @@ What success looks like:
 - step 2 fails (host lab-off: the shell key alone is refused)
 - step 4 fails (host lab-on: the missing shell key is refused)
 - step 5 succeeds, and every refusal cites the responsible-use doc
-- step 1's state file lists the wrapped tools your closure carries,
-  consumed by the parity validator, which independently re-parses the
-  manifest to prove the wrapper set matches the exp row set
+- step 1's state file lists the wrapped tools the closure carries
+- the parity validator consumes it and independently re-parses the
+  manifest
+- that check proves the wrapper set matches the exp row set
 
 ## Discussion
 
 - **Why double-key:** a single knob is a single mistake. The host key
   is a deliberate configuration act (reviewable in the system
-  declaration); the shell key is an in-the-moment, per-invocation
+  declaration). The shell key is an in-the-moment, per-invocation
   decision. Gate state commits to the closure — a rebuild without the
   host key removes the gate's open path entirely.
 - **Gate data flows from the manifest, never a hand-copy:** the
-  exp-id list is scanned at eval from the declared manifest surfaces;
-  the packaging-side generator emits the wrapper for every
+  exp-id list is scanned at eval from the declared manifest surfaces.
+  The packaging-side generator emits the wrapper for every
   `safety.level: exp` row — the manifest row IS the routing record.
   The parity validator re-parses the manifest with an independent
-  implementation and proves coverage; a deliberately broken fixture
+  implementation and proves coverage. A deliberately broken fixture
   is refused (proven in CI by construction).
 - **There is no separate lab-mode distro:** the same image carries
   both postures — the gate, not the package set, is what differs. A
-  lab-off host is the default; opening the posture is the
+  lab-off host is the default. Opening the posture is the
   configuration change, and the per-invocation key stays the second.
 - **Legitimate lab enablement:** with authorisation (see
-  responsible-use), open the host key on lab machines, keep the
-  shell key per-invocation, and prefer scoped invocations over
+  responsible-use), open the host key on lab machines. Keep the
+  shell key per-invocation. Prefer scoped invocations over
   standing open shells.
 - **Requires-target is a different, lighter gate:** most ATTACK tools
-  are `requires-target`, not exp — they refuse to self-fire, run
+  are `requires-target`, not exp. They refuse to self-fire, and run
   freely when given an explicit target.
   [Attack the platform, then verify](../attack-defence/attack-then-verify.html)
   walks the A-7 pairing probe sweep in a full pair run.
