@@ -25,3 +25,13 @@ on merges to `main`. Custom domain persisted via the root `CNAME` and
 repo Pages settings.
 
 Licensed BSD-3-Clause (see `LICENSE`).
+
+## Writing standard
+
+Every written text in this repo follows ASD-STE100 Simplified Technical
+English. The rules: one thought per sentence, 20 words per sentence or
+fewer, active voice, present tense. The canonical decision record lives in
+the kailash-os repo:
+[`docs/adr/0004-asd-ste100-standard.md`](https://github.com/kailash-os/kailash-os/blob/master/docs/adr/0004-asd-ste100-standard.md)
+([kailash-os#217](https://github.com/kailash-os/kailash-os/pull/217) carries
+it). The conversion lane: [kailash-book#25](https://github.com/kailash-os/kailash-book/issues/25).
