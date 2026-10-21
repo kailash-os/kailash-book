@@ -14,27 +14,27 @@ toc-title: Recipe
 
 ## Problem
 
-Ollama's local HTTP API carries no authentication — upstream documents
-that the local API requires none — and the whole model-management
-surface rides it: enumerate the model store, inspect modelfiles, run
-inference, copy models, pull new ones, delete existing ones. Two
-realistic routes put that surface on a network: the lab target, where
-the declared `services.ollama.host` override to `0.0.0.0` is the
-integration-test posture (a lab-segment VM must be reachable so probes
-can drive it), and the operator bind flip, where someone set a broad
-bind on a real box to test "something" and left it. The manifest maps
+Ollama's local HTTP API carries no authentication. Upstream documents
+that the local API requires none. The whole model-management surface
+rides it. The API enumerates the model store, inspects modelfiles,
+runs inference, copies models, pulls new ones, and deletes existing
+ones. Two realistic routes put that surface on a network. Route 1:
+the lab target, where the declared `services.ollama.host` override to
+`0.0.0.0` is the integration-test posture. A lab-segment VM must be
+reachable, so probes can drive it. Route 2: the operator bind flip —
+someone set a broad bind on a real box and left it. The manifest maps
 the exposure to OWASP LLM02 (sensitive information disclosure) and
-LLM10 (unrestricted consumption), with the A-7 pairing instrument
-running the REAL protocol (the pre-#210 tool row was phantom-upstream, removed — os#210)
-ATLAS AML.T0049 + T0050. You want to demonstrate the exposure against
-the declared lab target, then prove the default posture closes it —
-both legs reproducible, diff as evidence.
+LLM10 (unrestricted consumption). The A-7 pairing instrument runs the
+REAL protocol (the pre-#210 tool row was phantom-upstream, removed — os#210).
+The mapping also covers ATLAS AML.T0049 + T0050. The task: demonstrate
+the exposure against the declared lab target. Then prove the default
+posture closes it — both legs reproducible, diff as evidence.
 
 ## Solution
 
-The sweep runs the verified `/api/*` request shapes as plain curl —
-the A-7 row is `safety.level: exp` and its upstream repository is
-missing at the pin, so the probe leg is base-system tooling per the
+The sweep runs the verified `/api/*` request shapes as plain curl.
+The A-7 row is `safety.level: exp`, and its upstream repository is
+missing at the pin. So the probe leg is base-system tooling, per the
 pair playbook (each probe prints a verdict; never a fabricated PASS):
 
 ```bash
@@ -68,8 +68,8 @@ curl -fsS -X DELETE http://<target>:11434/api/delete \
      -d '{"name":"smollm2:360m-ka-marker"}'   # -> the round trip is proven
 ```
 
-Then the verification leg — flip the posture back to the module
-default and re-run the SAME probes from the lab segment:
+Then the verification leg: flip the posture back to the module
+default. Re-run the SAME probes from the lab segment:
 
 ```bash
 # 5. THE FLIP: the bind is the defence.
@@ -100,49 +100,50 @@ sweep again, posture: host default (127.0.0.1)
 
 ## Discussion
 
-- **Why plain curl and not a bespoke exploit script:** the
-  the paired attack manifest row was a PHANTOM — its claimed kailash-os
-  upstream was never created — and the os#210 audit (2026-10-14)
+- **Why plain curl and not a bespoke exploit script:** the paired
+  attack manifest row was a PHANTOM. Its claimed kailash-os upstream
+  was never created. The os#210 audit (2026-10-14)
   removed it from the manifest
   (https://github.com/kailash-os/kailash-os/issues/210; the name
   rides the registry there). The sweep still runs the REAL protocol
-  against the REAL target with the verified request shapes above,
-  using the base system only — nothing invented. A real A-7 tool
+  against the REAL target with the verified request shapes above. It
+  uses the base system only — nothing invented. A real A-7 tool
   re-enters via the os#210 rebuild contract, installing only via the
   double-key lab gate (full walk: [Gate lab-mode and exp-classified
   tools](../admin/lab-mode-gating.html)). Never invent a tool's CLI
   to fill the gap.
 - **The no-auth fact is upstream, not folklore:** ollama documents
-  that the local API accepts requests unauthenticated — there is no
-  credential layer to guess, misconfigure, or rotate; the ONLY
+  that the local API accepts requests unauthenticated. There is no
+  credential layer to guess, misconfigure, or rotate. The ONLY
   boundary is what interface the server binds. That makes the posture
   flip unusually clean: one option, no keys, no half-open states.
 - **Where the lab override is honest and where it is not:** the
   `services.ollama.host = "0.0.0.0"` override is the verified
-  integration-test posture — the target must be reachable from the
+  integration-test posture. The target must be reachable from the
   lab segment for ANY probe pair to run. It is a lab-segment posture,
-  inside an isolated VM; the same bind on a LAN box is the incident
+  inside an isolated VM. The same bind on a LAN box is the incident
   this recipe rehearses. Run the exposed leg in the lab segment, not
-  on your workstation.
+  on the workstation.
 - **The destructive verbs are part of the evidence:** copy→delete on
   a marker copy proves the write-to-model-store class without
   touching a real model. `delete` on an unauthenticated API removes
-  models permanently — the probe discipline exists precisely so the
+  models permanently. The probe discipline exists precisely so the
   demonstration never needs one.
 - **The guardrail defence leg is a pending row, stated honestly:**
-  the flow that belongs after the endpoint (scan every request before
-  it reaches the model) is NeMo Guardrails' input rails —
+  the flow that belongs after the endpoint scans every request before
+  it reaches the model. NeMo Guardrails' input rails give the flow:
   `config.yml` with
   `rails.input.flows = ["self check input", "jailbreak detection
-  heuristics"]`, served by `nemoguardrails server --config PATH
+  heuristics"]`. The config is served by
+  `nemoguardrails server --config PATH
   --port` and consumed as `POST /v1/chat/completions` with
-  `config_id` — or llm-guard's input scanner surface
+  `config_id`. Or llm-guard's input scanner surface
   (`from llm_guard.input_scanners import PromptInjection`;
   `sanitized_prompt, is_valid, risk_score = scanner.scan(prompt)`).
   Both defence rows are PENDING-kailash at the pin (module wiring not
-  landed); the upstream config shapes are quoted as the design, not
-  as a working kailash surface. What you CAN land today is the bind:
-  the module default already carries the fix.
+  landed). The upstream config shapes are quoted as the design, not
+  as a working kailash surface. What CAN land today is the bind: the
+  module default already carries the fix.
 - **This is the transferable pattern:** lab target up → probes run →
   posture flip → same probes again → diff as evidence. The origin
   walk with the verdict instrument and `--record` discipline is
