@@ -15,17 +15,17 @@ toc-title: Recipe
 
 ## Problem
 
-You have a booted Kailash system; you want to extend beyond your
-image's default tool set — say the ATTACK A-2 category for LLM
-prompt-injection work — while keeping the declarative build intact.
-There is no `apt install` on Kailash: enabling a category is a
-configuration change that a rebuild applies, so the result is
-reproducible and the change reviewable.
+The booted image carries the default tool set. The task: extend the
+set — say the ATTACK A-2 category for LLM prompt-injection work —
+while the declarative build stays intact. There is no `apt install`
+on Kailash. Enabling a category is a configuration change that a
+rebuild applies. The result is reproducible, and the change stays
+reviewable.
 
 ## Solution
 
-Find the category id, enable it in the system configuration,
-rebuild, verify:
+Find the category id. Enable it in the system configuration. Rebuild.
+Verify:
 
 ```bash
 # 1. Identify the category a tool belongs to
@@ -51,35 +51,36 @@ kailash list --category a-02-prompt-injection-jailbreaks
 
 What success looks like:
 
-- the rebuild applies cleanly (the category module's package list
-  comes straight from the manifest — no hand-maintained package set)
+- the rebuild applies cleanly
+- the category module's package list comes straight from the
+  manifest — no hand-maintained package set
 - `kailash list --category <cat-id>` returns the category's row
   inventory, and those tools are on the system's PATH
-- rebuilding again without changes reproduces the same tool set
+- a rebuild without changes reproduces the same tool set
   byte-for-byte (same lock)
 
 ## Discussion
 
 - **One category = one module:** every category is a single module
-  file that mounts its configuration from the manifest's package
-  list — enabling it is a declarative act over the four-layer,
-  32-category taxonomy (CLASSIC / ATTACK / DEFENCE / OPS), the same
-  surface the profiles are built from.
+  file. The module mounts its configuration from the manifest's
+  package list. Enabling it is a declarative act over the four-layer,
+  32-category taxonomy (CLASSIC / ATTACK / DEFENCE / OPS). The
+  profiles use the same surface.
 - **Safety classes still govern:** enabling a category does not
-  flatten safety classes — `requires-target` tools (most of ATTACK)
-  refuse to fire without an explicit target, and `exp` rows
+  flatten safety classes. `requires-target` tools (most of ATTACK)
+  do not fire without an explicit target. `exp` rows
   (e.g. hexstrike-ai in A-7) install only via gate wrappers and stay
   double-keyed — see [Gate lab-mode and exp-classified
   tools](../admin/lab-mode-gating.html).
 - **Data packs are NOT categories:** wordlists and corpus packs
-  (seclists, pw-packs, the C-7 SDR pack) ride opt-in `kailash-data.*`
-  derivations and are excluded from every default image by
-  construction — enabling a category never pulls a wordlist
-  surprise; see [Refresh wordlists and data
+  (seclists, pw-packs, the C-7 SDR pack) use opt-in `kailash-data.*`
+  derivations. The packs stay excluded from every default image by
+  construction. An enabled category never carries corpus packs — see
+  [Refresh wordlists and data
   packs](../admin/data-packs.html).
-- **Choose your target scope deliberately:** a profile statement
-  (via image choice) plus enabled categories is how you express
-  intent on Kailash; the build (flake lock) makes that intent exact.
+- **Pick the target scope deliberately:** on Kailash, the profile
+  statement (via image choice) plus the enabled categories expresses
+  the intent. The build (flake lock) makes that intent exact.
 
 ## See also
 
