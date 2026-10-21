@@ -14,12 +14,12 @@ toc-title: Recipe
 
 ## Problem
 
-Category o-05 is the agent-framework shelf: langgraph, crewai and
-autogen as catalogue rows, `uv` as the environment tool that keeps
-their (versioned, mutually-versioned) pins clean. You want one,
-repeatable scaffold: pin an interpreter, create per-project
-environments, install a framework surface, and prove the imports
-work before wiring a scanner or a defence onto it.
+Category o-05 is the agent-framework row set: langgraph, crewai and
+autogen as catalogue rows. The `uv` tool keeps their versioned,
+mutually-versioned pins clean. The task: a repeatable scaffold. Pin
+an interpreter. Create per-project environments. Install a framework
+surface. Prove the imports work before wiring a scanner or a defence
+onto it.
 
 ## Solution
 
@@ -71,21 +71,21 @@ my-crew/
 
 - **Why uv and not pip-by-hand:** the o-05 rows version against each
   other (langchain 1.2.15, langgraph 1.1.10, crewai 1.14.4 and
-  autogen's sub-packaging at the pin), and a locked, per-project
-  environment is the cheapest way to keep those pins reproducible;
+  autogen's sub-packaging at the pin). A locked, per-project
+  environment is the cheapest way to keep those pins reproducible.
   uv 0.11.x also carries the `uv tool` flow crewai prefers. One
   python (3.13) across the lab keeps `uv sync` honest.
 - **Import smoke rides CI in this book:** the guide's CI runs the
-  same check as step 5 (import of each landed framework package);
-  doing it by hand closes the gap between "the package downloaded"
+  same check as step 5 (import of each landed framework package).
+  The hand-run closes the gap between "the package downloaded"
   and "the stack imports". Any smoke failure is a pin problem —
   read the lock, not the network.
 - **The autogen maintenance-mode note, honestly:** upstream marks
   some autogen subpackages in maintenance mode (the main project's
-  own communication); the row still ships (agentchat + ext[openai]
+  own communication). The row still ships: agentchat + ext[openai]
   install cleanly via
-  `uv sync --all-extras`). The honest posture:
-  pin by version, keep surfaces small, and treat upstream's
+  `uv sync --all-extras`. The honest posture:
+  pin by version, keep surfaces small. Treat upstream's
   maintenance-mode announcements as a real signal — do not build a
   new multi-year surface on a maintenance-mode subpackage.
 - **crewai is JSON-first by design:** the `crewai create crew`
@@ -93,19 +93,20 @@ my-crew/
   `crewai install && crewai run` as the flow. The CLI is the
   manifest's declared surface — not a library-only import.
 - **The exp MCP rows stay gated — this recipe touches them not at
-  all:** the o-07 exp faces (`kailash-mcp`, `mcp-kali-server`,
-  `hexstrike-ai` — the pre-#210 container-deliverable row was a
-  phantom deliverable, removed per os#210) are `safety.level: exp`.
-  They install only
+  all:** this recipe never touches the exp MCP rows. The o-07 exp
+  faces: `kailash-mcp`, `mcp-kali-server`,
+  `hexstrike-ai`. The pre-#210 container-deliverable row was a
+  phantom deliverable, removed per os#210. The class is
+  `safety.level: exp`. They install only
   through the double-key lab gate and its wrapped paths (see
-  [Gate lab-mode and exp-classified tools](../admin/lab-mode-gating.html)),
-  and every one is gate-wrapped via
-  `kailash.safety.extraTools`). An o-05 lab that "works"
-  with an exp row un-wrapped is broken on any hardened host — keep
-  the gate in the loop and name the row's gate status in your
-  lab notes.
+  [Gate lab-mode and exp-classified tools](../admin/lab-mode-gating.html)).
+  Every row is gate-wrapped via
+  `kailash.safety.extraTools`. An o-05 lab that "works"
+  with an exp row un-wrapped breaks on any hardened host. Keep
+  the gate in the loop. Name the row's gate status in the lab
+  notes.
 - **langgraph's install surface:** the row is the pip/uv package
-  (`uv add langgraph`), no CLI — its recipes are graph-as-code.
+  (`uv add langgraph`), with no CLI — its recipes are graph-as-code.
 
 ## See also
 

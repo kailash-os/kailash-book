@@ -14,15 +14,15 @@ toc-title: Recipe
 
 ## Problem
 
-The agent-operated box is its own profile: `headless-agent` ships
-base + CLI with no desktop, small enough that the qcow2 can grow at
-first boot, and a grants system (o-07) that decides what an agent
-process may do. You want the boot → first-login → grants → MCP
-tooling loop that turns the image into a working automation host.
+The agent-operated box is its own profile. `headless-agent` ships
+base + CLI with no desktop. The qcow2 stays small enough to grow at
+first boot. The grants system (o-07) decides what an agent process
+may do. The task: the boot → first-login → grants → MCP tooling
+loop. The loop turns the image into a working automation host.
 
 ## Solution
 
-Build the image from the declared ref, boot it, then declare SSH and
+Build the image from the declared ref. Boot it. Then declare SSH and
 grants:
 
 ```bash
@@ -81,35 +81,34 @@ Expected output shape (abridged, shapes not transcripts):
 ## Discussion
 
 - **The image budget is the boot-time floor:** the ≤1.5 GB disk
-  budget bounds the SHIPPED image; the qcow2 GROWS at first boot —
-  budget the host disk for the growth, not just the download.
+  budget bounds the SHIPPED image. The qcow2 GROWS at first boot.
+  Budget the host disk for the growth, not only the download.
 - **SSH is deliberately not default:** the profile ships no
-  `services.openssh` posture by design; a headless box you cannot
-  reach is the safe default. Opening the daemon is a *declared
-  operator addition* (in configuration.nix, reviewable, with your
-  hardening choices on top) — never assume a live port 22 on a
-  fresh headless-agent boot.
+  `services.openssh` posture by design. A headless box without
+  reachable SSH is the safe default. Opening the daemon is a
+  *declared operator addition* (in configuration.nix, reviewable,
+  with the operator's hardening choices on top). Never assume a live
+  port 22 on a fresh headless-agent boot.
 - **Grants, in their own words:**
   - deny-by-default: a capability is not present unless a holder
     grants it;
   - `notAfter` REQUIRED for any non-`readOnly` holder: standing
     write/execute grants expire, by construction;
-  - the grant system NEVER bypasses the double-key lab-mode gate —
-    an exp tool is still exp-gated even for an agent holding a
-    grant.
-- **Gate wrap applies to grants too:** the o-07 exp MCP rows
-  (post-os#210: `kailash-mcp`, `mcp-kali-server`, `hexstrike-ai`,
-  `mcpoison` — the pre-#210 container-deliverable row was a phantom,
-  removed) ride the SAME
-  `kailash.safety.extraTools` gate-wrap as any exp row: opening
+  - the grant system NEVER bypasses the double-key lab-mode gate.
+    An exp tool stays exp-gated even for an agent holding a grant.
+- **Gate wrap applies to grants too:** the o-07 exp MCP rows,
+  post-os#210: `kailash-mcp`, `mcp-kali-server`, `hexstrike-ai`,
+  `mcpoison`. The pre-#210 container-deliverable row was a phantom,
+  removed. The rows ride the SAME
+  `kailash.safety.extraTools` gate-wrap as any exp row. Opening
   them is a declared, double-key act, not a grant-holder act.
-- **mcp-inspector is the safe surfacing:** the one o-07 row that is
-  NOT exp-gated — upstream's own `npx
-  @modelcontextprotocol/inspector` flow — the honest default for an
+- **mcp-inspector is the safe surfacing:** it is the one o-07 row
+  that is NOT exp-gated. The flow: upstream's own `npx
+  @modelcontextprotocol/inspector`. It is the honest default for an
   agent host whose MCP needs are inspection, not capability
   expansion.
-- **Responsible automation:** the grants store is your audit trail.
-  Prefer `readOnly` holders, time-window everything else, and keep
+- **Responsible automation:** the grants store is the audit trail.
+  Prefer `readOnly` holders. Time-window everything else. Keep
   `allowExp` false unless a lab pair (like the attack-defence
   recipes) needs it.
 

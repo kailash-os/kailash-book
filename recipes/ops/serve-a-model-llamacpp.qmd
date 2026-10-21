@@ -14,19 +14,19 @@ toc-title: Recipe
 
 ## Problem
 
-You want a model target without a model-server runtime footprint — a
-single binary that loads a GGUF file and answers HTTP. llama.cpp's
-`llama-server` is that shape, and its GGUF/quant toolchain doubles as
-the place where a model artefact you have verified elsewhere gets
-packaged for serving. On a Kailash host the catalogue row is the
-llama.cpp package (native, safety `safe`, category o-04 with o-02 as
-secondary); you need the server's real invocation shapes and the pin
-honesty about the packaging alias.
+The task: a model target without a heavy model-server runtime
+footprint. The shape: one binary that loads a GGUF file and answers
+HTTP. llama.cpp's `llama-server` is that shape. Its GGUF/quant
+toolchain packages a model artefact, verified elsewhere, for serving.
+On a Kailash host, the catalogue row is the llama.cpp package
+(native, safety `safe`, category o-04 with o-02 as secondary). The
+task: the server's real invocation shapes, plus the pin honesty about
+the packaging alias.
 
 ## Solution
 
-Serve a GGUF model on loopback, gate it with an API key, and prove
-health before the scanner touches it:
+Serve a GGUF model on loopback. Gate it with an API key. Prove health
+before the scanner touches it:
 
 ```bash
 # 0. Packaging honesty (the pin fact, checked in the nix repl):
@@ -80,40 +80,40 @@ main: server is listening on 127.0.0.1:9931(?)
 ## Discussion
 
 - **The alias fact, stated once and honestly:** at the current
-  packages pin the live attribute is `pkgs.llama-cpp` (0.6.0); the
+  packages pin the live attribute is `pkgs.llama-cpp` (0.6.0). The
   `pkgs.llama.cpp` dotted alias is guard-dropped. If a release bumps
   the packager and an alias appears, re-read the row before scripting
-  against it — the pin is the contract.
+  against it. The pin is the contract.
 - **Default bind is already safe, but say it:** `--host` defaults to
   `127.0.0.1` and `--port` to `9931`. Loopback is therefore the boot
-  posture by default — keep it: a model endpoint is an attack surface
-  you created. Upstream is explicit that the loopback default is
-  convenience, not a security setting; treat the port as a local
+  posture by default — keep it. A model endpoint is a deliberate
+  attack surface. Upstream is explicit that the loopback default is
+  convenience, not a security setting. Treat the port as a local
   dev/scan socket, never as a perimeter control.
-- **`-c` is the context dial, not a free lunch:** scanners push long
-  prompts and multi-attempt conversations; a small `-c` keeps RAM
-  bounded on a lab box but truncates. Budget it against your probe
+- **`-c` is the context window, not a free setting:** scanners push
+  long prompts and multi-attempt conversations. A small `-c` keeps
+  RAM bounded on a lab box but truncates. Budget it against the probe
   families.
-- **`-ngl` is the speed dial:** layer offload to GPU. `auto` (the
-  default) fills VRAM; `-ngl 99` is the lab idiom for "as many
-  layers as fit". On a CPU-only box skip it.
+- **`-ngl` is the layer-offload switch:** the switch offloads layers
+  to the GPU. `auto` (the default) fills VRAM. `-ngl 99` is the lab
+  shorthand for "as many layers as fit". On a CPU-only box, skip it.
 - **`--api-key` / `--api-key-file`:** one or more bearer keys
   (comma-separated keys, or one-per-line in a file with `#`
-  comment lines) gate the API routes; an unauthenticated request
+  comment lines) gate the API routes. An unauthenticated request
   returns 401. `/health` stays public by design so boot-wait health
   polling (the pattern the pair recipes use) works without a key.
 - **The Anthropic-compatible route:** upstream documents an
   Anthropic Messages-compatible chat route alongside the OpenAI
-  API surface — useful when a client stack already speaks that
-  shape; the scanner families in this book speak OpenAI/anthropic
+  API surface. The route helps when a client stack already speaks
+  that shape. The scanner families in this book speak OpenAI/anthropic
   via their generator configs.
 - **Why the quant flow lives in an Ops recipe:** the conversion +
-  quantise loop is how a model you vetted
+  quantise loop turns a vetted model
   ([supply-chain-scan-models](../admin/supply-chain-scan-models.html))
-  becomes a servable artefact — and the servable artefact is what
-  your scan records should name.
+  into a servable artefact. The servable artefact is what the scan
+  records should name.
 - **No GGUF-helper tool ships:** the pre-#210 manifest carried a
-  planned-wave-5 helper row (phantom) — the
+  planned-wave-5 helper row (phantom). The
   os#210 audit proved its claimed kailash-os upstream was NEVER
   created and the row is REMOVED
   ([os#210](https://github.com/kailash-os/kailash-os/issues/210)).

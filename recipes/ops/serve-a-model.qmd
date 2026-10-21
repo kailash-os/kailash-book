@@ -16,16 +16,17 @@ toc-title: Recipe
 ## Problem
 
 ATTACK-layer scanners are `requires-target`: they fire requests at a
-model endpoint but never self-serve a model. You need a target
-endpoint on your own infrastructure — a real model, answering on a
-port you control — before any scan can run. Ollama is the manifest's
-primary home for local LLM serving (category o-04, its documented
-tiny-test-model home), with vLLM as the high-throughput alternative
-in o-02.
+model endpoint but never self-serve a model. The scan needs a target
+endpoint on the lab's own infrastructure before it can run. The
+target: a real model, answering on a controlled port. Ollama is the
+manifest's primary home for local LLM serving (category o-04, its
+documented
+tiny-test-model home). vLLM is the high-throughput alternative in
+o-02.
 
 ## Solution
 
-Serve a small model with Ollama, bound to loopback, and prove the
+Serve a small model with Ollama, bound to loopback. Prove the
 endpoint is healthy before the scanner touches it:
 
 ```bash
@@ -50,27 +51,27 @@ What success looks like:
 
 - the root endpoint answers `Ollama is running`
 - the generate call returns a JSON object with a `response` field
-  (your model's answer) — round-trip proven
-- the server socket is bound to `127.0.0.1`, not `0.0.0.0` (netstat /
-  lsof on port 11434 shows the loopback bind)
+  (the model's answer) — round-trip proven
+- the server socket is bound to `127.0.0.1`, not `0.0.0.0`
+  `netstat` / `lsof` on port 11434 shows the loopback bind
 
 ## Discussion
 
 - **Why Ollama first:** the manifest lists it as the primary local
   serving home (native packaging, safety `safe`, category o-04 with
-  o-02 as secondary); vLLM (o-02) is the high-throughput engine for
-  parallel probe load — garak's parallel-hint path — but Ollama is
+  o-02 as secondary). vLLM (o-02) is the high-throughput engine for
+  parallel probe load — garak's parallel-hint path. Ollama is
   the smallest verified loop from zero to a target.
-- **Why loopback binding is non-negotiable:** a target endpoint is
-  an attack surface you are deliberately creating; a `0.0.0.0` bind
-  puts it on your network. Bind `127.0.0.1` on a lab box; anything
+- **Why loopback binding is mandatory:** a target endpoint is
+  a deliberate attack surface. A `0.0.0.0` bind
+  puts it on the network. Bind `127.0.0.1` on a lab box. Anything
   more open is a deliberate, documented decision — not a flag
   accident.
 - **Why a small model:** scanners drive the target hard
-  (garak runs `--generations` per probe, repeated across probes); a
-  360M test model keeps the loop fast and the disk light while
+  (garak runs `--generations` per probe, repeated across probes). A
+  360M test model keeps the loop fast and the disk light, while
   exercising the full request path. Scale up when the recipe's
-  question demands it, not the default.
+  question demands it, not by default.
 - **Streaming off:** the `stream:false` generate call returns one
   JSON object — simpler to assert in health checks than a stream.
 - **The scan's target grammar:** garak consumes this endpoint with
@@ -78,8 +79,8 @@ What success looks like:
   [Scan a self-hosted model for prompt-injection
   resistance](../scanning/garak-full-baseline.html).
 - **vLLM variant:** same shape, different engine — `vllm serve`
-  (manifest row native, safety `safe`, o-02); the high-throughput
-  option when you need `--parallel_attempts` headroom.
+  (manifest row native, safety `safe`, o-02). The high-throughput
+  option when the run needs `--parallel_attempts` headroom.
 
 ## See also
 
