@@ -15,29 +15,29 @@ toc-title: Recipe
 ## Problem
 
 A vLLM server answers the OpenAI-compatible protocol — `/v1/models`,
-`/v1/completions`, `/v1/chat/completions` — on port 8000, and the
+`/v1/completions`, `/v1/chat/completions` — on port 8000. The
 operator's instinct is that `--api-key` secures it. Upstream documents
 otherwise: the key guards ONLY the `/v1`, `/v2`, `/inference`,
-`/cohere` path prefixes, while utility and control endpoints on the
-same server — `/metrics`, `/load`, `/invocations`, `/pause`,
-`/abort_requests`, `/update_weights` — authenticate NOTHING even when
-the key is set. A server you believe is keyed is still running an
-unauthenticated inference route (`/invocations`) plus its Prometheus
-telemetry to anyone on the segment, and vLLM's own security page says
-so in one line worth quoting verbatim: "Do not rely exclusively on
+`/cohere` path prefixes. Utility and control endpoints on the same
+server authenticate NOTHING even with the key set. The class:
+`/metrics`, `/load`, `/invocations`, `/pause`,
+`/abort_requests`, `/update_weights`. A server believed keyed still
+runs an unauthenticated inference route (`/invocations`). It also
+exposes its Prometheus telemetry to anyone on the segment. vLLM's own
+security page says so in one line worth quoting verbatim: "Do not rely
+exclusively on
 `--api-key` for securing access to vLLM. Additional security measures
 are required for production deployments." The manifest maps the
-surface to OWASP LLM02 + LLM10 (the pre-#210 paired attack row carried
-the ATLAS mapping; phantom-upstream, removed — os#210; the matrix is
-published)
-AML.T0049 + T0050. You want the key-on probe pair to split those two
-classes — guarded vs unauthenticated on the same port — then flip the
-posture and watch both close.
+surface to OWASP LLM02 + LLM10. The ATLAS mapping is AML.T0049 +
+T0050 (the pre-#210 paired attack row carried it; phantom-upstream,
+removed — os#210; the matrix is published). The task: the key-on
+probe pair splits the two classes — guarded vs unauthenticated on the
+same port. Then flip the posture and watch both close.
 
 ## Solution
 
-Serve the lab target, set the key, and run BOTH classes of probe —
-the point of the pair is that they behave differently on one port:
+Serve the lab target. Set the key. Run BOTH classes of probe. The
+pair's point: the classes behave differently on one port:
 
 ```bash
 # 1. BOOT THE LAB TARGET in the keyed-and-exposed posture:
@@ -108,47 +108,49 @@ sweep again, posture: loopback-only
 
 ## Discussion
 
-- **Why plain curl and not a bespoke exploit script:** the
-  the paired attack manifest row was a PHANTOM — its claimed kailash-os
-  upstream was never created — removed by the os#210 audit
+- **Why plain curl and not a bespoke exploit script:** the paired
+  attack manifest row was a PHANTOM. Its claimed kailash-os
+  upstream was never created. The os#210 audit removed it
   (2026-10-14; https://github.com/kailash-os/kailash-os/issues/210 —
   the name rides the registry). The probe leg runs the protocol
-  directly with the base system only — nothing invented; a real A-7
+  directly with the base system only — nothing invented. A real A-7
   tool re-enters via the os#210 rebuild contract, installing only via
   the double-key lab gate (walk:
   [Gate lab-mode and exp-classified
   tools](../admin/lab-mode-gating.html)).
 - **The verbatim caveat is the recipe's thesis.** vLLM's security
   page states the key guards only the `/v1`, `/v2`, `/inference`,
-  `/cohere` path prefixes, and then: "Do not rely exclusively on
+  `/cohere` path prefixes. It then adds the verbatim warning:
+  "Do not rely exclusively on
   `--api-key` for securing access to vLLM. Additional security
-  measures are required for production deployments." Upstream's own
-  recommendation for anything others can reach is a reverse proxy (or
-  firewall) allowing only the routes you intend to expose. That is
-  why the defence leg is a network policy — the key was never the
-  whole answer for the unguarded class, and no vLLM flag makes it be.
-- **/metrics is the sleeper finding:** every scrape target you publish
+  measures are required for production deployments." Upstream's
+  recommendation for anything others can reach: a reverse proxy (or
+  firewall) that allows only the intended routes. That is why the
+  defence leg is a network policy. The key was never the whole answer
+  for the unguarded class, and no vLLM flag makes it one.
+- **/metrics is the sleeper finding:** every published scrape target
   is an unauthenticated read of token counts, latencies and error
-  rates — request-pattern inference about your tenants, no key ever
-  checked. Gate it at the proxy/firewall like the unguarded
-  inference route; scraping from an exporter that runs on the machine
-  itself keeps the port closed to the segment.
+  rates. It gives request-pattern inference about the tenants; no key
+  is ever checked. Gate it at the proxy/firewall like the unguarded
+  inference route. An exporter that runs on the machine itself keeps
+  the port closed to the segment.
 - **Bind discipline is the second control:** uvicorn defaults to
-  127.0.0.1:8000; an explicit `--host 0.0.0.0` is a deliberate act
+  127.0.0.1:8000. An explicit `--host 0.0.0.0` is a deliberate act
   and a lab-segment one. The posture flip here is coarse on purpose —
-  it closes everything at once so the diff is unambiguous — but
-  production vLLM wants bind discipline PLUS a proxy allowlist on the
-  prefixes you intend to keep public.
+  it closes everything at once, so the diff is unambiguous.
+  Production vLLM wants bind discipline PLUS a proxy allowlist on the
+  prefixes the deployment intends to keep public.
 - **The observability defence leg is a pending row, stated honestly:**
   Langfuse is the trace destination the manifest owns for LLM
-  request/answer telemetry — self-host via docker-compose, or emit
-  from the app: OTel endpoint `/api/public/otel`,
-  `OTEL_EXPORTER_OTLP_HEADERS` carrying `Basic <pk-lf-…>:<sk-lf-…>`,
-  plus the `x-langfuse-ingestion-version: 4` header, and per-request
-  cost/latency tracing lands next to the probe findings (the
+  request/answer telemetry. The app can emit via self-hosted
+  docker-compose, or via the OTel endpoint `/api/public/otel`. The
+  export carries `OTEL_EXPORTER_OTLP_HEADERS` with
+  `Basic <pk-lf-…>:<sk-lf-…>`, plus the
+  `x-langfuse-ingestion-version: 4` header. Per-request cost/latency
+  tracing lands next to the probe findings (the
   kailash-langfuse module row is pending/unwired at the pin, PENDING
   — the upstream export shape above is quoted as the design). Traces
-  give you the anomaly view the probes hand-verified: requests that
+  give the anomaly view the probes hand-verified: requests that
   bypassed expectation, token counts that never reconcile.
 - **This is the transferable pattern:** lab target up → keyed +
   keyless probes against one port → posture flip → same probes →

@@ -14,16 +14,17 @@ toc-title: Recipe
 
 ## Problem
 
-You run an injection detector in front of a model — rebuff's
-multi-stage defence, a BERT-class classifier pack, a NeMo Guardrails
-config with input rails. None of those rows publish a false-negative
-count you can rely on, and a detector whose misses you have never
-measured is a rumour. Kailash ships both sides of the experiment as
-manifest rows: the A-2 payload packs (real-world attack corpora, data
-status, `safe` — they carry licence caveats, not safety gates) against
-the d-01/d-02 detector stack. The pairing thesis executed on the
+The deployment runs an injection detector in front of a model.
+Candidates: rebuff's multi-stage defence, a BERT-class classifier
+pack, a NeMo Guardrails config with input rails. None of those rows
+publishes a false-negative count the analysis can rely on. A detector
+whose misses go unmeasured is an unverified claim. Kailash ships both
+sides of the experiment as manifest rows. The attack side: the A-2
+payload packs (real-world attack corpora, data status, `safe`). The
+packs carry licence caveats, not safety gates. The defence side: the
+d-01/d-02 detector stack. The pairing thesis runs on the
 prompt-injection surface: corpus → detector → miss analysis → rule
-update, with the same-seed diff discipline keeping the numbers honest.
+update. The same-seed diff discipline keeps the numbers honest.
 
 ## Solution
 
@@ -95,59 +96,60 @@ loop record (the diff): {seed, corpus_rev, detector_versions,
 
 - **The attack side is data, and the licence caveats are part of the
   row:** all three packs carry `packaging.status: data` and
-  `safety.level: safe` — the guide's safety-classes table means
-  self-contained, no live firing — because a corpus is analysis
+  `safety.level: safe`. The guide's safety-classes table reads the
+  class as self-contained, no live firing. A corpus is analysis
   material, not a launcher. What the rows DO carry is licence
   posture: L1B3RT-4S rows cite AGPL-3.0 with per-source content
   use-restrictions beyond the repo licence (the manifest comment
-  says so explicitly for this lane). Redistribute
-  nothing until you have read what you would redistribute — the
-  data-packs recipe's licence discipline applies verbatim.
+  says so explicitly for this lane). Read every file before
+  redistributing it — the data-packs recipe's licence discipline
+  applies verbatim.
 - **The defence side is three kinds of detector, on purpose.**
-  rebuff: multi-stage defence — heuristics, an LLM check and a
-  vector-db similarity check — plus the canary-word leakage check
-  that turns a detector into a tripwire (its manifest tag carries
-  `prompt-injection`); note the SDK surface needs provider
-  credentials for its stages. the DeBERTa-class detector: the
-  public detector lineage (SAFE/INJECTION label classes at the
-  upstream reference; the pre-#210 first-party loader-pack row was
+  rebuff: a multi-stage defence — heuristics, an LLM check and a
+  vector-db similarity check. The canary-word leakage check turns a
+  detector into a tripwire (its manifest tag carries
+  `prompt-injection`). The SDK surface needs provider credentials
+  for its stages. the DeBERTa-class detector: the public detector
+  lineage (SAFE/INJECTION label classes at the upstream reference;
+  the pre-#210 first-party loader-pack row was
   phantom-upstream — removed, name in the
   [os#210 registry](https://github.com/kailash-os/kailash-os/issues/210)).
   nemo-guardrails: the config-driven rail with documented jailbreak
-  heuristics — length-per-perplexity and prefix/suffix-perplexity
-  thresholds (defaults `89.79` / `1845.65`, config-validated at
-  create-time), activation via the `jailbreak detection heuristics`
+  heuristics. The heuristics: length-per-perplexity and
+  prefix/suffix-perplexity thresholds (defaults `89.79` / `1845.65`,
+  config-validated at create-time). Activation runs via the
+  `jailbreak detection heuristics`
   input flow in `config.yml`. Layer mapping: rebuff +
   nemo-guardrails sit in d-01-runtime-defence; the classifier rides
   d-02-detection-monitoring-observability — the pair recipe cites
   both categories because the surface is observed at two layers.
 - **Why same-seed diffs are the discipline:** a detector update that
-  fixes one payload often unfixed another (newly_missed is a first
-  class citizen of the diff, not a footnote). The A-2 packs refresh
+  fixes one payload often unfixed another. `newly_missed` is a first
+  class citizen of the diff, not a footnote. The A-2 packs refresh
   on cadence (`libertas-prompts`/`jailbreak-payloads` carry
-  `update:steady`) — a corpus rev change invalidates every previous
+  `update:steady`). A corpus rev change invalidates every previous
   miss-rate, so the loop record pins corpus_rev next to seed.
   Without the seed+rev pin, "the detector improved" is unfalsifiable.
 - **Judge-model dependence, stated:** rebuff's LLM stage and
-  giskard-style judges consume provider keys — read from
-  `~/.config/kailash/keys/` per the OS secrets posture, never
+  giskard-style judges consume provider keys. Keys read from
+  `~/.config/kailash/keys/` per the OS secrets posture — never
   committed, never in the store. A judge-driven verdict inherits the
-  judge's blind spots; that is miss-analyser material too.
+  judge's blind spots. That is miss-analyser material too.
 - **The pair completes itself:** the fixed detector graduates by
-  re-entering production — the d-01 rows are runtime gates, so the
-  improved threshold config IS the deliverable; the corpus becomes
+  re-entering production. The d-01 rows are runtime gates, so the
+  improved threshold config IS the deliverable. The corpus becomes
   the standing acceptance set that future detector bumps are diffed
   against (the book's upkeep rule at pair granularity). When a
   rebuilt A-2 attack tool lands via the
   [os#210 rebuild contract](https://github.com/kailash-os/kailash-os/issues/210),
-  this loop's station 2 gains live-fire legs; the data-pack legs
+  this loop's station 2 gains live-fire legs. The data-pack legs
   above are the static half that never needs a target.
 - **Authorisation framing carries:** the corpus is real attack
-  material; running it against models or deployments you do not own
-  is the A-2 lane's authorised-engagement business, not a cookbook
-  exercise. Against your OWN detector stack in your own lab, this
-  recipe is the defender-validation case the responsible-use
-  statement names.
+  material. Running it against models or deployments outside the
+  lab's ownership is the A-2 lane's authorised-engagement business,
+  not a cookbook exercise. Against the lab's OWN detector stack in
+  the lab, this recipe is the defender-validation case the
+  responsible-use statement names.
 
 ## See also
 
