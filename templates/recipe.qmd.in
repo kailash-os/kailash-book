@@ -22,7 +22,7 @@ params:
 
 {{SOLUTION_WITH_REAL_COMMAND_SHAPES}}
 
-Expected output shape (abridged, shapes not transcripts):
+Expected output shape (abridged; shapes, not transcripts):
 
 ```
 {{EXPECTED_OUTPUT_SHAPE_WITH_PLACEHOLDERS}}
@@ -42,13 +42,13 @@ Expected output shape (abridged, shapes not transcripts):
 ---
 
 **Recipe provenance (template behaviour).** Commands are real
-invocation shapes; expected output is a shape with placeholders, never
-an invented transcript; anything not worked against a real pin
-renders as an explicit `PENDING` marker. The provenance footnote uses
-the guide's compact form:
+invocation shapes. Expected output is a shape with placeholders, never
+an invented transcript. An unfinished step renders as an explicit
+`PENDING` marker. The provenance footnote uses the guide's compact
+form:
 
 ref: [{{TOOL_VERSION}}]({{PIN_SOURCE_URL}}) - verified {{VERIFIED_AT}}
 
-(plus, only when honest, a one-line smoke/missing-surface note with
-its link). If the pin of any named tool moves without this recipe
-being re-worked, the recipe is stale — update it in the same change.
+(plus, only when true, a one-line smoke/missing-surface note with its
+link). A recipe goes stale when a named tool's pin moves and no
+re-work follows. Update the stale recipe in the same change.
