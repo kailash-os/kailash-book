@@ -15,17 +15,18 @@ toc-title: Recipe
 
 ## Problem
 
-Kailash OS is a NixOS-based distribution for AI security work, built
-declaratively from a manifest of 337 tools across four layers. A
-profile selects which tool categories a Kailash system carries — you
-want to pick the one that matches your role (red-team, blue-team,
-ops, agent infrastructure), know exactly how you choose it, and
-verify the system you booted actually is what you asked for.
+Kailash OS is a NixOS-based distribution for AI security work. The
+project builds the distribution declaratively from a manifest of 337
+tools across four layers. A profile selects the tool categories a
+Kailash system carries. The task: pick the profile that matches the
+role — red-team, blue-team, ops, or agent infrastructure. The recipe
+also shows the selection steps. The checks verify the booted system
+matches the requested profile.
 
 ## Solution
 
-The profile is encoded in the image you download — choosing a profile
-IS choosing your image. Match your role:
+The image encodes the profile. Choosing a profile IS choosing an
+image. Match the role:
 
 | Profile | Carries |
 |---|---|
@@ -55,42 +56,41 @@ kailash manifest validate
 What success looks like:
 
 - `kailash profile list` names the release's declared profiles
-- `kailash info garak` returns the full manifest record — layer
-  ATTACK, category a-02, safety `requires-target`, ATLAS tactics
-  (AML.T0051, AML.T0054), OWASP LLM01 both epochs, docs pointer
-- `kailash manifest validate` passes — the loader self-inventory is
-  green on your installation
+- `kailash info garak` returns the full manifest record. The record
+  names layer ATTACK, category a-02, and safety `requires-target`. The
+  record also carries ATLAS tactics (AML.T0051, AML.T0054), OWASP
+  LLM01 for both epochs, and the docs pointer
+- `kailash manifest validate` passes. The loader self-inventory is
+  green on the installation
 
 ## Discussion
 
-- **Declarative, not imperative:** categories are enabled in the
-  system configuration and a rebuild is the install step; there is no
-  imperative package action that can drift the system away from its
-  declaration. Rebuilding against the same lock reproduces the same
-  tool set exactly — see
-  [Enable your first category](first-category.html).
-- **`kailash list` shows the manifest, not your boot state:** every
-  CLI command reads the manifest (the CLI derivation bakes the
-  manifest to a store path, so the CLI can never disagree with the
-  declared build). Listing what a profile carries is a build-time
-  fact: per-category VM tests boot a VM and `--help`-smoke the tool
-  list from the manifest — that is the verified instrument, not a
-  hand-run command surface. A `kailash doctor`-style per-tool
-  installed/version/smoke check is specified but lands per the
-  roadmap — track it on the OS repo's CLI lane, not here.
+- **Declarative, not imperative:** the system configuration enables
+  categories. A rebuild is the install step. No imperative package
+  action can move the system away from its declaration. A rebuild
+  against the same lock reproduces the same tool set exactly — see
+  [Enable the first category](first-category.html).
+- **`kailash list` shows the manifest, not the boot state:** every
+  CLI command reads the manifest. The CLI derivation bakes the
+  manifest to a store path. The CLI can never disagree with the
+  declared build. What a profile carries is a build-time fact:
+  per-category VM tests boot a VM and `--help`-smoke the tool
+  list from the manifest. That is the verified instrument, not a
+  hand-run command surface. The `kailash doctor`-style per-tool
+  installed/version/smoke check is specified but not landed. It lands
+  per the roadmap. Track it on the OS repo's CLI lane, not here.
 - **Pick `redteam-ai` for the cookbook's attack lanes:** the
-  scanning and pair recipes assume ATTACK tooling present; pick
+  scanning and pair recipes assume ATTACK tooling present. Pick
   `headless-agent` for automation hosts without a desktop.
-- **Safety posture comes with the profile:** even on `full`, exp-class
-  tools stay behind the [lab-mode gate](../admin/lab-mode-gating.html)
-  and `requires-target` tools refuse to self-fire — the profile
-  states the tool set, the safety classes govern the run behaviour.
+- **Safety posture comes with the profile:** even on `full`,
+  exp-class tools stay behind the [lab-mode gate](../admin/lab-mode-gating.html).
+  `requires-target` tools do not self-fire. The profile states the
+  tool set. The safety classes govern the run behaviour.
 
 ## See also
 
-- [Boot a verified release image](first-image.html) — where this
-  starts
-- [Enable your first category](first-category.html) — the next
+- [Boot a verified release image](first-image.html) — the first step
+- [Enable the first category](first-category.html) — the next
   getting-started recipe
 - Guide profiles chapter:
   <https://docs.kailash.tools/admin/profiles.html>

@@ -14,17 +14,18 @@ toc-title: Recipe
 
 ## Problem
 
-You are starting from zero: you need a Kailash OS system to work in.
-The deliverables are bootable images in two formats per profile (a
-QEMU disk image — the primary shape — and a bootable ISO), published
-as release assets on a signed tag. You want a downloaded artefact
-you can state is exactly what the project built — checksums, build
-provenance and the signed tag all agreeing — before anything boots.
+The lab starts from zero. A working Kailash OS system is the goal.
+The release ships bootable images in two formats per profile: a QEMU
+disk image (the primary shape) and a bootable ISO. The release
+publishes the images as release assets on a signed tag. The task:
+download an artefact and state it is exactly what the project built.
+Checksums, build provenance and the signed tag must all agree — before
+anything boots.
 
 ## Solution
 
-Pick your target from the declared matrix, download from the tagged
-release, then run the three-step verification chain:
+Pick the target from the declared matrix. Download from the tagged
+release. Then run the three-step verification chain:
 
 ```bash
 # 1. Download the artefact for your target from the tagged release
@@ -47,16 +48,16 @@ git tag -v 2026.01-alpha.1
 
 What success looks like:
 
-- the whole-file `sha256sum -c` against `SHA256SUMS` — the release
-  sheet is THE authority on artefact identity — reports OK for your
-  download
+- the whole-file `sha256sum -c` against `SHA256SUMS` reports OK for
+  the download — the release sheet is THE authority on artefact
+  identity
 - `gh attestation verify` confirms SLSA v1.0 build provenance (plus
-  the SPDX SBOM) built over the repo's OIDC identity, even after a
-  chunk reassembly — the `cat` step is byte-exact, so the attested
-  subject is preserved
+  the SPDX SBOM). The provenance builds over the repo's OIDC identity.
+  The check holds even after a chunk reassembly. The `cat` step is
+  byte-exact, so the attested subject is preserved
 - `git tag -v` shows a good GPG signature on the release tag
-- the qcow2 boots in any UEFI-capable hypervisor (choose your own:
-  QEMU/KVM, virt-manager, UTM on Apple Silicon); the ISO boots the
+- the qcow2 boots in any UEFI-capable hypervisor (a choice of
+  QEMU/KVM, virt-manager, UTM on Apple Silicon). The ISO boots the
   same profile from optical/USB media
 
 Every artefact is alternatively buildable from the release closure:
@@ -68,31 +69,31 @@ nix build github:kailash-os/kailash-os/2026.01-alpha.1#kailash-images-qemu-full
 ## Discussion
 
 - **Which profile:** `minimal` boots the CORE substrate with no tool
-  categories, `redteam-ai` is the AI red-team lab scope, `full` is
-  the complete live catalogue, `headless-agent` is base + CLI with no
+  categories. `redteam-ai` is the AI red-team lab scope. `full` is
+  the complete live catalogue. `headless-agent` is base + CLI with no
   desktop. The image name encodes the profile — see
   [First profile and first run](first-profile.html) for the
-  profile table. Size budgets (≤1.5/4/8/10 GB by target) are enforced
-  by construction; heavy corpora live in opt-in `kailash-data.*`
-  packs, not in the default images — see
+  profile table. The construction enforces the size budgets
+  (≤1.5/4/8/10 GB by target). Heavy corpora live in opt-in
+  `kailash-data.*` packs, not in the default images — see
   [Refresh wordlists and data packs](../admin/data-packs.html).
-- **Chunked assets are packaging, not fragility:** the 2 GiB legacy
-  asset cap is answered with byte-exact split parts + per-part
-  sheets on the same release; `cat` reproduces the original bits, and
-  the attestation verifies the whole file after reassembly.
-- **Aarch64 rows exist:** x86_64 targets are hosted-built; the
+- **Chunked assets are packaging, not fragility:** byte-exact split
+  parts + per-part sheets on the same release answer the 2 GiB legacy
+  asset cap. `cat` reproduces the original bits. The attestation
+  verifies the whole file after reassembly.
+- **Aarch64 rows exist:** the x86_64 targets use hosted builds. The
   aarch64 (Apple Silicon native) rows build via the project's
   `tools/build-arm-images.sh` — see the images chapter for the
   build-from-tag procedure.
 - **Trust chain summary:** signed tag → SLSA provenance + SBOM per
-  artefact → SHA256SUMS as the whole-file identity. A download that
-  fails any link of that chain does not get booted — re-download or
-  build from the tag yourself.
+  artefact → SHA256SUMS as the whole-file identity. Do not boot a
+  download that fails any link of that chain. Re-download, or build
+  from the tag.
 
 ## See also
 
 - [First profile and first run](first-profile.html) — choose the
-  profile that matches your role
+  profile that matches the role
 - The images chapter on the OS repo:
   <https://github.com/kailash-os/kailash-os/blob/master/docs/guide/images.md>
   — the full matrix, budget and build-surface record
