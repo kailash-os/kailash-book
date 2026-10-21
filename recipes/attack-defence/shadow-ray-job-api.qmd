@@ -14,34 +14,34 @@ toc-title: Recipe
 
 ## Problem
 
-Ray clusters expose a dashboard + Jobs API on :8265, and the job API
-is a remote-code-execution primitive by design: `POST /api/jobs`
+Ray clusters expose a dashboard + Jobs API on :8265. The job API is a
+remote-code-execution primitive by design. `POST /api/jobs`
 takes an `entrypoint` string that a Ray worker shell executes inside
-the cluster. If that port answers on any interface beyond loopback —
-the exposure upstream's own `--dashboard-host` help text spells out
-as `localhost (127.0.0.1/::1) for local access only, or 0.0.0.0/::
-for all interfaces` — then anyone who can reach :8265 can enumerate
-(`GET /api/version`, `GET /api/jobs`), submit a job whose entrypoint
-is their payload, stop and delete other users' jobs (`POST
-.../stop`, `DELETE /api/jobs/{id}`), and read their logs. The ATLAS
+the cluster. The upstream `--dashboard-host` help text spells out the
+exposure: `localhost (127.0.0.1/::1) for local access only, or 0.0.0.0/::
+for all interfaces`. With that bind, anyone who reaches :8265
+enumerates (`GET /api/version`, `GET /api/jobs`). Anyone submits a
+job whose entrypoint is a payload. Anyone stops and deletes other
+users' jobs (`POST
+.../stop`, `DELETE /api/jobs/{id}`), and reads their logs. The ATLAS
 technique for exactly this is CS0023, "ShadowRay: Hijacking Exposed
-Ray Clusters", and the vulnerability record is honestly complicated:
+Ray Clusters". The vulnerability record is complicated.
 CVE-2023-48022 describes the job-submission-API RCE but is
-VENDOR-DISPUTED per NVD — Ray's maintainers push back that a
+VENDOR-DISPUTED per NVD. Ray's maintainers push back: a
 cluster intentionally exposed to untrusted networks is not a
-vulnerability, which makes the CONFIGURATION the story, not the
+vulnerability. That makes the CONFIGURATION the story, not the
 binary. The manifest maps the surface to OWASP LLM02 + LLM10 and the
-public ATLAS matrix (the pre-#210 paired attack row rode the same
-mapping; phantom-upstream, removed — os#210). You want the pair run
-against your own cluster in your own lab: prove the API shape, prove
-the flag that binds it, and prove the flip closes it.
+public ATLAS matrix. The pre-#210 paired attack row rode the same
+mapping (phantom-upstream, removed — os#210). The task: run the pair
+against the lab's own cluster. Prove the API shape. Prove the flag
+that binds it. Prove the flip closes it.
 
 ## Solution
 
-The walk runs the real Jobs API shapes with plain curl against your
-own lab cluster (the A-7 row is exp and repository-missing at the
-pin; see Discussion), on a cluster you own inside an isolated lab
-segment:
+The walk runs the real Jobs API shapes with plain curl against the
+lab's own cluster. The A-7 row is exp and repository-missing at the
+pin (see Discussion). The target: a cluster the lab owns, inside an
+isolated lab segment:
 
 ```bash
 # 1. BOOT THE LAB TARGET — the exposed posture is the deliberate act;
@@ -116,53 +116,51 @@ sweep again, posture: --dashboard-host 127.0.0.1
 
 - **ATLAS CS0023 is the technique name, and the disputed CVE is the
   honest footnote:** the ShadowRay technique (ATLAS case study
-  CS0023) documents hijacking exposed Ray clusters in the wild —
-  attackers ran cryptominers through the job API of clusters bound
+  CS0023) documents hijacking exposed Ray clusters in the wild.
+  Attackers ran cryptominers through the job API of clusters bound
   beyond their perimeter. CVE-2023-48022 describes the
-  job-submission-API RCE class, but NVD lists it VENDOR-DISPUTED: the
-  maintainers' position is that an intentionally exposed cluster is
-  a deployment defect, not a code flaw. For an operator the dispute
-  changes nothing about the mitigation and everything about the
-  language: you fix it with configuration (the bind, the firewall),
-  and your report says "exposed Jobs API" rather than
-  "unpatched CVE".
-- **Why plain curl and not a bespoke exploit script:** the
-  the paired attack manifest row was a PHANTOM — its claimed kailash-os
-  upstream was never created — and the os#210 audit (2026-10-14)
+  job-submission-API RCE class, but NVD lists it VENDOR-DISPUTED. The
+  maintainers' position: an intentionally exposed cluster is
+  a deployment defect, not a code flaw. For an operator, the dispute
+  changes nothing about the mitigation. It changes everything about
+  the language: fix it with configuration (the bind, the firewall).
+  The report says "exposed Jobs API", not "unpatched CVE".
+- **Why plain curl and not a bespoke exploit script:** the paired
+  attack manifest row was a PHANTOM. Its claimed kailash-os
+  upstream was never created. The os#210 audit (2026-10-14)
   removed it (https://github.com/kailash-os/kailash-os/issues/210;
   the name rides the registry there). The probe leg runs the verified
-  openapi.yml shapes (Jobs API v4.0.0 surface: `GET /api/version`,
+  openapi.yml shapes with the base system only — nothing invented.
+  The surface: Jobs API v4.0.0 (`GET /api/version`,
   `POST /api/jobs` with entrypoint+runtime_env, `GET /api/jobs`,
-  `GET/DELETE /api/jobs/{{id}}`, `POST .../stop`, `GET .../logs`)
-  with the base system only — nothing invented; a real A-7 tool
-  re-enters via the os#210 rebuild contract through the double-key
-  lab gate (walk: [Gate lab-mode and exp-classified
+  `GET/DELETE /api/jobs/{{id}}`, `POST .../stop`, `GET .../logs`). A
+  real A-7 tool re-enters via the os#210 rebuild contract through the
+  double-key lab gate (walk: [Gate lab-mode and exp-classified
   tools](../admin/lab-mode-gating.html)).
 - **The marker job is the whole RCE argument, made safely:**
-  submission ACCEPTED an arbitrary `entrypoint` string and the logs
-  endpoint echoed its execution — no payload, no persistence, no
+  submission ACCEPTED an arbitrary `entrypoint` string, and the logs
+  endpoint echoed its execution. No payload, no persistence, no
   network egress beyond the lab segment. The `runtime_env` pip wheel
-  channel is named because it is the pivot the technique class uses;
-  the recipe's evidence deliberately stops at the accepted
-  entrypoint.
+  channel is the pivot the technique class uses. The recipe's
+  evidence deliberately stops at the accepted entrypoint.
 - **The kailash ray row is a module row, stated honestly:** ray
   ships in the manifest as a module + `services.kailash` module-shape
   row (not a docker-wrapper Shape-3 boot). The lab-boot leg above
-  uses the module/boot posture at the pin: read the module per
-  release — the option names follow the manifest row's module shape,
-  and the `--dashboard-host` bind discipline is the same whichever
-  way you boot. The defence flip is the module's bind default at the
+  uses the module/boot posture at the pin. Read the module per
+  release: the option names follow the manifest row's module shape.
+  The `--dashboard-host` bind discipline is the same whichever way
+  the boot runs. The defence flip is the module's bind default at the
   pin: loopback unless a lab posture explicitly overrides.
 - **The telemetry defence leg is a pending row, stated honestly:**
   otel-ai (OpenLLMetry) is the instrument the manifest owns for
-  LLM-cluster telemetry — `Traceloop.init()` instruments the app and
-  ships spans (job submissions land as trace span attributes) to any
-  OTLP endpoint; whylogs is the profile layer — `why.log(df)` over
+  LLM-cluster telemetry. `Traceloop.init()` instruments the app and
+  ships spans to any OTLP endpoint (job submissions land as trace
+  span attributes). Whylogs is the profile layer: `why.log(df)` over
   job/usage records gives the drift view. Both are d-02 rows whose
   kailash module wiring is PENDING at the pin (quoted as the design,
-  not a landed surface). What they would give the operator: the
-  standing view of job submissions to a cluster — the anomaly view
-  the probe sweep hand-verified.
+  not a landed surface). They would give the operator the standing
+  view of job submissions to a cluster. That is the anomaly view the
+  probe sweep hand-verified.
 - **This is the transferable pattern** (lab target up → probe sweep
   → posture flip → same sweep → diff). Origin walk with the verdict
   instrument and the `--record` discipline:

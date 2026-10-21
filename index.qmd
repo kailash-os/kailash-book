@@ -3,52 +3,50 @@
 This book is the task-oriented companion to the [Kailash OS
 guide](https://docs.kailash.tools). The project home — release notes,
 the paper, the roadmap — is [kailash.site](https://kailash.site).
-Where the guide explains what a
-tool **is** (man-style reference pages for the whole catalogue), the
-cookbook answers **how do I do X**: every page is a standalone recipe
-in the O'Reilly cookbook format —
+The guide explains what each tool is. Its pages follow the man-style
+reference form for the whole catalogue. The cookbook answers
+**how to do X**: every page is a standalone recipe in the O'Reilly
+cookbook format —
 
 1. **Problem** — the task, in operator terms
-2. **Solution** — the copy-paste-able commands with expected output
+2. **Solution** — the ready-to-run commands with expected output
    shapes
 3. **Discussion** — why it works, what it touches, when to choose an
    alternative
 4. **See also** — the matching reference pages and neighbour recipes
 
-Recipes are worked runs, never invented transcripts: output renders as
-*shapes* with placeholders, and anything not yet worked against a real
-pin stays marked PENDING — the same no-invented-evidence rule the rest
-of the project documents follow.
+Recipes are worked runs, never invented transcripts. Output renders
+as *shapes* with placeholders. An unfinished step renders as an
+explicit `PENDING` marker. This follows the no-invented-evidence rule
+used across the project documents.
 
 ## How the book is organised
 
 - **Sections are themes** — Getting started / Scanning / Attack–defence
-  pairs / Ops / Administrator. A recipe keeps its section for life; it
-  is never re-parented between sections.
+  pairs / Ops / Administrator. A recipe never moves between sections.
 - **Level is metadata, not navigation** — each recipe carries an
-  easy/medium/hard level in its header table, displayed on the page
-  and counted in the [recipe directory](recipes/directory.qmd).
+  easy/medium/hard level in its header table. The page shows it, and
+  the [recipe directory](recipes/directory.qmd) counts it.
 - **Top-10 collections are generated views** — OWASP ML/LLM/API Top-10
-  recipe sets render as generated index pages over recipe tags, they
-  never re-organise the book (see the [recipe
-  directory](recipes/directory.qmd) for the current coverage).
-- **Recipes are technical and grounded** — every command surface is
-  quoted from the manifest row (the single source of truth), the
-  landed CLI slice, or the pinned upstream source; expected outputs
-  render as shapes, never invented transcripts; the mlflow pair
-  recipe walks the landed
+  recipe sets render as generated index pages over recipe tags. The
+  collections never re-organise the book. See the [recipe
+  directory](recipes/directory.qmd) for the current coverage.
+- **Recipes are technical and grounded** — every command quotes the
+  manifest row (the single source of truth), the landed CLI slice, or
+  the pinned upstream source. Expected outputs render as shapes, never
+  invented transcripts. The mlflow pair recipe runs the landed
   `kailash-integration-mlflow-attack` probe pair (see
   [Attack the platform, then verify](recipes/attack-defence/attack-then-verify.qmd)).
 
 ## Status
 
-The book is being built in the 2026.01 release window. Wave 1: recipe
-template, organisation ADR, one worked exemplar (garak), and grounded
-versions of the core setup pages. Wave 2 (in build): the deep recipe
-set across all sections, header tables on every page, code-block
-spacing, and the directory generator. Progress is tracked on the
-repository's issue tracker (cookbook parent: the repo's pinned issue;
-wave 2: KA-WS-5.12).
+The project builds the book in the 2026.01 release window. Wave 1
+landed the recipe template, the organisation ADR, the worked exemplar
+(garak), and grounded core setup pages. Wave 2 is in build. It adds
+the deep recipe set across all sections, header tables on every page,
+code-block spacing, and the directory generator. The repository's
+issue tracker tracks progress (cookbook parent: the repo's pinned
+issue; wave 2: KA-WS-5.12).
 
 ## Contact
 

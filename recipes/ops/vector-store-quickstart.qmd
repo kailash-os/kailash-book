@@ -14,19 +14,19 @@ toc-title: Recipe
 
 ## Problem
 
-Category o-03 is the vector-store shelf. Four distinct shapes ship:
-two native services (`services.qdrant`, `services.chromadb`), one
-SQL-borne store (PostgreSQL 16 + the pgvector extension), and a
-container-backed set (`weaviate`, `milvus`, `elasticsearch` via the
-docker-wrapper backend). You want one recipe that boots each shape
-loopback-safe, names each store's unauthenticated posture honestly,
-and leaves you with a live endpoint per shape to write into.
+Category o-03 is the vector-store row set. Four distinct shapes ship.
+Two are native services (`services.qdrant`, `services.chromadb`). One
+is the SQL-borne store: PostgreSQL 16 + the pgvector extension. One
+is a container-backed set (`weaviate`, `milvus`, `elasticsearch` via
+the docker-wrapper backend). The task: one recipe that boots each
+shape loopback-safe. It names each store's unauthenticated posture
+honestly. It leaves a live endpoint per shape to write into.
 
 ## Solution
 
-Boot each shape and prove its endpoint; everything binds loopback by
-the Kailash module defaults (qdrant already-hardened nuance in the
-Discussion):
+Boot each shape and prove its endpoint. Everything binds loopback by
+the Kailash module defaults. The qdrant already-hardened nuance sits
+in the Discussion:
 
 ```nix
 # configuration.nix — Shape 1/2: native services (loopback default)
@@ -79,42 +79,41 @@ weaviate : container up on :8080(?) via the wrapper
 
 ## Discussion
 
-- **Kailash hardens the native rows for you — verify, don't
-  assume:** the module sets qdrant's service host to loopback by
-  default, and alters upstream's defaults where the upstream would
-  listen wider: `telemetry_disabled` and CORS-off come pre-set as
-  hardening-vs-upstream choices in the module. This is the
-  "already-hardened-by-kailash" nuance: you inherit a tighter
-  posture than the stock qdrant config; the module source is the
+- **Kailash hardens the native rows — verify, never assume:** the
+  module sets qdrant's service host to loopback by default. It
+  alters upstream's defaults where the upstream would listen wider:
+  `telemetry_disabled` and CORS-off come pre-set as
+  hardening-vs-upstream choices in the module. That is the
+  "already-hardened-by-kailash" nuance: the inherited posture sits
+  tighter than the stock qdrant config. The module source is the
   record of what was tightened.
 - **chromadb has no auth option at the pin:** the service module
-  ships bind host + port + state dir (`/var/lib/chromadb`) but NO
-  authentication knob — the endpoint on `127.0.0.1:8000` answers
-  whoever can reach the port locally. That is an honest lab
-  posture, not a production one: for any multi-user host, front it
-  with your own proxy/auth layer, as the mlflow-posture recipe does
+  ships bind host + port + state dir (`/var/lib/chromadb`), but NO
+  authentication knob. The endpoint on `127.0.0.1:8000` answers
+  whoever reaches the port locally. That is an honest lab
+  posture, not a production one: on any multi-user host, front it
+  with a local proxy/auth layer, as the mlflow-posture recipe does
   for MLflow.
 - **qdrant's unauth posture, stated honestly:** the module loopback
-  bind is a boundary, not an application-auth feature — qdrant's own
-  API-key/authn config is a qdrant-config matter (set it in the
-  declared settings if a second user lands on the box); kailash's
-  module hardening gives you loopback + telemetry/CORS tightening,
-  and does not pretend to give you multi-tenant auth.
+  bind is a boundary, not an application-auth feature. Qdrant's own
+  API-key/authn config is a qdrant-config matter. Set it in the
+  declared settings if a second user lands on the box. Kailash's
+  module hardening gives loopback + telemetry/CORS tightening,
+  and does not pretend to give multi-tenant auth.
 - **pgvector is operator SQL, not a service:** postgresql_16 is the
-  service; vector search is a per-database extension —
-  `CREATE EXTENSION` is the operator step (and the module docs treat
-  it as such). Back up and migrate as you would any postgres; the
-  embedding columns ride your schema.
+  service; vector search is a per-database extension. `CREATE
+  EXTENSION` is the operator step (the module docs treat
+  it as such). Back up and migrate as with any postgres. The
+  embedding columns ride the schema.
 - **Shape-3 container contract:** the wrapper rows (weaviate,
-  milvus, elasticsearch) are declared as a compose manifest + a
-  wrapper on the virtualisation.oci-containers podman backend, with
-  `autoStart = false` and pinned images (weaviate 1.39.2 at the
-  pin). Practically: the image does NOT run until you boot it at
-  lab time, so a fresh host has zero vector-store surfaces until you
-  say so — and the pinned tag, not `latest`, is what you will
-  actually get.
+  milvus, elasticsearch) live on the virtualisation.oci-containers
+  podman backend. The declaration: a compose manifest + a wrapper,
+  with `autoStart = false` and pinned images (weaviate 1.39.2 at the
+  pin). The image does NOT run until the lab boots it. So a fresh
+  host carries zero vector-store surfaces by default. The pinned
+  tag, not `latest`, is what the boot actually gets.
 - **All four shapes write the same lesson:** loopback bind is the
-  default; widen nothing without naming why; the o-03 rows make the
+  default. Widen nothing without naming why. The o-03 rows make the
   safe choice the zero-work choice.
 
 ## See also

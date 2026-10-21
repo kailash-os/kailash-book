@@ -14,17 +14,18 @@ toc-title: Recipe
 
 ## Problem
 
-The lab posture `mlflow-lab-target` declares is for lab VMs on an
-isolated segment. The hardened posture asks a specific question: can
-the SAME server run with `labReachable = false` and a loopback
-`host`, fronted by a reverse proxy for the real deployment, and can
-you SHOW the flip moved the surface (every probe that succeeded
-against the lab posture re-run and now refused)?
+The lab posture that `mlflow-lab-target` declares suits lab VMs on an
+isolated segment. The hardened posture asks a specific question. Can
+the SAME server run with `labReachable = false`, a loopback
+`host`, and a reverse proxy for the real deployment? And can the flip
+SHOW its effect on the surface? Every probe that succeeded against
+the lab posture re-runs, and now refuses.
 
 ## Solution
 
-Tighten the posture in the configuration, front it, and re-probe with
-the SAME instrument (`../attack-defence/attack-then-verify.html`'s
+Tighten the posture in the configuration. Front the endpoint.
+Re-probe with the SAME instrument (the
+`../attack-defence/attack-then-verify.html`'s
 probe pair):
 
 ```nix
@@ -40,8 +41,8 @@ services.nginx.enable = true;
 # nginx site: proxy_pass http://127.0.0.1:5000; + your TLS + authn
 ```
 
-Re-probe with the same instrument, same seed — the pair recipe's
-stages MUST refuse when pointed at the hardened posture:
+Re-probe with the same instrument and the same seed. The pair
+recipe's stages MUST refuse at the hardened posture:
 
 ```bash
 # same seed, same probes, posture flipped (see attack-then-verify):
@@ -65,12 +66,12 @@ mlflow-attack: seed verdict = FAIL (expected FAIL under hardened posture)
 ## Discussion
 
 - **The no-auth fact, explicitly:** the kailash mlflow service
-  module at the pin ships NO first-class auth option (no
-  `auth.enable`, no basic-auth token, no service account). The
+  module at the pin ships NO first-class auth option. No
+  `auth.enable`, no basic-auth token, no service account. The
   intended production posture is therefore
   **reverse-proxy-with-auth on your side** — nginx/Envoy/what-you-declare
   in front of 127.0.0.1:5000. If a future module pin adds auth
-  options, re-read the module and re-write this recipe in the same
+  options, re-read the module and rewrite this recipe in the same
   change.
 - **The option truth table at the pin:**
 
@@ -83,22 +84,22 @@ mlflow-attack: seed verdict = FAIL (expected FAIL under hardened posture)
 
 - **Why `openFirewall` stays `false` in both postures:** the module
   defaults `openFirewall = false` and the hardened posture must not
-  undo that — loopback bind + proxy is the design; a firewall hole
+  undo that. Loopback bind + proxy is the design; a firewall hole
   would defeat the point of the bind. Treat any future
-  firewall-open change as a red flag in review, not a convenience.
+  firewall-open change as a review red flag, not a convenience.
 - **Same-seed re-probe FAIL pattern:** the lab→hardened flip is the
-  same instrument with posture options reversed; the expected
+  same instrument with posture options reversed. The expected
   verdict moves from `ok` to `FAIL` for the pair's two
   probes. Compare with the pair recipe's acceptance record:
   `ok` under lab posture, `FAIL` under hardened — a config diff,
   not a code diff, is what moved the verdicts. If hardened probes
-  still show `ok`, the flip did not land; do NOT write that up as
+  still show `ok`, the flip did not land. Do NOT write that up as
   success.
 - **The upstream caveat still applies:** the mlflow server's own
   `--host` warning ("NOT a security setting") is why the hardened
   posture is BIND + PROXY, not "rely on defaults". Loopback is the
-  transport boundary; the proxy's auth is the API boundary; both are
-  needed before the tracking API can be called production.
+  transport boundary. The proxy's auth is the API boundary. Both are
+  needed before the tracking API counts as production.
 
 ## See also
 

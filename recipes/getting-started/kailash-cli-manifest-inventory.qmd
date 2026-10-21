@@ -14,20 +14,19 @@ toc-title: Recipe
 
 ## Problem
 
-A 337-row, four-layer catalogue is the thing you navigate all day —
-you want to know it through its own front-end: list layers and
-categories with one command, find tools by substring, read one tool's
-full record (safety class, ATLAS tactics, OWASP mapping, licence),
-name the system's profiles, and run the manifest gate yourself before
+The catalogue counts 337 rows across four layers. Daily work
+navigates it through its own front-end. The front-end jobs: list
+layers and categories with one command. Find tools by substring. Read
+one tool's full record (safety class, ATLAS tactics, OWASP mapping,
+licence). Name the system's profiles. Run the manifest gate before
 trusting any of it. The CLI is a manifest reader, not a package
-manager — this recipe is the tour of exactly what it can tell you
-today.
+manager. This recipe tours exactly what it can state today.
 
 ## Solution
 
 Five landed verbs (`list`, `search`, `info`, `profile list`,
-`manifest validate` + `manifest check`), each reading the manifest —
-never your system state:
+`manifest validate` + `manifest check`). Each verb reads the manifest —
+never the system state:
 
 ```bash
 # 1. list — every row, or filtered; TAB-separated columns
@@ -58,10 +57,11 @@ kailash manifest check                # loader self-inventory: {"categories": <n
 
 What success looks like, per verb (exit code in parentheses):
 
-- `list` (0) prints rows; an unknown `--layer` or an empty filter
-  result exits **1** with the reason on stderr
-- `search` (0) prints TAB-separated `id→name→description` rows; a
-  no-hit query exits **1** — the empty result is an honest answer,
+- `list` (0) prints rows
+- an unknown `--layer` or an empty filter result exits **1** with the
+  reason on stderr
+- `search` (0) prints TAB-separated `id→name→description` rows
+- a no-hit query exits **1** — the empty result is an honest answer,
   not a crash
 - `info <id>` dumps the tools.yaml entry as one JSON object (`level`,
   `category`, `packaging.status`, `safety`, `nixos_menu`, `atlas_tactics`,
@@ -84,9 +84,9 @@ Expected output shapes (one per verb, abridged):
 
 The store-path guarantee (spec §6.3, the drift killer): the CLI's
 derivation bakes `KAILASH_MANIFEST`/`KAILASH_CATEGORIES` to store
-paths via `wrapProgram` — the CLI's own hash changes whenever the
-manifest content changes, so **`kailash list` can never disagree with
-the installed system**; the same per-file env contract drives
+paths via `wrapProgram`. The CLI's own hash changes whenever the
+manifest content changes. So **`kailash list` can never disagree with
+the installed system**. The same per-file env contract drives
 `KAILASH_PROFILES` for `profile list`.
 
 ## Discussion
@@ -94,54 +94,54 @@ the installed system**; the same per-file env contract drives
 - **The roadmap verbs, explicitly NOT quoted as landed:**
   `kailash enable` / `kailash shell` / `kailash doctor` /
   `kailash image build` / `kailash report new` / `kailash update` /
-  `kailash verifier` are specified in the OS spec's CLI chapter but
+  `kailash verifier` are specified in the OS spec's CLI chapter. They
   land per the roadmap (KA-14 children). Until each lands, this book
   gives the hand-worked alternative instead of a fake surface:
   enabling is a declarative config option
   ([first-category](first-category.html), which flags the same thing
   for `kailash enable`), reports are scaffolded with Quarto directly
-  ([your first report](first-report.html) — flags `report new`).
+  ([the first report](first-report.html) — flags `report new`).
 - **Why the exit-code contract matters (scriptable honesty):** 0 = ok,
   1 = no results, 2 = usage/manifest error. A wrapper script can tell
-  "nothing matched" apart from "the manifest could not be read" —
-  the difference between an empty search result and a broken install.
-  `--json` (accepted before or after the subcommand) swaps in the
-  stable machine-readable shape for anything you pipe onward.
+  "nothing matched" apart from "the manifest could not be read". That
+  is the difference between an empty search result and a broken
+  install. `--json` (accepted before or after the subcommand) swaps in
+  the stable machine-readable shape for anything the run pipes onward.
 - **`info` is JSON-native, `list`/`search` are line-native:** the
-  full record command dumps JSON always; use `--json` on the other
+  full record command dumps JSON always. Use `--json` on the other
   verbs when feeding scripts. The record carries the two mapping sets
-  (`atlas_tactics`, `owasp_llm` both epochs) — that is the data the
-  tactics/standards doc views generate from, and what an assessment
-  report should cite.
+  (`atlas_tactics`, `owasp_llm` both epochs). The tactics/standards
+  doc views generate from that data. An assessment report cites the
+  same fields.
 - **`profile list` and the baked file:** profile rows come from a
   generated profiles.json (baked alongside the manifest into the
-  packaged CLI). In a repo checkout the committed sample stands in;
-  on a release image the OS-side bake fills it. If neither file
+  packaged CLI). In a repo checkout the committed sample stands in.
+  On a release image the OS-side bake fills it. If neither file
   resolves, the command says so explicitly (naming
-  `KAILASH_PROFILES`) rather than printing a bare no-results — self-
+  `KAILASH_PROFILES`). It never prints a bare no-results — self-
   diagnosing by design.
 - **`manifest validate` needs the repo tree:** installed wheels carry
-  only `cli/`; the validator ships with the repo tree, so the in-
-  process run locates `tests/validate_manifest.py` beside the package
-  and exits 2 (with a message naming the missing validator) if it
-  cannot. On release systems the baked path wins; from a source
-  checkout it just works.
-- **When the CLI is the wrong tool:** the CLI reads the manifest; it
-  does not tell you what is on PATH right now, or a tool's version —
-  that provenance depth is `kailash doctor`'s roadmap job. For a
+  only `cli/`. The validator ships with the repo tree. The in-process
+  run locates `tests/validate_manifest.py` beside the package. If the
+  run cannot locate the validator, it exits 2 (with a message naming
+  the missing validator). On release systems the baked path wins.
+  From a source checkout it just works.
+- **When the CLI is the wrong tool:** the CLI reads the manifest. It
+  does not state what is on PATH right now, or a tool's version. That
+  provenance depth is `kailash doctor`'s roadmap job. For a
   "which tool is actually installed" question today, ask the package
-  manager and the store (`nix profile list`, store paths), and use
+  manager and the store (`nix profile list`, store paths). Use
   `kailash info` for what the manifest declares.
 
 ## See also
 
 - [Refresh wordlists and data packs](../admin/data-packs.html) —
   the `kailash list --status data` rows, worked end to end
-- [Enable your first category](first-category.html) — the
+- [Enable the first category](first-category.html) — the
   declarative step the roadmap `kailash enable` will wrap
 - [Inventory the catalogue → the scanning section](../scanning/garak-full-baseline.html) —
   the first tool this inventory usually surfaces
-- [Scaffold your first assessment report](first-report.html) —
+- [Scaffold the first assessment report](first-report.html) —
   cite the `info` fields in a real deliverable
 - The kailash CLI (packages repo; the loader + gate):
   <https://github.com/kailash-os/kailash-packages/tree/main/cli>

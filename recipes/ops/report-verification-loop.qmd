@@ -14,12 +14,13 @@ toc-title: Recipe
 
 ## Problem
 
-A scan is only as good as the evidence it leaves. garak writes a
-JSONL report per run and converts it to AVID on demand; the
-assessment asks you to show (1) the raw runs — same seed, two
-postures — (2) the AVID conversion, (3) the ATLAS technique ids the
-manifest licenses, and (4) a machine-checked record that the run you
-cite is the run you ran. You want that loop end-to-end.
+A scan is only as good as the evidence it leaves. Garak writes a
+JSONL report per run and converts it to AVID on demand. The
+assessment asks the operator to show (1) the raw runs — same seed,
+two postures. (2) It asks for the AVID conversion. (3) It asks for
+the ATLAS technique ids the manifest licenses. (4) It asks for a
+machine-checked record that the cited run is the executed run. The
+task: that loop end-to-end.
 
 ## Solution
 
@@ -73,47 +74,47 @@ Expected output shape (abridged, shapes not transcripts):
 
 ## Discussion
 
-- **Report naming is load-bearing, write it down exactly:** a run's
+- **Report naming carries load; write it down exactly:** a run's
   report file is `garak.<run_id>.report.jsonl` under the run's
   `report_dir` (default `garak_runs`), with an `.html` digest next
-  to it. Convert with `garak --report <file>` — this reads the
+  to it. Convert with `garak --report <file>`. The command reads the
   report and processes it "into a list of AVID reports" (the
-  upstream contract) — writing `.avid` files NEXT to the report,
+  upstream contract). It writes `.avid` files NEXT to the report,
   driven by `garak/report.py`'s `.load().get_evaluations().export()`
   shape.
-- **Entry types tell you what you are reading:** the AVID export
-  carries `start_run setup` rows (the run's config: model, probes,
-  seed) and `eval` rows (per-probe/per-detector results, with
-  `probe_tags` mapped into the AVID taxonomy). A diff of two
-  same-seed runs' AVID exports is therefore a statement about the
-  change between postures — not sampling noise (keep the seed, the
-  probe spec and `-g` identical; change exactly one thing).
+- **Entry types tell the reader what sits in the file:** the AVID
+  export carries `start_run setup` rows (the run's config: model,
+  probes, seed). It carries `eval` rows (per-probe/per-detector
+  results, with `probe_tags` mapped into the AVID taxonomy). A diff
+  of two same-seed runs' AVID exports states the change between
+  postures — not sampling noise. Keep the seed, the probe spec and
+  `-g` identical. Change exactly one thing.
 - **The diff IS the evidence for pairs:** the same-seed baseline vs
-  retest diff (step 3) is the evidence pattern the pair recipes use:
-  run the posture you are questioning, flip one
-  configuration, re-run, diff. Without same-seed the diff is
-  confounded; the flag pair `--report_prefix baseline` /
-  `--report_prefix retest` keeps the file identity stable enough
-  that the diff is scriptable.
+  retest diff (step 3) is the evidence pattern the pair recipes use.
+  The pattern: run the questioned posture, flip one configuration,
+  re-run, diff. Without the same seed the diff is confounded. The
+  flag pair `--report_prefix baseline` /
+  `--report_prefix retest` keeps file identity stable enough that
+  the diff is scriptable.
 - **`--record` real-JSON discipline:** hands-on acceptance runs pair
-  probes with `--record` — the record schema carries `status`
-  (`real`|`pending-vm`) and verbatim-required fields; CI trips on a
+  probes with `--record`. The record schema carries `status`
+  (`real`|`pending-vm`) and verbatim-required fields. CI trips on a
   hand-typed `ok` with no verbatim behind it. Cite ONLY verdicts the
   record holds.
 - **ATLAS ids come from verified sources, not re-derivation:** the
-  manifest rows carry the AML.T technique ids and OWASP mappings;
-  cite those (`garak`: AML.T0051+T0054) rather than re-mapping
+  manifest rows carry the AML.T technique ids and OWASP mappings.
+  Cite those (`garak`: AML.T0051+T0054). Do not re-derive them
   yourself. The pre-#210 paired-attack citation (AML.T0049/T0050 in
-  the pair recipe) rode a phantom row — removed, [os#210](https://github.com/kailash-os/kailash-os/issues/210)
-  — so pair-recipe mappings must stand on the public ATLAS matrix
-  until a real rebuilt row re-carries them. If a probe's AVID taxonomy
-  entry shows a technique the manifest row did not license, the
-  manifest is the source of truth to reconcile against — but never
-  invent an id to fill a gap.
+  the pair recipe) rode a phantom row — removed,
+  [os#210](https://github.com/kailash-os/kailash-os/issues/210).
+  So pair-recipe mappings stand on the public ATLAS matrix until a
+  real rebuilt row re-carries them. If a probe's AVID taxonomy entry
+  shows a technique the manifest row did not license, reconcile
+  against the manifest. Never invent an id to fill a gap.
 - **Responsible-use framing:** every artefact in `garak_runs/` is
-  the record of a deliberate attack against a target you own. Keep
+  the record of a deliberate attack against a lab-owned target. Keep
   the raw JSONL + digest + AVID export + record together in the
-  assessment, and treat the whole set as the disclosure boundary (see
+  assessment. Treat the whole set as the disclosure boundary (see
   the OS repo's `docs/responsible-use.md`).
 
 ## See also

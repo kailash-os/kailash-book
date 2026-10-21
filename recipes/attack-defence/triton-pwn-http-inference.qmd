@@ -15,25 +15,24 @@ toc-title: Recipe
 ## Problem
 
 A Triton Inference Server speaks the KServe v2 protocol on three
-default ports — HTTP 8000, gRPC 8001, metrics 8002 — and the control
-surface rides the SAME HTTP port as inference: with the right shaped
-POST, an unauthenticated client can ask the server to load or unload
-models from a declared model-repository path at
-`POST /v2/repository/models/<model>/load|unload` alongside
-`POST /v2/repository/index`. Anyone who can reach the port can
-inspect what is served (health + model index), drive inference, and —
-the LLM10 half — change what is served. The quickstart posture makes
-it worse for lab realism: upstream's own quickstart binds
-`0.0.0.0:8000`. The manifest maps the surface to OWASP LLM02 + LLM10; the pre-purge
-The paired attack row mapped to ATLAS AML.T0049 + T0050 (the row was a
-phantom — removed, os#210; the protocol facts here stand on upstream
-TRITON docs, not the removed row). You want to
-demonstrate the exposure against the lab-booted server (the Shape-3
-container posture: `triton-inference-server` ships as a
-docker-wrapper row, podman, `autoStart=false`; A-7 never rides this
-shape — the attack side drives the shapes from the base system at a
-booted target), then flip the posture closed and see the probe
-results invert.
+default ports — HTTP 8000, gRPC 8001, metrics 8002. The control
+surface rides the SAME HTTP port as inference. With the right shaped
+POST, an unauthenticated client loads or unloads models from the
+declared model-repository path. The verbs: `POST
+/v2/repository/models/<model>/load|unload` alongside
+`POST /v2/repository/index`. Anyone who can reach the port inspects
+what is served (health + model index). Anyone can drive inference,
+and — the LLM10 half — change what is served. The quickstart posture
+makes it worse for lab realism: upstream's own quickstart binds
+`0.0.0.0:8000`. The manifest maps the surface to OWASP LLM02 + LLM10.
+The paired attack row mapped to ATLAS AML.T0049 + T0050. The row was
+a phantom — removed, os#210. The protocol facts here stand on
+upstream Triton docs, not the removed row. The task: demonstrate the
+exposure against the lab-booted server. The posture:
+`triton-inference-server` ships as a docker-wrapper row (podman,
+`autoStart=false`). A-7 never rides this shape — the attack side
+drives the shapes from the base system at a booted target. Then flip
+the posture closed and see the probe results invert.
 
 ## Solution
 
@@ -133,9 +132,9 @@ sweep again, hardened posture (loopback-publish + flags)
 
 ## Discussion
 
-- **Why plain curl and not a bespoke exploit script:** the
-  the paired attack manifest row was a PHANTOM — its claimed kailash-os
-  upstream was never created — and the os#210 audit (2026-10-14)
+- **Why plain curl and not a bespoke exploit script:** the paired
+  attack manifest row was a PHANTOM. Its claimed kailash-os
+  upstream was never created. The os#210 audit (2026-10-14)
   removed it entirely
   ([kailash-os#210](https://github.com/kailash-os/kailash-os/issues/210);
   the name rides the registry there). The probe leg runs the verified
@@ -148,35 +147,36 @@ sweep again, hardened posture (loopback-publish + flags)
   triton-inference-server row is a docker-wrapper row — podman,
   `autoStart=false`, a pinned upstream container. In this book's
   packaging grammar, that is the Shape-3 posture (the packaging shape
-  documented in docs/guide/o-03-docker-wrapper-stores.md), and the
-  A-7 attack tooling NEVER rides inside that shape ("A-7 never in
-  this shape" is the packaging note's line verbatim) — the A-7 attack
-  rides a lab-booted container target while native attack tooling
+  documented in docs/guide/o-03-docker-wrapper-stores.md). The A-7
+  attack tooling NEVER rides inside that shape ("A-7 never in
+  this shape" is the packaging note's line verbatim). The A-7 attack
+  rides a lab-booted container target, while native attack tooling
   stays out of the container. The boot IS the lab posture: turning
   the backend on is what makes the target answer.
-- **The load/unload verbs are the pair's teeth:** enumeration shows
-  what is served; inference shows what it returns; the repository
+- **The load/unload verbs are the pair's core:** enumeration shows
+  what is served. Inference shows what it returns. The repository
   control pair changes what is served — unload the model and the
   same inference shape fails, load it back and it answers again.
   That toggle is the LLM10 evidence: control surface on the same
   unauthenticated port as the data surface.
 - **The BETA gate is honest about being BETA:** `--http-restricted-api`
   (with its restricted key/value) is upstream's Beta restricted-API
-  mechanism — better than nothing, worth using, but a Beta surface is
-  not a hardened perimeter; the bind + firewall remain the
-  load-bearing controls, and vLLM's identical story (key never covered
-  everything) is a different server with the same moral: perimeter
+  mechanism. The gate is real: a Beta surface is not a hardened
+  perimeter. The bind + firewall remain the
+  load-bearing controls. vLLM's identical story (key never covered
+  everything) is a different server with the same lesson: perimeter
   beats flag.
 - **The observability defence leg is a pending row, stated honestly:**
   Phoenix (Arize) is the trace destination: OTLP/HTTP exporter to
-  `:6006/v1/traces` (gRPC :4317), server via `phoenix serve`; and
+  `:6006/v1/traces` (gRPC :4317), server via `phoenix serve`.
   Evidently is the report layer — `Report`/`DataDefinition` +
-  column descriptors over captured request logs, producing the drift/
-  data-quality view that makes an unexplained inference spike visible.
-  Both are d-02 rows with upstream config flows that exist; their
-  kailash module wiring is PENDING at the pin — quoted as the design,
-  not as a landed surface. The traces/reports become the standing
-  anomaly view that the probes hand-verified during the pair.
+  column descriptors over captured request logs. The layer gives the
+  drift/data-quality view that makes an unexplained inference spike
+  visible. Both are d-02 rows with upstream config flows that exist.
+  Their kailash module wiring is PENDING at the pin — quoted as the
+  design, not as a landed surface. The traces/reports become the
+  standing anomaly view that the probes hand-verified during the
+  pair.
 - **This is the transferable pattern:** lab target up → probe sweep
   → posture flip → same sweep → diff. Origin walk with the verdict
   instrument: [Attack the platform, then

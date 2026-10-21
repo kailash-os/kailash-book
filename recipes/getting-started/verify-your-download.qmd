@@ -14,18 +14,19 @@ toc-title: Recipe
 
 ## Problem
 
-You downloaded an image — or you are about to — and "it booted" is not
-evidence that it is what the project built. The release ships a trust
-chain that is only as good as your willingness to run it: a checksum
-sheet as the identity authority, SLSA build provenance + an SPDX SBOM
-per artefact, and a GPG-signed release tag. This recipe is the deep
-dive on running that whole chain by hand — including the awkward case:
-an artefact above GitHub's per-file cap that arrives as split parts.
+A download is done, or one is next. "It booted" is not evidence that
+the bytes match the project build. The release ships a trust chain.
+The chain holds only when the checks actually run. The chain carries a
+checksum sheet as the identity authority. It carries SLSA build
+provenance + an SPDX SBOM per artefact. It ends at a GPG-signed
+release tag. This recipe runs the whole chain by hand. The awkward
+case is in scope too: an artefact above GitHub's per-file cap arrives
+as split parts.
 
 ## Solution
 
-The chain has four links. Run them in order; a failed link means the
-download does not get run.
+The chain has four links. Run them in order. A failed link means the
+download does not run.
 
 ```bash
 # 0. Name the tag + artefact you are working with, from the release's
@@ -64,17 +65,19 @@ git tag -v 2026.01-alpha.1
 
 What success looks like:
 
-- the per-part sheet check reports `OK` for every `.part-*` line — a
-  truncated part fails loudly, before the (large) reassembly
-- `cat …part-* >` reproduces the file; the whole-file `sha256sum -c`
-  against `SHA256SUMS` — the release sheet, THE authority on artefact
-  identity — reports OK for your artefact's line
+- the per-part sheet check reports `OK` for every `.part-*` line
+- a truncated part fails the check, before the large reassembly
+- `cat …part-* >` reproduces the file
+- the whole-file `sha256sum -c` against `SHA256SUMS` reports OK for
+  the artefact's line — the release sheet, THE authority on artefact
+  identity
 - `gh attestation verify` PASSES and names the build provenance
-  predicate — the check is digest-bound to the ORIGINAL build's
-  records, so it stays valid after reassembly (the split is lossless
+  predicate. The check binds the digest to the ORIGINAL build's
+  records. It stays valid after reassembly (the split is lossless
   packaging; `cat` reproduces the attested subject's exact bytes)
 - `git tag -v` shows a good GPG signature (the release notes name the
-  signing key) on the tag whose lock bump the artefacts were built at
+  signing key). The signature covers the tag whose lock bump the
+  artefacts were built at
 
 Expected output shape (abridged, per link):
 
@@ -88,42 +91,41 @@ Good "git" signature (GPG) for <key-id>               <- (shape)
 
 ## Discussion
 
-- **Why three digests, not one:** the per-part sheet authenticates each
-  chunk *in transit* (a corrupt part fails before you spend the disk),
-  the whole-file line in `SHA256SUMS` is the identity statement (what
-  the releaser built), and the attestation binds BOTH to the *build
-  event* (which workflow built it, under which repo identity) — the
-  SLSA/Sigstore layer answers a question checksums cannot: not "are
-  these bytes consistent" but "did the project's pipeline produce
-  them".
-- **The SBOM rides the same attestation:** every published artefact
-  carries an SPDX SBOM as a separate statement — a supply-chain audit
-  or an AI-BOM flow starts from it; keep the verified artefact and its
-  attestation together in your engagement records.
+- **Why three digests, not one:** the per-part sheet authenticates
+  each chunk *in transit*. A corrupt part fails before any reassembly
+  work. The whole-file line in `SHA256SUMS` is the identity statement:
+  what the releaser built. The attestation binds BOTH to the *build
+  event*: which workflow built it, under which repo identity. The
+  SLSA/Sigstore layer answers the question checksums cannot: not byte
+  consistency, but build origin.
+- **The SBOM shares the attestation:** every published artefact
+  carries an SPDX SBOM as a separate statement. A supply-chain audit
+  or an AI-BOM flow starts from it. Keep the verified artefact and its
+  attestation together in the engagement records.
 - **Chunked ≠ suspicious:** the cap (2 147 483 648 bytes per upload)
   is a GitHub endpoint limit, not a project hedge. The split tool's
-  contract is byte-exact reassembly, its self-test deliberately
-  crosses parts to prove reassembly ORDER, and the completeness gate
+  contract is byte-exact reassembly. Its self-test deliberately
+  crosses parts to prove reassembly ORDER. The completeness gate
   (`images-release-completeness` in the OS repo) fails CI if a matrix
-  row lacks its declared build surface — chunked publishing is how
-  every artefact still lives ON the release.
+  row lacks its declared build surface. Chunked publishing keeps every
+  artefact ON the release.
 - **The flake-pull alternative:** any artefact, any tag, can come from
   the Cachix-held closure instead —
-  `nix build github:kailash-os/kailash-os/<tag>#<ref>` — for which the
-  nix fetch and the lock substitute verification; the SAME `SHA256SUMS`
+  `nix build github:kailash-os/kailash-os/<tag>#<ref>` — the nix fetch
+  and the lock carry the verification instead. The SAME `SHA256SUMS`
   line still pins whole-file identity after the build. The release
   notes' artefact table states each artefact's surface.
 - **The tag is the frame:** every other link verifies an artefact, the
-  tag verifies the *release state* — the staged ladder (`-alpha.N` →
-  `-rc.N` → bare `YYYY.NN`) is visible in the tag name, and its lock
-  bump PR is the release review. If you intend to rebuild instead of
-  download (an equally valid path for a suspicious link), build
-  from this tag, not from a moving master.
+  tag verifies the *release state*. The staged ladder (`-alpha.N` →
+  `-rc.N` → bare `YYYY.NN`) is visible in the tag name. Its lock bump
+  PR is the release review. A rebuild instead of a download is an
+  equally valid path for a suspicious link. Build from this tag, not
+  from a moving `master`.
 - **Where a mismatch lands:** a failing link is either transport
-  corruption (re-download; the sheets re-check in seconds) or a
-  genuinely wrong artefact (report it on the OS repo's tracker with
-  the release tag — the troubleshooting chapter's first move is
-  the same checksum you just ran).
+  corruption or a genuinely wrong artefact. Fix the first case with a
+  re-download; the sheets re-check in seconds. Report the second case
+  on the OS repo's tracker with the release tag. The troubleshooting
+  chapter's first move is the same checksum the run just used.
 
 ## See also
 
@@ -132,7 +134,7 @@ Good "git" signature (GPG) for <key-id>               <- (shape)
 - [Choose between the profiles](choose-your-profile.html) — which
   artefact to fetch at all
 - [Ride a release without breaking pinned tooling](../admin/updates.html) —
-  what happens to your system when the NEXT tag lands
+  what happens to the system when the NEXT tag lands
 - The images chapter (canonical matrices + verify surfaces):
   <https://github.com/kailash-os/kailash-os/blob/master/docs/guide/images.md>
 - The release-cut checklist (the release side of these gates):

@@ -14,18 +14,19 @@ toc-title: Recipe
 
 ## Problem
 
-You have an LLM application — a chat endpoint, a model-plus-prompt
-surface, a RAG agent — and you need a repeatable, reportable red-team
-pass for the injection/jailbreak class (the manifest maps this tool to
-OWASP LLM01, both Top-10 epochs), not a one-off impression from
-chatting with it by hand. You also want the run to be cheap enough to
+The application is an LLM surface: a chat endpoint, a
+model-plus-prompt pair, a RAG agent. The task: a repeatable, reportable
+red-team pass for the injection/jailbreak class. The manifest maps
+promptfoo to OWASP LLM01, both Top-10 epochs. Manual chatting gives a
+one-off impression, not a record. The run must stay cheap enough to
 repeat as a regression check after every app or config change.
 
-promptfoo is the catalogue's eval-and-red-team CLI for exactly this:
-it generates adversarial test cases against a described target, runs
-them as an eval, and renders a vulnerability report. Its manifest row
-is a **bespoke** packaging (a pinned binary in the Kailash closure) and
-**requires-target** (like every scanner here: it refuses to self-fire).
+promptfoo is the catalogue's eval-and-red-team CLI for exactly this.
+It generates adversarial test cases against a described target. It
+runs them as an eval. It renders a vulnerability report. Its manifest
+row is **bespoke** packaging: a pinned binary in the Kailash closure.
+The safety class is **requires-target** (like every scanner here: it
+refuses to self-fire).
 
 ## Solution
 
@@ -48,7 +49,7 @@ promptfoo redteam init <directory> --no-gui
 #    model+prompt / RAG / agent) -> application purpose
 ```
 
-The HTTP-endpoint branch writes a provider that posts to your app
+The HTTP-endpoint branch writes a provider that posts to the app
 (template shape from the init flow at the pin):
 
 ```yaml
@@ -69,7 +70,7 @@ redteam:
   strategies: [basic, jailbreak:meta, jailbreak:composite]
 ```
 
-Scope the run to the injection/jailbreak cluster, then run it:
+Scope the run to the injection/jailbreak cluster. Then run it:
 
 ```bash
 # 3. Generate the attacks (scoped list), then evaluate them against the
@@ -105,48 +106,46 @@ The eval underneath renders as a table whose cells carry verdicts:
 <var>  [ERROR] <error-text>
 ```
 
-Results persist to promptfoo's eval store; `-o <file>` on `promptfoo
-eval` writes one of csv/html/json/jsonl/txt/xml/yaml/yml/junit.xml.
+Results persist to promptfoo's eval store. `-o <file>` on `promptfoo
+eval` writes csv/html/json/jsonl/txt/xml/yaml/yml/junit.xml.
 
 ## Discussion
 
 - **Why the pinned binary and not `npx promptfoo@latest`:** upstream's
-  quick-start floats the latest tag; Kailash's contract is that the
-  lock is the product — the manifest row (bespoke, `update:weekly`)
-  pins the exact build, and `kailash doctor` reports its provenance.
+  quick-start targets the latest tag. The Kailash contract: the lock
+  is the product — the manifest row (bespoke, `update:weekly`) pins
+  the exact build, and `kailash doctor` reports its provenance.
   Upstream's `pip install promptfoo` / `brew` paths are equally
-  off-contract on this OS: the packaged `promptfoo` is the surface.
+  off-contract on this OS. The packaged `promptfoo` is the surface.
 - **Why scope the plugins:** the default plugin set is broad (base
   plugins plus harm/PII/bias collections at this pin). A scoped
   `--plugins indirect-prompt-injection,ascii-smuggling,...` run answers
-  the question you actually have and keeps the API cost of generative
-  plugins bounded; drop the flag for the full baseline before you sign
-  off an assessment.
-- **Generation is itself a model call:** adversarial probes are
-  generated with an attack-generation model (`--provider` defaults to
-  promptfoo's red-team model at the pin). Some setups route generation
-  through promptfoo's remote service (`--remote`) — that is a
-  data-egress decision, make it deliberately. Locally-served targets
-  (the loopback endpoint from
-  [Serve a local model for scanning](../ops/serve-a-model.html)) pair
-  with the `https` provider above or an `ollama:chat:<model>` provider
-  id (verified in the pinned provider source).
-- **The manifest row is the OWASP record:** the row maps this tool to
+  the question at hand. It keeps the API cost of generative plugins
+  bounded. Drop the flag for the full baseline before the assessment
+  sign-off.
+- **Generation is itself a model call:** an attack-generation model
+  gives the adversarial probes (`--provider` defaults to promptfoo's
+  red-team model at the pin). Some setups route generation through
+  promptfoo's remote service (`--remote`). That is a data-egress
+  decision. Make it deliberately. The loopback endpoint from
+  [Serve a local model for scanning](../ops/serve-a-model.html) serves
+  as the target. It pairs with the `https` provider above or an
+  `ollama:chat:<model>` provider id (verified in the pinned provider
+  source).
+- **The manifest row is the OWASP record:** the row maps promptfoo to
   **LLM01** — prompt injection — in both Top-10 epochs. Upstream's
-  plugin catalogue covers several adjacent classes (`excessive-agency`,
-  `prompt-extraction`) and exposes an `owasp:llm` compliance view of
-  its own; the manifest row's map is what Kailash recorded for the
-  tool. Tag-driven Top-10 collection pages over recipes build from
-  these row mappings.
-- **requires-target, not exp:** most ATTACK rows are the lighter gate —
-  the tool runs freely once you give it a declared target. The
-  exp-class double-key gate is a different class entirely
+  plugin catalogue covers adjacent classes (`excessive-agency`,
+  `prompt-extraction`). It also exposes an `owasp:llm` compliance
+  view. The manifest row's map is what Kailash recorded for the tool.
+  Tag-driven Top-10 collection pages build from these row mappings.
+- **requires-target, not exp:** most ATTACK rows carry the lighter
+  gate. The tool runs freely with a declared target. The exp-class
+  double-key gate is a different class entirely
   ([Gate lab-mode and exp-classified tools](../admin/lab-mode-gating.html)).
-  Point scanners only at endpoints you are authorised to test.
-- **Regression workflow:** the eval store keeps every run —
-  `promptfoo redteam run --force` regenerates after a change; diff the
-  report across runs the same way the seeded-scan diffing works for
-  garak below.
+  Point scanners only at endpoints the operator is authorised to test.
+- **Regression workflow:** the eval store keeps every run.
+  `promptfoo redteam run --force` regenerates after a change. Diff the
+  report across runs, like the seeded-scan diffing for garak.
 
 ## See also
 
