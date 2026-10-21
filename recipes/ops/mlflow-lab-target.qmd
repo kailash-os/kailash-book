@@ -14,19 +14,19 @@ toc-title: Recipe
 
 ## Problem
 
-The pairing thesis needs a platform target on your side of the lab
-boundary: an MLflow tracking server answering real API shapes. The
-Kailash OS module `services.kailash.mlflow` (category O-1 — the
-manifest names the pairing-thesis lab target) declares that posture
-for you; you want it booted exactly as the tests do, and you want to
-understand which parts of that posture are deliberate lab-only
-choices.
+The pairing thesis needs a platform target on the lab's side of the
+boundary. The target: an MLflow tracking server answering real API
+shapes. The Kailash OS module `services.kailash.mlflow` declares that
+posture (category O-1 — the
+manifest names the pairing-thesis lab target). Boot it exactly as the
+tests do. Understand which parts of the posture are deliberate
+lab-only choices.
 
 ## Solution
 
-Boot the lab target with the module's declared settings — the same
-shape the OS repo's `tests/integration-mlflow-attack.nix`
-acceptance pair uses:
+Boot the lab target with the module's declared settings. The shape
+matches the OS repo's `tests/integration-mlflow-attack.nix`
+acceptance pair:
 
 ```nix
 # configuration.nix (lab VM segment)
@@ -54,41 +54,41 @@ Expected output shape (abridged, shapes not transcripts):
 ## Discussion
 
 - **What "lab-accurate defaults" means here:** the module's lab
-  posture is a *declared* configuration, not an accident — three
-  choices are load-bearing:
-  1. `labReachable = true` is the declaration that the server
-     answers on `0.0.0.0:5000` (the lab-reachable bind) rather than
-     loopback-only, so in-guest and hostfwd probes both reach it;
+  posture is a *declared* configuration, not an accident. Three
+  choices carry the load:
+  1. `labReachable = true` declares the
+     server answers on `0.0.0.0:5000` (the lab-reachable bind), not
+     loopback-only. In-guest and hostfwd probes both reach it;
   2. the backend store ships as
      `sqlite:///var/lib/kailash-mlflow/mlflow.db` in the module's
-     state dir — a lab-sized, single-node store, not a managed
+     state dir. It is a lab-sized, single-node store, not a managed
      database;
   3. the module asserts the two posture options are mutually
      exclusive (`labReachable` with any explicit `host` is refused
-     at eval) — the lab posture cannot silently co-exist with a
+     at eval). The lab posture cannot silently co-exist with a
      tightened bind.
-  "Lab-accurate" = the target matches what the OS tests and pair
-  recipes assume: real port 5000, real unauthenticated tracking API,
-  real artefact store — on an isolated lab segment.
+  The "Lab-accurate" label: the target matches what the OS tests and
+  pair recipes assume. Real port 5000, real unauthenticated tracking
+  API, real artefact store — on an isolated lab segment.
 - **Why loopback-by-default is not a security setting upstream:** the
   `mlflow` server CLI's `--host` default binds `127.0.0.1`, and
-  upstream's own server README warns in terms (verbatim):
+  upstream's own server README warns, verbatim:
   "**The default bind is 127.0.0.1. If you wish to publicly expose
   your server, either change the host or use a reverse proxy on your
   side. It is NOT a security setting.**" In other words: the default
   bind is a convenience default, not a control — and the module's
   `labReachable` flip is the documented, reviewable way the lab
-  posture opens. Keep that phrasing in head when you read lab
+  posture opens. Keep that phrasing in mind when reading lab
   configurations of any tool.
 - **Where the isolated-segment boundary comes from:** the lab VM's
   qemu user-net / NAT segment is the perimeter — the target is
   dangerous to share beyond it. Read the book's
   [responsible-use](https://github.com/kailash-os/kailash-os/blob/master/docs/responsible-use.md)
-  stance; a lab target is an attack surface you created for
-  verification, not a service to casually widen.
+  stance. A lab target is an attack surface created for
+  verification, not a service to widen casually.
 - **The port:** 5000 is the module default (and the upstream
   `--port` default). If another service owns 5000, change it in the
-  module — and re-check every probe recipe that hardcodes the port.
+  module. Re-check every probe recipe that hardcodes the port.
 
 ## See also
 
