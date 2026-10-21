@@ -14,22 +14,23 @@ toc-title: Recipe
 
 ## Problem
 
-A vendor supplying GenAI components makes claims you cannot take at
+A vendor supplying GenAI components makes claims the review cannot
+take at
 face value — model provenance, training-data posture, subprocessor
-list, incident history. Frameworks to review them against are REAL
-and published (ISO/IEC 42001, NIST AI RMF, the EU AI Act's obligations),
-but **Kailash ships no governance template pack** — the pre-#210 D-6
+list, incident history. The review frameworks are REAL
+and published (ISO/IEC 42001, NIST AI RMF, the EU AI Act's obligations).
+But **Kailash ships no governance template pack** — the pre-#210 D-6
 rows (the governance template-pack family) were phantom-origin
 template packs (no real upstream anywhere) and the os#210 audit
 removed them
 ([os#210](https://github.com/kailash-os/kailash-os/issues/210); the
-four names ride the registry there). You want the review to happen
-NOW, honestly, with the framework documents as your checklist source.
+four names ride the registry there). The task: run the review NOW,
+honestly, with the framework documents as the checklist source.
 
 ## Solution
 
-Work from the upstreams directly — the frameworks are public; the
-review is your document discipline, not tooling:
+Work from the upstreams directly — the frameworks are public. The
+review is the lab's document discipline, not tooling:
 
 ```bash
 # 1. Get the vendor's OWN declarations in writing:
@@ -56,13 +57,13 @@ What success looks like:
   (or its absence — also evidence)
 - the four citation components: framework + clause, vendor artefact,
   reviewer, date
-- nothing in your review claims compliance — reviews FIND, auditors
+- nothing in the review claims compliance — reviews FIND, auditors
   attest
 
 ## Discussion
 
 - **Why no pack exists yet:** building a checklist pack for AI Act /
-  AI RMF / 42001 review is exactly the kind of work the registry's
+  AI RMF / 42001 review is exactly the work the registry's
   rebuild contract covers — the names are parked, not deleted
   ([os#210](https://github.com/kailash-os/kailash-os/issues/210)).
 - **The framework texts are the checklist source of truth:** read
@@ -70,8 +71,9 @@ What success looks like:
   built) renders views of THEM, never replaces them.
 - **Pair the review with the technical evidence chain:**
   [Evidence for a standards-mapped control statement](standards-evidence.html)
-  produces tool-run-backed evidence that your governance findings can
-  cite — regulation asks for control evidence; your runs provide it.
+  produces tool-run-backed evidence that the governance findings can
+  cite — regulation asks for control evidence; the lab's runs provide
+  it.
 
 ## See also
 

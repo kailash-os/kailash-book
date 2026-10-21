@@ -15,21 +15,20 @@ toc-title: Recipe
 
 ## Problem
 
-You operate (or inherit) a Kailash host and need the safety inventory
-stated as fact, not folklore: exactly which tools in this closure are
-exp-classified and therefore gated. The manifest at the verified
+The host is run, or inherited. The safety inventory needs stating as
+fact, not folklore. The fact: exactly which tools in this closure are
+exp-classified, and therefore gated. The manifest at the verified
 revision carries 4 `safety.level: exp` rows (hexstrike-ai, kailash-mcp,
-mcp-kali-server, mcpoison — post-os#210; the pre-purge 26 counted
-phantom rows removed via
-[kailash-os#210](https://github.com/kailash-os/kailash-os/issues/210)),
-but the number that matters is the one
-on YOUR host — the closure's gate-state record — and the two must agree.
-You want to see both sets directly, cross-check them with the landed
-CLI, and know which instrument guarantees the agreement.
+mcp-kali-server, mcpoison — post-os#210). The pre-purge 26 counted
+phantom rows, removed via
+[kailash-os#210](https://github.com/kailash-os/kailash-os/issues/210). The number that matters sits on THIS
+host — the closure's gate-state record. The two numbers must agree.
+See both sets directly. Cross-check them with the landed CLI. Know
+which instrument guarantees the agreement.
 
 ## Solution
 
-Read the gate state off the host, then cross-check every id against the
+Read the gate state off the host. Cross-check every id against the
 manifest with the landed CLI slice:
 
 ```bash
@@ -81,39 +80,42 @@ manifest validate: <green verdict line — the loader's self-inventory>
 
 What success looks like:
 
-- the state file parses; its wrapped-id count and your closure's exp-row
-  count agree (26 exp rows at the manifest verified for this recipe —
-  recount on your own revision; the number moves with manifest PRs)
+- the state file parses
+- its wrapped-id count and the closure's exp-row count agree (26 exp
+  rows at the manifest verified for this recipe)
+- recount on the host's own revision; the number moves with manifest
+  PRs
 - every wrapped id's `kailash info` reads `safety: exp`
 - `kailash manifest validate` is green
-- on a lab-off host, the shell key alone is still refused — the host key
-  half of the double-key gate is doing real work
+- on a lab-off host, the shell key alone is still refused. The host
+  key half of the double-key gate is doing real work
 
 ## Discussion
 
-- **Three records, three instruments.** The manifest row is the routing
-  record (gate data flows from the manifest, never a hand-copy); the
-  closure's `wrapped-exp-tools.json` is what the gate committed on this
-  host; the parity validator (`tools/safety-exp-wrap.py`) is the
-  instrument that proves set-equality — an independent PyYAML parse of
-  the manifest, a coverage requirement (wrapper set covers every exp
-  row), and a per-wrap behavioural probe — with the negative case (a
-  deliberately broken fixture refused) proven in CI by construction.
+- **Three records, three instruments.** The manifest row is the
+  routing record (gate data flows from the manifest, never a
+  hand-copy). The closure's `wrapped-exp-tools.json` is what the gate
+  committed on this host. The parity validator
+  (`tools/safety-exp-wrap.py`) proves set-equality. Its method: an
+  independent PyYAML parse of the manifest, a coverage requirement
+  (wrapper set covers every exp row), and a per-wrap behavioural
+  probe. The negative case (a deliberately broken fixture refused)
+  is proven in CI by construction.
 - **What the CLI can and cannot filter.** The landed slice is
-  `list`/`search`/`info`/`profile list`/`manifest validate`; there is no
-  `--safety exp` filter, so the cross-check is the per-id `info` loop
-  (wrapper set ⊆ exp rows), and the parity validator's CI run owns the
-  reverse direction (exp rows ⊆ wrapper set). Together they state
-  equality; neither direction alone does. A safety-filtered
-  `kailash list` is a reasonable CLI ask — track it on the OS repo's CLI
-  lane, don't script around the contract.
+  `list`/`search`/`info`/`profile list`/`manifest validate`; there is
+  no `--safety exp` filter, so the cross-check is the per-id `info`
+  loop (wrapper set ⊆ exp rows), and the parity validator's CI run
+  owns the reverse direction (exp rows ⊆ wrapper set). Together they
+  state equality; neither direction alone does. A safety-filtered
+  `kailash list` is a reasonable CLI ask — track it on the OS repo's
+  CLI lane. Do not script around the contract.
 - **Census caveat.** 26 is the verified-at revision's count, not a
-  constant: every manifest PR that adds or de-exp's a row moves it. The
-  recipe's job is the method (state file + per-id manifest cross-check +
-  validator), not a memorised number.
-- **Inventory is read-only.** Enumerating exp ids grants nothing: the
-  bare exp derivation never reaches PATH, only gate wrappers do, and a
-  run needs both keys. The gate walk itself:
+  constant: every manifest PR that adds or de-exp's a row moves it.
+  The recipe's job is the method (state file + per-id manifest
+  cross-check + validator), not a memorised number.
+- **Inventory is read-only.** Enumerating exp ids grants nothing.
+  The bare exp derivation never reaches PATH; only gate wrappers do.
+  A run needs both keys. The gate walk itself:
   [Gate lab-mode and exp-classified tools](lab-mode-gating.html).
 
 ## See also

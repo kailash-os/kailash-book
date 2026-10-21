@@ -16,16 +16,15 @@ toc-title: Recipe
 ## Problem
 
 A Kailash installation never updates anything in the background — no
-package re-links, no tool moves, no lock drift. The flip side: when
-you DO want the newer release, you want it deliberate — an update
-without surprise breakage, where you can name what moved before you
-switch, and where documentation keeps pace with the pins it
-describes.
+package re-links, no tool moves, no lock drift. The other side: the
+operator wants a newer release only deliberately. The update carries
+no surprise breakage. The operator names what moved before the
+switch. The documentation keeps pace with the pins it describes.
 
 ## Solution
 
-Pull the lock delta, review what moved, rebuild, verify — on your own
-cadence:
+Pull the lock delta. Review what moved. Rebuild. Verify — on the
+operator's own cadence:
 
 ```bash
 # 1. Record where you are now
@@ -50,39 +49,40 @@ kailash manifest validate
 What success looks like:
 
 - the diff-closures step names the versions that moved
-  (up/down/changed) BEFORE anything is switched — no surprise in the
-  apply step
-- `nixos-rebuild switch` completes; the boot entry for the previous
-  generation remains (rollback is a reboot away)
+  (up/down/changed) BEFORE anything switches
+- no surprise rides the apply step
+- `nixos-rebuild switch` completes. The boot entry for the previous
+  generation remains — rollback is a reboot away
 - `kailash manifest validate` is green after the switch
 - the release naming holds: `2026.01` → staged `2026.02-alpha.1` →
-  `2026.02` GA; a material same-month re-cut is dotted `2026.01.1` —
-  a staged cut carries the suffix honestly (`git tag -v` shows it),
+  `2026.02` GA
+- a material same-month re-cut is dotted `2026.01.1`
+- a staged cut carries the suffix honestly (`git tag -v` shows it),
   and the bare name stays reserved for GA
 
 ## Discussion
 
 - **The lockfile is the version:** rolling changes merge on main
-  between releases, but a system pinned to last month's lock keeps
-  rebuilding it reproducibly until its operator deliberately pulls a
-  newer one. A build against the same lock reproduces the identical
-  tool set — that is why "the version" is a fact, not an
+  between releases. A system pinned to last month's lock keeps
+  rebuilding it reproducibly, until its operator deliberately pulls
+  a newer one. A build against the same lock reproduces the
+  identical tool set. That is why "the version" is a fact, not an
   impression.
-- **Two ways to move forward:** rebuild against a newer lock at your
-  own cadence, or adopt a released lock bump as-is. Either way the
-  move is a review, not a countdown.
+- **Two ways to move forward:** rebuild against a newer lock at the
+  operator's own cadence, or adopt a released lock bump as-is.
+  Either way the move is a review, not a countdown.
 - **Documentation rides the pin:** every guide man-page carries the
   exact pinned version it was written against, and every recipe here
-  carries a provenance footer. A moving pin without a regeneration is
-  a red-regenerate event enforced by CI (the guide's gate; the
+  carries a provenance footer. A moving pin without a regeneration
+  is a red-regenerate event, enforced by CI (the guide's gate; the
   book's gate lane mirrors it) — the docs never silently disagree
   with the system.
 - **Fast-moving tools:** pins are re-checked on class-based cadences
-  (weekly fast-moving, fortnightly steady, nixpkgs monthly) — but a
-  check becomes a PR only when the smoke check passes, and merge is
+  (weekly fast-moving, fortnightly steady, nixpkgs monthly). A
+  check becomes a PR only when the smoke check passes. Merge is
   human-approved.
 - **Rollback posture:** generations mean an update that disappoints
-  is restarted, not untangled — boot the previous generation, then
+  is restarted, not untangled. Boot the previous generation, then
   revisit the lock delta.
 
 ## See also

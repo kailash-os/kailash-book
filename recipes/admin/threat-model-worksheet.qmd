@@ -15,12 +15,14 @@ toc-title: Recipe
 
 ## Problem
 
-You are about to stand up (or audit) an agentic or LLM-backed system in
-the lab — an MCP server, a multi-agent pipeline, a model endpoint — and
-the honest first artefact of doing that safely is a threat model: what
-does this system trust, from whom, where are the boundaries, which ATLAS
-techniques map onto which component. Kali culture has a strong habit
-here ("do the model first"); the D-5 pack was designed
+The lab stands up (or audits) an agentic or LLM-backed system: an MCP
+server, a multi-agent pipeline, a model endpoint. The honest first
+artefact of doing that safely is a threat model. The questions: what
+does this system trust, from whom, where are the boundaries, which
+ATLAS
+techniques map onto which component. Kali culture carries a strong
+habit
+here ("do the model first"). The D-5 pack was designed
 to give the AI-side session real worksheets instead of a blank page
 (today only `maestro` is real — the worksheet/template/visualiser rows
 were phantom-upstream, removed per os#210; the frameworks themselves
@@ -29,9 +31,10 @@ are published upstreams).
 ## Solution
 
 One session, four instruments: MAESTRO's layer walk for agentic
-systems, STRIDE-for-AI for the trust-boundary elicitation, the GenAI
-templates for per-component worksheets, the ATLAS visualiser (and case
-studies) to keep the finding vocabulary real:
+systems. STRIDE-for-AI drives the trust-boundary elicitation. The
+GenAI templates give per-component worksheets. The ATLAS visualiser
+(and case
+studies) keep the finding vocabulary real:
 
 ```bash
 # 1. Confirm the real D-5 row (pure content, no firing):
@@ -95,19 +98,20 @@ threats:
 What success looks like:
 
 - every boundary in the model names BOTH sides and the current control
-- every threat row carries an ATLAS reference and at least one probe you
-  can actually run (which turns the model into a plan — the D-5 pack is
-  deliberately near the ATTACK-layer surface it informs)
+- every threat row carries an ATLAS reference and at least one
+  runnable probe
+- that turns the model into a plan — the D-5 pack is
+  deliberately near the ATTACK-layer surface it informs
 - the session artefact is committed (the model is versioned with its
   system; a threat model without the system's version is orphaned)
-- case-study prompts are IN the artifact (real incidents named real
-  your-boundaries; not just framework letters)
+- case-study prompts are IN the artifact (real incidents name real
+  boundaries; not just framework letters)
 
 ## Discussion
 
 - **Why MAESTRO for agentic systems and STRIDE-for-AI for boundaries:**
   MAESTRO's seven layers (CSA lineage, OWASP MAS threat-modelling guide)
-  are the AGENT-system decomposition; STRIDE is the classic
+  are the AGENT-system decomposition. STRIDE is the classic
   trust-boundary elicitation adapted to AI surfaces (model-input as an
   untrusted source at the boundary, RAG ingestion, MCP tool results).
   A real session uses BOTH: MAESTRO for the layer walk, STRIDE sheet per
@@ -118,8 +122,9 @@ What success looks like:
   deliberately software-light (templates, small CLIs, visualiser) — the
   tooling's job is to force specificity: name the port, name the
   posture, name the ATLAS technique. A threat model produced with no
-  actual system under it is theatre; the pairing lab makes this recipe
-  honest (the mlflow/attack lab pair is the in-distro worked example).
+  actual system under it is decoration. The pairing lab makes this
+  recipe honest (the mlflow/attack lab pair is the in-distro worked
+  example).
 - **ATLAS case studies are the calibration surface:** MITRE ATLAS's
   curated real-world set (per the ATLAS data releases; the
   case-study-explorer row wraps them browsably) gives every abstract
@@ -136,13 +141,13 @@ What success looks like:
 - **Keep MAESTRO's honesty rule:** upstream's security notices (verify
   your clone's remote; forks may alter agent instructions) apply to any
   AI-assisted session: an LLM-in-the-loop workshop is fine, but the
-  CONTENT of your model must come from YOUR system's facts, not from
+  CONTENT of the model must come from the lab system's facts, not from
   the assistant's imagination — same rule as this book's
   no-invented-evidence rule.
 - **Session output discipline:** the pack rows carry
   `LicenseRef-Unknown` where upstream licences are pending
-  re-confirmation — before you redistribute a filled workbook or a
-  derived template outside your org, re-check the pack's licence note
+  re-confirmation — before the run redistributes a filled workbook or a
+  derived template outside the org, re-check the pack's licence note
   in the manifest row (the same per-file content licence caveat that
   all Kailash data rows carry).
 

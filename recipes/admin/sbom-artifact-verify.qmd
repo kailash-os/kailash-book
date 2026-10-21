@@ -15,19 +15,19 @@ toc-title: Recipe
 
 ## Problem
 
-A release artefact sits on your disk — a Kailash ISO or qcow2, or any
-piece of software you are about to run in the lab. "It downloaded" is
-not a claim you can stand behind. Before it boots, you want three
-provably-checked statements: WHAT is inside it (an SBOM), WHERE/HOW it
-was built (signed provenance), and that the bytes you have are the
+A release artefact sits on the lab disk. It may be a Kailash ISO or
+qcow2, or any software the lab is about to run. "It downloaded" is
+not a claim the assessment can stand behind. Before it boots, three
+provably-checked statements matter. WHAT is inside it (an SBOM).
+WHERE/HOW it was built (signed provenance). The bytes on disk are the
 bytes the project shipped (the whole-file identity check). Kailash
-ships the D-4 tooling to make every statement yourself too.
+ships the D-4 tooling; it makes every statement possible.
 
 ## Solution
 
-Two chains: verify a Kailash release artefact against its published
-records, and generate SBOM/provenance evidence for artefacts of your
-own. Both start the same way — identity first:
+Two chains exist: verify a Kailash release artefact against its
+published records. Generate SBOM/provenance evidence for host-owned
+artefacts. Both start the same way — identity first:
 
 ```bash
 # ---------- CHAIN A: a downloaded kailash release artefact ----------
@@ -83,43 +83,45 @@ $ grype sbom:art.cdx.json
 What success looks like:
 
 - every chain-A step passes: OK digest, attestation verified over the
-  repo identity, tag signature good
-- the SBOM you generated parses under `cyclonedx-cli validate` clean
-- grype's verdict is against YOUR generated SBOM (provenance from
-  evidence, not from trust)
-- your own `syft`/`cdxgen` documents record tool versions in their
-  metadata — name them when you cite the SBOM
+  repo identity, and a good tag signature
+- the generated SBOM parses clean under `cyclonedx-cli validate`
+- grype's verdict runs against the host's OWN generated SBOM
+  (provenance from evidence, not from trust)
+- the host's `syft`/`cdxgen` documents record tool versions in their
+  metadata. Name them when citing the SBOM
 
 ## Discussion
 
 - **The three statements are deliberately separate records.** The
-  SHA256SUMS sheet is artefact-identity (was this the shipped file?);
-  the attestation is build-provenance (from what repo revision, in
-  what workflow, with a Sigstore-signed SLSA v1.0 predicate — Kailash's
-  KA-48 slice attaches one per published artefact alongside the SPDX
-  SBOM); the SBOM is content (what packages/components are inside).
-  Any one alone leaves a gap: a digest without provenance is an
-  unsigned claim; provenance without an SBOM says nothing about what is
-  IN the thing.
-- **Standards, nameable precisely:** provenance predicates are in-toto
-  attestations of type `https://slsa.dev/provenance/v1` (SLSA v1.0's
-  build-provenance statement; verified per GitHub's `gh attestation
-  verify` contract, and exportable as JSONL for offline/OIG review).
-  SBOMs come in two dialects here — CycloneDX (JSON; what `cyclonedx-cli`
-  validates/diffs/merges and what an AI-BOM rides) and SPDX (JSON;
-  NIST-style minimum-elements compliance usually names SPDX/NTIA) —
-  and `syft` and `cdxgen` both emit either. Kailash's own release SBOM
-  attestation is the SPDX one; downstream evidence gathering should
+  SHA256SUMS sheet is artefact-identity (was this the shipped
+  file?). The attestation is build-provenance (from what repo
+  revision, in what workflow, with a Sigstore-signed SLSA v1.0
+  predicate). Kailash's KA-48 slice attaches one per published
+  artefact alongside the SPDX SBOM. The SBOM is content (what
+  packages/components are inside). Any one alone leaves a gap: a
+  digest without provenance is an unsigned claim. Provenance without
+  an SBOM says nothing about what is IN the thing.
+- **Standards, nameable precisely:** provenance predicates are
+  in-toto attestations of type `https://slsa.dev/provenance/v1`
+  (SLSA v1.0's
+  build-provenance statement). Verification follows GitHub's
+  `gh attestation verify` contract, with JSONL export for offline/OIG
+  review. SBOMs come in two dialects here: CycloneDX (JSON) and SPDX
+  (JSON). `cyclonedx-cli`
+  validates/diffs/merges CycloneDX, and the AI-BOM rides it. NIST-style
+  minimum-elements compliance usually names SPDX/NTIA. `syft` and
+  `cdxgen` both emit either dialect. Kailash's own release SBOM
+  attestation is the SPDX one. Downstream evidence gathering should
   generate BOTH and cite each where it fits.
 - **Why grype over the SBOM and not over the image:** scanning the
   generated SBOM keeps the evidence chain in one place — the document
-  you are about to file is the document that was scanned. (grype
+  the run is about to file is the document that was scanned. (grype
   happily takes images too; the sbom: route makes the record
   reproducible.)
 - **Nix caveat that shapes the SBOM's meaning:** a NixOS closure's
-  packages are store paths, not a runtime filesystem tree — SBOM
+  packages are store paths, not a runtime filesystem tree. SBOM
   statements about a kailash image are statements about a declared
-  closure, which is why the flake lock itself is the authoritative
+  closure. So the flake lock itself is the authoritative
   "what tools" record, and the SBOM is the portable, standard
   rendering of it for consumers outside Nix. Both views describe the
   same build; keep them in one story.
@@ -128,10 +130,10 @@ What success looks like:
   artefact on every cut — the maintainer practice and the recipe are
   the same command. The attestations are made BY the release pipeline
   (actions/attest, SLSA v1.0 + SPDX per artefact); this recipe makes
-  you the able counterparty of those records.
+  the lab the able counterparty of those records.
 - **Not a scanner substitute:** grype's verdicts are point-in-time
   vulnerability facts about the SBOM's components. Provenance proves
-  the build; the SBOM proves the content; grype proves no KNOWN CVE in
+  the build. The SBOM proves the content. Grype proves no KNOWN CVE in
   that content today. Keep all three claims distinct when reporting.
 
 ## See also

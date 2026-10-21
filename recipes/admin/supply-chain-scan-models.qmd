@@ -14,23 +14,24 @@ toc-title: Recipe
 
 ## Problem
 
-Model artefacts now arrive from download-first-ask-later ecosystems:
-a Hugging Face pull lands a `.bin` or `.safetensors` file that your
-loader will deserialize, and a GGUF file that embeds the chat template
-text your runtime will splice into every prompt. Pickled weights are
+Model artefacts arrive from download-first-ask-later ecosystems. A
+Hugging Face pull lands a `.bin` or `.safetensors` file that the
+loader will deserialize. Its GGUF file embeds the chat-template text
+the runtime will splice into every prompt. Pickled weights are
 the documented sharp edge — loading a model is deserialization, and
 deserialization runs code. The manifest dedicates Layer ATTACK's
 a-04-model-supply-chain to exactly this surface (guarddog, picklescan,
 modelscan; the pre-#210 inspector quartet was phantom-upstream and is
-removed — os#210), and as the lab operator you want the scan queue
+removed — os#210). The lab wants the scan queue
 between "downloaded" and "torch-loaded" to exist by policy, not by
 mood.
 
 ## Solution
 
-The queue runs in one order — repo review, serialized-format scans,
+The queue runs in one order. The order: repo review, serialized-format
+scans,
 safe-format checks, template inspection, then the environment the
-model asks you to build — and nothing that fails it ever reaches
+model asks the lab to build. Nothing that fails it ever reaches
 `torch.load`:
 
 ```bash
@@ -102,7 +103,7 @@ guarddog    -> per-package findings table or JSON
 Then the WHY — why the queue exists and why it stays between pull and
 load. The pre-#210 pickle-PoC demo row was phantom-upstream
 (removed, os#210) — the demonstration lives in the upstream's own
-documented PoC material: the pickle deserialization warning path
+documented PoC material. The pickle deserialization warning path
 (pytorch stable docs, `torch.load(weights_only=True)` mitigation) is
 the honest citation — read it, never re-run a made-up CLI:
 
@@ -115,10 +116,10 @@ cat /etc/kailash/safety/wrapped-exp-tools.json   # the gate's state record
 ```
 
 The policy line this recipe encodes: **no file that failed (or skipped)
-the queue is loaded, `weights_only=True` does not replace the queue** —
-current stable `torch.load` defaults to `weights_only=True`, which
-narrows the unpickler surface but is a loader-side mitigation, not an
-intake guarantee.
+the queue is loaded, and `weights_only=True` does not replace the
+queue**. Current stable `torch.load` defaults to `weights_only=True`,
+which narrows the unpickler surface but is a loader-side mitigation,
+not an intake guarantee.
 
 ## Discussion
 
@@ -130,8 +131,9 @@ intake guarantee.
   "totally-harmless-model". `modelscan` reads byte-wise across
   formats — pickle, dill, joblib, cloudpickle for classic ML, plus
   H5/Keras/SavedModel — ranking findings CRITICAL/HIGH/MEDIUM/LOW.
-  `guarddog` does not touch the weights at all: it scans the *package
-  environment* (Semgrep source rules + metadata heuristics, typosquat
+  `guarddog` does not touch the weights at all: it scans the
+  *package environment* (Semgrep source rules + metadata heuristics,
+  typosquat
   detection) for whatever the model's dependencies pull in.
   The modern formats' own vectors stay hand-checked for now (the
   pre-#210 checker/inspector rows were phantom-upstream — removed,
@@ -149,13 +151,14 @@ intake guarantee.
   is real and stays.)
 - **These are ATTACK-layer rows running as admin intake:** all three
   scanner rows carry `safety.level: safe` — the guide's safety-classes
-  table means self-contained, no live firing — because every scan is a
+  table reads the class as self-contained, no live firing — because
+  every scan is a
   file-local analysis. The rows map the risk in the abstract: the
   trio cites ATLAS AML.T0010 + AML.T0011 and OWASP LLM04 (2026 epoch)
   / LLM03 (v2). The chat-template injection vector (GGUF
   `tokenizer.chat_template` keys landing in the prompt path at serve
   time) is the pre-#170-inspector-row's named vector — the vector is
-  real (llama.cpp constants), the removed tool's mapping rode it.
+  real (llama.cpp constants), and the removed tool's mapping rode it.
 - **The exp leg:** the pre-#210 demonstration row was phantom
   (removed, os#210) — exp-gated live-fire legs wait on the rebuild
   contract; the gate walk
@@ -167,8 +170,8 @@ intake guarantee.
   self-protect by defending its own deserialization.
 - **Exit contracts make it CI:** `picklescan` (0/1/2),
   `modelscan` (0/1/2/3/4) and `guarddog --exit-non-zero-on-finding`
-  all give the gate a mechanical success predicate; wire the same
-  three into the CI intake job rather than a human's memory.
+  all give the gate a mechanical success predicate. Wire the same
+  three into the CI intake job, rather than a human's memory.
 
 ## See also
 
