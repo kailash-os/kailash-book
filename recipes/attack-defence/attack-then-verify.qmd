@@ -15,26 +15,27 @@ toc-title: Recipe
 ## Problem
 
 The pairing thesis is Kailash's core idea: deployment + attack in one
-declared environment. An MLflow tracking server shipping the
+declared environment. An MLflow tracking server ships the
 lab-default posture (`services.kailash.mlflow` on `:5000`,
-`labReachable`, no auth by declared design) exposes experiment
-metadata, run data and model artefacts to anyone who can reach the
-port — the manifest maps this to OWASP LLM02 (sensitive information
-disclosure) and LLM10 (unrestricted consumption) and to ATLAS
-AML.T0049/T0050. You want to demonstrate the exposure against the
-declared lab target, then prove the hardened posture closes it — with
-both legs reproducible, and a standing CI test asserting the pairing
-independent of your lab session.
+`labReachable`, no auth by declared design). The posture exposes
+experiment metadata, run data and model artefacts to anyone who
+reaches the port. The manifest maps this to OWASP LLM02 (sensitive
+information disclosure) and LLM10 (unrestricted consumption). The
+manifest also maps it to ATLAS AML.T0049/T0050. The task: demonstrate
+the exposure against the declared lab target. Then prove the hardened
+posture closes it. Both legs stay reproducible. A standing CI test
+asserts the pairing, independent of the lab session.
 
 ## Solution
 
 Kailash ships the lab target as a real manifest row (the O-1
-service module); the attack instrument is the
+service module). The attack instrument is the
 **`kailash-integration-mlflow-attack`
 probe pair** (`tools/vm-integration-mlflow-attack.sh` in the OS
-repo — verbatim MLflow API shapes, live-probed on mlflow 3.x at the
-packages pin), driven against the `platform` profile (the posture
-`tests/integration-mlflow-attack.nix` boots):
+repo — verbatim MLflow API shapes). The shapes were live-probed on
+mlflow 3.x at the packages pin. The pair drives against the
+`platform` profile (the posture `tests/integration-mlflow-attack.nix`
+boots):
 
 ```bash
 # 1. Boot the lab target in the documented acceptance posture
@@ -55,9 +56,9 @@ kailash-integration-mlflow-attack \
     --artifacts-url http://127.0.0.1:5102 --seed
 ```
 
-What the probe pair does (each stage's verdict prints
-ATTEMPTED/ok/FAIL, and every stage's raw response is echoed — never a
-fabricated PASS):
+What the probe pair does: each stage's verdict prints
+ATTEMPTED/ok/FAIL. Every stage's raw response is echoed — never a
+fabricated PASS:
 
 ```bash
 # stage 1 — TRACKING: the O-1 surface is UNAUTHENTICATED:
@@ -79,8 +80,8 @@ curl -fsS 'http://127.0.0.1:5000/ajax-api/2.0/mlflow/artifacts/list?run_id=<run-
 #    -> the artefact listing answers; write→read round trip proven
 ```
 
-Then the verification leg — flip the posture with a configuration
-change and re-run the same probes:
+Then the verification leg: flip the posture with a configuration
+change. Re-run the same probes:
 
 ```bash
 # 3. Harden the lab target in the system configuration:
@@ -116,40 +117,40 @@ kailash-integration-mlflow-attack: BOTH probes ok (track + bypass listing)
 
 ## Discussion
 
-- **Why the probe pair and not a bespoke exploit script:** the
-  the paired attack manifest row was a PHANTOM — its claimed
-  kailash-os upstream repository was never created — and the os#210
-  audit (2026-10-14) REMOVED it from the manifest entirely
+- **Why the probe pair and not a bespoke exploit script:** the paired
+  attack manifest row was a PHANTOM. Its claimed kailash-os upstream
+  repository was never created. The os#210 audit (2026-10-14) REMOVED
+  it from the manifest entirely
   ([kailash-os#210](https://github.com/kailash-os/kailash-os/issues/210);
   the name rides the registry there). The probe pair runs the REAL
-  protocol against the REAL target — the two verbatim MLflow API
-  recipes (unauthenticated tracking search + the `ajax-api` artefact
-  listing with the `--seed` write→read round trip) — so the
-  acceptance is an executable, honest pairing NOW, with no
-  invented tool anywhere. If a real A-7 tool ships later, it enters
-  via the os#210 rebuild contract (built upstream first, manifest
-  gate second) and takes over.
+  protocol against the REAL target. The protocol: the two verbatim
+  MLflow API recipes (unauthenticated tracking search + the
+  `ajax-api` artefact listing with the `--seed` write→read round
+  trip). So the acceptance is an executable, honest pairing NOW, with
+  no invented tool anywhere. If a real A-7 tool ships later, it
+  enters via the os#210 rebuild contract (built upstream first,
+  manifest gate second). It then takes over.
 - **The verdict discipline carries the evidence:** every probe prints
   ATTEMPTED/ok/FAIL (never "PASS") and echoes its verbatim output.
   With `--record`, the verbatims land in a machine-validated JSON
-  record (`tests/vm-acceptance-mlflow-record.json`) whose verifier
-  leg fails CI on a hand-typed ok with nothing behind it — the same
-  no-invented-evidence rule this book runs on.
+  record (`tests/vm-acceptance-mlflow-record.json`). Its verifier
+  leg fails CI on a hand-typed ok with nothing behind it. It applies
+  the same no-invented-evidence rule this book runs on.
 - **Why the posture flip is the verification:** the lab posture
-  (`labReachable = true`) and the hardened posture (loopback/auth
-  options at the current pin) are declared options on the SAME
-  module. A diff of the two probe runs IS the evidence that a
-  configuration change — not folklore — moved the surface; the
-  previous generation stays one reboot away (see
+  (`labReachable = true`) and the hardened posture are declared
+  options on the SAME module. The hardened posture carries the
+  loopback/auth options at the current pin. A diff of the two probe
+  runs IS the evidence that a configuration change moved the surface —
+  not folklore. The previous generation stays one reboot away (see
   [Ride a release without breaking pinned
   tooling](../admin/updates.html)).
-- **CI runs this pairing whether or not you do:** hosted CI evals
-  `integration-mlflow-attack.nix` (never boots it — the no-VMs
-  posture), and the maintainer's ONE interactive boot is recorded in
-  the machine-validated record your `--record` run should match. Your
-  lab session reproduces the CI assertion hands-on.
+- **CI runs this pairing whether or not the lab does:** hosted CI
+  evals `integration-mlflow-attack.nix` (never boots it — the no-VMs
+  posture). The maintainer's ONE interactive boot is recorded in the
+  machine-validated record. A `--record` run should match that
+  record. The lab session reproduces the CI assertion hands-on.
 - **The exp gate still owns any future A-7 tool:** a rebuilt A-7
-  tool re-enters via the os#210 rebuild contract and installs only
+  tool re-enters via the os#210 rebuild contract. It installs only
   via the double-key lab gate (full walk:
   [Gate lab-mode and exp-classified
   tools](../admin/lab-mode-gating.html)). The probe pair needs no
