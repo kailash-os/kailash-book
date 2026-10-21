@@ -14,20 +14,20 @@ toc-title: Recipe
 
 ## Problem
 
-One-off scanners answer "is this model jailbreakable?" but you also
-need the second tool family in the catalogue's A-2 set: a
-**programmable** attack pipeline — compose scenarios, converters,
-scorers and memory, run campaigns at concurrency, and script the loop
-from Python or CI. PyRIT is that harness (Microsoft's Python Risk
-Identification Tool). Its manifest row is a bespoke pip-shape build
-(core runtime only) and `requires-target`: every attack needs a
-declared objective target.
+One-off scanners answer "is this model jailbreakable?". The A-2 set
+carries a second tool family: the **programmable** attack pipeline.
+The pipeline composes scenarios, converters, scorers and memory. It
+runs campaigns at concurrency. It scripts the loop from Python or CI.
+PyRIT is that harness (Microsoft's Python Risk Identification Tool).
+Its manifest row is a bespoke pip-shape build (core runtime only). The
+safety class is `requires-target`: every attack needs a declared
+objective target.
 
 ## Solution
 
-The packaged surface at this pin is three console scripts (verified in
-the pinned `pyproject.toml [project.scripts]`) around a client/server
-architecture — there is **no** `python -m pyrit` module entry at this
+The packaged surface is three console scripts (verified in the pinned
+`pyproject.toml [project.scripts]`) around a client/server
+architecture. There is **no** `python -m pyrit` module entry at this
 pin:
 
 ```bash
@@ -84,24 +84,25 @@ $ pyrit_scan scenario-results <run-id> --view attacks
 ## Discussion
 
 - **Architecture first, commands second:** a PyRIT run has three
-  ingredients at this pin — a *scenario* (what to test: airt, adaptive,
-  benchmark, foundry, garak families are built in), a *target* (the AI
-  system under test), and *configuration* (env/.pyrit_conf wiring the
-  endpoint, scorers, memory). The CLI is a thin REST client over the
-  backend server; `pyrit_scan` verbs are `start-server`, `stop-server`,
+  ingredients at this pin. The *scenario* states what to test (airt,
+  adaptive, benchmark, foundry, garak families are built in). The
+  *target* is the AI system under test. The *configuration* wires the
+  endpoint, scorers, memory (env/.pyrit_conf). The CLI is a thin REST
+  client over the backend server. `pyrit_scan` verbs are
+  `start-server`, `stop-server`,
   `list-{scenarios,initializers,targets,converters}`,
   `add-initializer`, `run`, `scenario-results`, `scenario-history`.
 - **Why the client/server shape matters for Kailash:** the backend is
-  the only heavy-pyrit process; the scanner stays a thin client. The
-  packaged derivation ships exactly the core runtime — the upstream
+  the only heavy-pyrit process. The scanner stays a thin client. The
+  packaged derivation ships exactly the core runtime. The upstream
   extra groups (huggingface/gcg/playwright/opencv/speech/litellm/...)
-  are documented opt-ins and are NOT build inputs of the pinned build,
-  and the npm-built React frontend is likewise out (the committed
+  are documented opt-ins and are NOT build inputs of the pinned build.
+  The npm-built React frontend is likewise out (the committed
   roakey assets ride the pinned tree). Heavy browser/GPU stacks stay
-  out of your environment by construction.
+  out of the environment by construction.
 - **Pairs with the serve-a-model endpoint:** `OpenAIChatTarget` reads
   `OPENAI_CHAT_ENDPOINT` and speaks OpenAI-compatible
-  `/chat/completions` paths — point it at the loopback ollama/vLLM
+  `/chat/completions` paths. Point it at the loopback ollama/vLLM
   endpoint stood up in
   [Serve a local model for scanning](../ops/serve-a-model.html).
   The garak family of built-in scenarios (encoding, figstep,
@@ -110,15 +111,15 @@ $ pyrit_scan scenario-results <run-id> --view attacks
   resistance](garak-full-baseline.html).
 - **Memory is the deliverable:** every conversation, score and attack
   result lands in the configured memory DB (SQLite or in-memory by
-  default) — `scenario-results --view conversations` replays
-  transcripts; that persistence is what turns a run into evidence.
+  default). `scenario-results --view conversations` replays
+  transcripts. That persistence is what turns a run into evidence.
 - **Requires-target, not exp:** like its A-2 siblings, the lighter
-  safety class governs — declare a target you are authorised to test.
-  The heavy exp double-key pattern is documented in
+  safety class governs. Declare a target the operator is authorised
+  to test. The heavy exp double-key pattern is documented in
   [Gate lab-mode and exp-classified tools](../admin/lab-mode-gating.html).
 - **Version posture:** the pin is a fast-moving weekly-class source
-  (manifest `update:weekly`); PyRIT's CLI surface churns upstream, so
-  verify verb shapes with `pyrit_scan --help` after any bump before
+  (manifest `update:weekly`). PyRIT's CLI surface churns upstream.
+  Verify verb shapes with `pyrit_scan --help` after any bump, before
   scripting against them.
 
 ## See also

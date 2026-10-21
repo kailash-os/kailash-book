@@ -14,22 +14,22 @@ toc-title: Recipe
 
 ## Problem
 
-The model-extraction/inversion lane (A-5) needs a way to drive
-adversarial-ML attacks — evasion, inversion, inference — against a
-model surface from one automation layer instead of hand-driving four
-frameworks. Counterfit is that layer: a shell-style CLI that wraps ART,
-TextAttack and augly attacks under one command surface. Its manifest
-row is a **pinned reference posture** (upstream dormant since
-2025-07) and `requires-target`.
+The model-extraction/inversion lane (A-5) drives adversarial-ML
+attacks — evasion, inversion, inference — against a model surface. The
+lane uses one automation layer, not four hand-driven frameworks.
+Counterfit is that layer: a shell-style CLI that wraps ART, TextAttack
+and augly attacks under one command surface. Its manifest row is a
+**pinned reference posture** (upstream dormant since 2025-07). The
+safety class is `requires-target`.
 
 **Verify-first note:** upstream's shell is a *cmd2* REPL, not a
-classic `-i/-t/-a` one-shot flag CLI — the task's assumed
+classic `-i/-t/-a` one-shot flag CLI. The task's assumed
 `counterfit -i`, `-t target`, `-a attack` shape does not exist at this
 pin. The commands below are the verified in-shell surface instead.
 
 ## Solution
 
-The packaged binary starts the interactive shell; everything else is a
+The packaged binary starts the interactive shell. Everything else is a
 command inside it (all commands verified against the pinned
 `examples/terminal` source at rev `c00edbf5`):
 
@@ -87,47 +87,47 @@ counterfit> set_target <target>
 - **Targets at this pin are sample packs, not HTTP endpoints:** the
   bundled targets are closed-box classes loading local model files
   (`creditfraud/creditfraud_sklearn_pipeline.pkl`, digit/satellite
-  `.h5` models, the movie-reviews torch model) through a
-  `load()`/`predict(x)` CFTarget interface. The threat model in
-  upstream's demos is API access to the model, implemented through
-  that predict interface — driving a *served* model means writing (or
-  `new`-wizarding) a small CFTarget whose `predict` calls your
-  endpoint; the upstream Python-API shape
+  `.h5` models, the movie-reviews torch model). The classes load
+  through a `load()`/`predict(x)` CFTarget interface. The threat model
+  in upstream's demos is API access to the model, implemented through
+  that predict interface. Driving a *served* model means writing (or
+  `new`-wizarding) a small CFTarget whose `predict` calls the
+  endpoint. The upstream Python-API shape
   (`counterfit.Counterfit.build_attack(target, attack_name)` /
-  `run_attack`) is the programmatic alternative. Pair the "which
-  endpoint" question with
+  `run_attack`) is the programmatic alternative. Pair the
+  "which endpoint" question with
   [Serve a local model for scanning](../ops/serve-a-model.html).
 - **Attack compatibility is by data type:** each attack carries
-  `image, tabular, text` tags; HopSkipJump (evasion, closed-box, ART)
-  runs on image+tabular targets, not the text target — `list attacks`
-  shows the tags before you set them. Inversion-namespace attacks
-  (`copycat_cnn`, `knockoff_nets`,
+  `image, tabular, text` tags. HopSkipJump (evasion, closed-box, ART)
+  runs on image+tabular targets, not the text target. `list attacks`
+  shows the tags before the operator sets them. Inversion-namespace
+  attacks (`copycat_cnn`, `knockoff_nets`,
   `functionally_equivalent_extraction`) are the extraction lane's
-  headline attack class; the manifest row maps the tool to OWASP
+  headline attack class. The manifest row maps the tool to OWASP
   **LLM02** (sensitive information disclosure, both Top-10 epochs) and
   ATLAS **AML.T0024**.
 - **Reference posture, pinned frozen:** upstream is dormant (main tip
-  `c00edbf5`, 2025-07-18) and the derivation records that — no
+  `c00edbf5`, 2025-07-18), and the derivation records that — no
   freshness claim. Two packaging repairs ride the pinned build (both
-  documented in the derivation): the upstream console-script entry
-  point is broken at this pin (its setup.py points at
+  documented in the derivation). The upstream console-script entry
+  point is broken at this pin. Its setup.py points at
   `examples.terminal.terminal:main` while excluding `examples` from
-  the package set — the packaged build repoints it, so `counterfit`
-  invokes the terminal upstream's docs describe), and the textattack/
-  augly frameworks degrade to "unavailable" exactly as upstream's own
-  scanner degrades optional frameworks when imports are missing (the
-  sample targets on ART still run).
+  the package set. The packaged build repoints it, so `counterfit`
+  invokes the terminal upstream's docs describe. The textattack/augly
+  frameworks degrade to "unavailable". Upstream's own scanner degrades
+  optional frameworks the same way when imports are missing. The
+  sample targets on ART still run.
 - **Results are folders, not just tables:** attack runs write into
   `counterfit/targets/results/…` (per-run JSON summaries, generated
-  samples/predict images, logs) — `show results` renders the run
-  summary; the folder is what you archive into a report. This is the
-  A-5 evidence lane's counterpart to garak's JSONL.
+  samples/predict images, logs). `show results` renders the run
+  summary. The folder is what the report archives. This is the A-5
+  evidence lane's counterpart to garak's JSONL.
 - **Safety class:** `requires-target` — the shell self-fires nothing
-  until you `set_target`/`set_attack`/`run` against a declared model.
+  until `set_target`/`set_attack`/`run` against a declared model.
   Authorised-work-only framing applies as for every ATTACK row
   (responsible-use statement, spec §9.1).
-- **Pair lane:** attack → verify reads well into the A-5 ↔ D-* side;
-  the pair-recipe lane owns those walkthroughs — start from
+- **Pair lane:** the attack → verify pair reads into the A-5 ↔ D-*
+  side. The pair-recipe lane owns those walkthroughs. Start from
   [Attack the platform, then verify](../attack-defence/attack-then-verify.html)
   and the A-2 scanner recipes for the model-endpoint half.
 
